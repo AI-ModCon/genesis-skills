@@ -70,55 +70,13 @@ potentials” or “Draft a Slurm script for four GPUs.” Your client can selec
 matching skill from its description. If a newly installed skill is not noticed
 immediately, follow the client's documented refresh behavior.
 
----
-
-## Available Skills
-
-**25 included skills** organized by domain. The auxiliary `skill-search` helper is
-not part of this count.
-
-### Genesis Core (3 skills)
-- `literature-search` — Search scientific literature across arXiv, PubMed, Semantic Scholar, and Google Scholar
-- `academy` — Academy agent framework for distributed scientific computing
-- `multi-agent-systems` — Disciplined build process for multi-agent systems: spec → agent roles, action interfaces, wiring, and verified behavior
-
-### BaseSAFE Skills (5 skills)
-AI-system fingerprinting, uncertainty metrics, and red/blue-team safety workflows.
-
-### HPC Skills (5 skills)
-Slurm, PBS, and workflows for the Frontier, Perlmutter, and Aurora leadership systems.
-
-### Plasma Simulation Skills (2 skills)
-GS2 and Gkeyll simulation tools.
-
-### ModCon Data Skills (4 skills)
-Croissant validation, HDMF schemas, data cards, and Well conversion.
-
-### AmSC Skills (6 skills)
-American Science Cloud platform access: data movement, the AmSC Python SDK,
-Globus Compute job submission, the i2 LLM API, the IRI facility API, and
-cross-repository skill discovery. Contributed by the AmSC Intelligent Interfaces
-Team.
 
 ### Discovery Helper
 - `skill-search` — Discover and explore available skills by capability
 
 ---
 
-## Helpful Third-Party Skills
 
-These independently maintained skill collections complement the Genesis Skills
-catalog. Consult each project for its own installation instructions and license
-terms:
-
-- [Anthropic Skills](https://github.com/anthropics/skills)
-- [OpenAI Skills](https://github.com/openai/skills)
-- [LangChain Skills](https://github.com/langchain-ai/langchain-skills)
-- [Superpowers](https://github.com/obra/superpowers)
-- [Google DeepMind Science Skills](https://github.com/google-deepmind/science-skills)
-- [Hugging Face Skills](https://github.com/huggingface/skills)
-
----
 
 ## Repository Structure
 
@@ -172,15 +130,8 @@ We welcome contributions from the scientific community. See the [Contributing Gu
 
 ## License
 
-Genesis Skills is licensed under the **Apache License, Version 2.0** — see [LICENSE](LICENSE).
-
 Some skills under `skills/` are sourced from third parties. Where a `LICENSE`
 (or `LICENSE.txt`) file is present in a subdirectory, that license governs the
 contents of that subdirectory and supersedes the root license for that subtree.
 See [NOTICE](NOTICE) and the attribution file in each identified subtree for the
 licensing information supplied with that content.
-
-## Contact
-
-- **GitLab Issues**: [genesis/genesis-skills/issues](https://gitlab.osti.gov/genesis/genesis-skills/-/issues)
-- **Genesis Team**: genesis@osti.gov
