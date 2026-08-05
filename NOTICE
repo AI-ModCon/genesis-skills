@@ -1,0 +1,35 @@
+Genesis Skills
+
+Skills curated by BASE CAF.
+Contact: Matt Baughman <mbaughman@pppl.gov>
+
+
+------------------------------------------------------------------------
+Third-party content with separate licensing
+------------------------------------------------------------------------
+
+Portions of this repository are sourced from third-party projects and
+remain subject to any applicable upstream copyright, license, or other
+terms. Where a LICENSE or LICENSE.txt file is present in a subdirectory,
+that file is the authoritative license for the contents of that
+subdirectory and any of its descendants, and it supersedes the root
+LICENSE for that subtree.
+
+Known third-party subtrees at the time of this writing:
+
+  skills/amsc-skills/               Contributed by the American Science Cloud
+                                    Intelligent Interfaces Team. The
+                                    amsc-data-movement-api skill declares MIT
+                                    in SKILL.md frontmatter; no other licensing
+                                    information accompanied these skills.
+                                    See skills/amsc-skills/ATTRIBUTION.md.
+
+  skills/modcon-data-skills/        Sourced from the ModCon Base Data project.
+                                    No explicit license was found in the
+                                    upstream repository at the time of
+                                    inclusion. See
+                                    skills/modcon-data-skills/ATTRIBUTION.md.
+
+This list is informational and may not be exhaustive. Always check for
+a LICENSE file in any subdirectory before assuming the root license
+applies.
