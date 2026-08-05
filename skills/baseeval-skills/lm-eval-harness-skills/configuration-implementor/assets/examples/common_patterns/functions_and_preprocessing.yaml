@@ -1,0 +1,52 @@
+# Example: Using simple functions and process_docs for data preprocessing
+# This demonstrates:
+# 1. When to use !function vs Jinja2 templates vs simple strings
+# 2. Using process_docs to filter/transform the dataset before evaluation
+# 3. Combining multiple preprocessing steps
+
+task: example_preprocessing
+dataset_path: sciq
+output_type: multiple_choice
+test_split: test
+num_fewshot: 0
+
+# Use process_docs to preprocess the dataset
+# This is useful for:
+# - Filtering samples based on conditions
+# - Adding computed fields
+# - Reformatting data structures
+process_docs: !function utils.preprocess_docs
+
+# For simple field access, use Jinja2 templates (clearest approach)
+# Example 1: Simple template with string formatting
+doc_to_text: "Question: {{question}}\n"
+
+# For more complex logic, use !function and define in utils.py
+# Example 2: Creating formatted answer choices requires logic
+doc_to_choice: !function utils.format_choices
+
+# For simple field access, you can use just the field name
+# Example 3: Direct field reference
+doc_to_target: "answer_idx"
+
+# For output parsing, use !function for anything beyond trivial logic
+filter_list:
+  - name: "extract_letter"
+    filter:
+      - function: !function utils.extract_first_letter
+
+# For metrics calculation, use !function
+process_results: !function utils.process_accuracy
+
+metric_list:
+  - metric: acc
+    aggregation: mean
+    higher_is_better: true
+
+metadata:
+  version: 1.0
+  description: |
+    Example demonstrating:
+    - Lambda functions for inline transformations
+    - process_docs for dataset preprocessing
+    - When to use lambda vs. full functions

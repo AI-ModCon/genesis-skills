@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck disable=SC1090
+source "{{ENV_FILE}}"
+
+cd /tmp
+
+"{{NS_BIN}}" prepare_data \
+  --cluster=perlmutter \
+  --config_dir="$SCRIPT_DIR" \
+  "{{BENCHMARK}}" \
+  --data_dir="$NEMO_SKILLS_DATA_DIR"

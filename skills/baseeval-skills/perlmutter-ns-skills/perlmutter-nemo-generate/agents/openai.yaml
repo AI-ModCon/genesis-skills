@@ -1,0 +1,4 @@
+interface:
+  display_name: "Perlmutter NeMo Generate"
+  short_description: "Run NeMo-Skills generate jobs on NERSC Perlmutter"
+  default_prompt: "Use the Perlmutter NeMo generation skill. My env vars file is <ABS_ENV_VARS> and it already defines NEMO_SKILLS_REPO_DIR plus the SSH private-key path for the Perlmutter-enabled NeMo-Skills checkout. My local input file is <ABS_INPUT_JSONL>, my local prompt file is <ABS_PROMPT_YAML>, and my model is <MODEL_NAME>. Validate prerequisites, create or reuse the managed isolated local virtualenv for the repo, ensure sshproxy access, preflight or build the image as needed, do not install into my active local environment, submit the generate job, wait for completion, and fetch the results locally without printing secrets."

@@ -1,0 +1,1 @@
+../../perlmutter-nemo-generate/scripts/common.sh

@@ -1,0 +1,19 @@
+FROM {{PERLMUTTER_BASE_IMAGE}}
+
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    git \
+    build-essential \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY core.requirements.txt /tmp/core.requirements.txt
+COPY pipeline.requirements.txt /tmp/pipeline.requirements.txt
+
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    python -m pip install -r /tmp/core.requirements.txt -r /tmp/pipeline.requirements.txt
+
+WORKDIR /workspace

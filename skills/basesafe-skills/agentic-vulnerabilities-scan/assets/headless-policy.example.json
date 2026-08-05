@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "headless": true,
+  "scan": {
+    "allowed_plugins": ["prompt-extraction", "hijacking"],
+    "allowed_strategies": ["jailbreak:meta", "jailbreak:hydra"],
+    "max_plugins": 2,
+    "max_strategies": 2,
+    "max_tests_per_plugin": 2,
+    "max_total_tests": 4,
+    "max_concurrency": 1,
+    "max_test_timeout_ms": 300000,
+    "max_eval_time_ms": 1800000
+  }
+}

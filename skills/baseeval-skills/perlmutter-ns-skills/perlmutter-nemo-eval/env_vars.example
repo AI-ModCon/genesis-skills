@@ -1,0 +1,64 @@
+# OpenAI-compatible endpoint
+export OPENAI_BASE_URL=https://your-openai-compatible-endpoint.example/v1
+export OPENAI_API_KEY=replace-me
+export NVIDIA_API_KEY="$OPENAI_API_KEY"
+
+# Local checkout of the Perlmutter-enabled NeMo-Skills repo
+export NEMO_SKILLS_REPO_DIR=/absolute/path/to/Skills
+
+# Perlmutter SSH/account settings
+export NERSC_USER=replace-with-your-nersc-user
+export SSH_LOGIN_IDENTITY=/absolute/path/to/nersc
+# Optional cert override. If omitted, the skill derives /absolute/path/to/nersc-cert.pub
+# export SSH_IDENTITY=/absolute/path/to/nersc-cert.pub
+export NERSC_ACCOUNT=replace-with-your-nersc-account
+export NERSC_QOS=debug
+export NERSC_CONSTRAINT=gpu
+
+# Remote Perlmutter paths
+export NERSC_JOB_DIR=/pscratch/sd/<first_letter>/<nersc_user>/nemo-run
+export REMOTE_WORKSPACE_ROOT=/pscratch/sd/<first_letter>/<nersc_user>/ns-agent
+
+# Container image name to use or create
+export PERLMUTTER_IMAGE_NAME=nemo-skills-api:0.1
+
+# ── Eval-specific settings ──────────────────────────────────────────────────
+
+# Benchmark to evaluate (passed to ns prepare_data and ns eval)
+# Examples: gsm8k  gpqa  human-eval  livecodebench  comp-math-24-25
+export BENCHMARK=gsm8k
+
+# Job type: eval (standard) or robust_eval (prompt-robustness with multiple prompts)
+export JOB_TYPE=eval
+
+# Number of random seeds for repeated sampling. 0 = full dataset (greedy).
+# Use 8 for robust_eval (matches ns-tests/quick_robust.sh convention).
+export NUM_SAMPLES=0
+
+# Maximum parallel API requests during evaluation
+export MAX_CONCURRENT_REQUESTS=32
+
+# Container-side path where benchmark data is mounted.
+# Pre-bundled *.jsonl files from NEMO_SKILLS_REPO_DIR/nemo_skills/dataset/$BENCHMARK/ are
+# staged to the remote workspace via SCP before submission (no ns prepare_data Slurm job).
+export NEMO_SKILLS_DATA_DIR=/workspace/ns-data
+
+# For robust_eval only: absolute local path to the prompt set config
+# (required when JOB_TYPE=robust_eval; ignored otherwise)
+# export PROMPT_SET_CONFIG_PATH=/absolute/path/to/prompt_set_config.yaml
+
+# ── Optional overrides (same as generate skill) ─────────────────────────────
+export NERSC_HOST=perlmutter.nersc.gov
+export NODES=1
+export NTASKS_PER_NODE=1
+export DEFAULT_TIMEOUT=00:20:00
+export HF_HOME_IN_WORKSPACE=/workspace/hf-cache
+export REMOTE_IMAGE_BUILD_DIR=~/ns-image-build
+export STATUS_POLL_INTERVAL=30
+export PERLMUTTER_BASE_IMAGE=docker.io/library/python:3.11
+
+# Optional local run-artifact location
+# export PERLMUTTER_AGENT_RUNS_DIR=/absolute/path/to/perlmutter-eval-runs
+
+# Optional local state/cache location for the managed virtualenv (shared with generate skill)
+# export PERLMUTTER_AGENT_STATE_DIR=/absolute/path/to/perlmutter-skill-state

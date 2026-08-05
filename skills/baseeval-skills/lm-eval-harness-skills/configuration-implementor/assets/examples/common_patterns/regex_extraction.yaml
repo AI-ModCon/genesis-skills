@@ -1,0 +1,51 @@
+# Example: Using regex to extract answers from free-form model outputs
+# This is useful when models generate verbose responses and you need to extract just the answer.
+
+task: example_regex_extraction
+dataset_path: gsm8k  # Using gsm8k as example
+dataset_name: main
+output_type: generate_until
+test_split: test
+fewshot_split: train
+num_fewshot: 0
+
+doc_to_text: "Question: {{question}}\nAnswer:"
+doc_to_target: !function utils.get_answer
+
+generation_kwargs:
+  max_gen_toks: 200
+  do_sample: false
+  until:
+    - "\n\n"
+    - "Question:"
+
+# Using a filter to extract answers via regex
+filter_list:
+  - name: "regex"
+    filter:
+      # This filter extracts the final numeric answer from model output
+      # Example: "Let's solve this step by step. The answer is 42." → "42"
+      - function: !function utils.extract_numeric_answer
+        # Alternatively, use regex directly (v0.4.4+):
+        # - function: "regex"
+        #   regex_pattern: "(?:answer is|=)\\s*(\\d+)"
+        #   group_select: 1
+        #   ignore_case: true
+        #   fallback: ""
+
+# Normalization to handle variations in output format
+# This takes the filtered result and normalizes it
+  - name: "normalize"
+    filter:
+      - function: !function utils.normalize_number
+
+process_results: !function utils.process_numeric_results
+
+metric_list:
+  - metric: exact_match
+    aggregation: mean
+    higher_is_better: true
+
+metadata:
+  version: 1.0
+  description: "Example showing regex-based answer extraction from verbose model outputs"

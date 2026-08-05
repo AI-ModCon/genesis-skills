@@ -1,0 +1,23 @@
+{
+  "name": "iri-sample-job",
+  "executable": "/bin/hostname",
+  "arguments": [],
+  "directory": "/global/homes/<first-letter>/<username>",
+  "stdout_path": "/global/homes/<first-letter>/<username>/iri-job.out",
+  "stderr_path": "/global/homes/<first-letter>/<username>/iri-job.err",
+  "launcher": "srun",
+  "resources": {
+    "node_count": 1,
+    "process_count": 1,
+    "processes_per_node": 1,
+    "cpu_cores_per_process": 1
+  },
+  "attributes": {
+    "duration": 300,
+    "queue_name": "debug",
+    "account": "<replace-with-project-account>"
+  },
+  "environment": {
+    "OMP_NUM_THREADS": "1"
+  }
+}

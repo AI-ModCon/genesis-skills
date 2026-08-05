@@ -1,0 +1,7 @@
+{
+  "path": "/global/homes/<first-letter>/<username>/iri-demo",
+  "target_path": "/global/homes/<first-letter>/<username>/iri-demo.tar.gz",
+  "match_pattern": ".*",
+  "dereference": false,
+  "compression": "gzip"
+}

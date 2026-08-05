@@ -1,0 +1,1 @@
+Use the Perlmutter NeMo generation skill. My env file is <ABS_ENV_VARS>, my input file is <ABS_INPUT_JSONL>, my prompt file is <ABS_PROMPT_YAML>, and my model is <MODEL_NAME>. Do not print secrets.

@@ -1,0 +1,4 @@
+Use the Perlmutter NeMo eval skill. My env file is <ABS_ENV_VARS>, my benchmark is <BENCHMARK>, and my model is <MODEL_NAME>. Do not print secrets.
+
+# For robust_eval, add:
+# My job type is robust_eval and my prompt_set_config is <ABS_PROMPT_SET_CONFIG>.

@@ -1,0 +1,39 @@
+# OpenAI-compatible endpoint
+export OPENAI_BASE_URL=https://your-openai-compatible-endpoint.example/v1
+export OPENAI_API_KEY=replace-me
+export NVIDIA_API_KEY="$OPENAI_API_KEY"
+
+# Local checkout of the Perlmutter-enabled NeMo-Skills repo
+export NEMO_SKILLS_REPO_DIR=/absolute/path/to/Skills
+
+# Perlmutter SSH/account settings
+export NERSC_USER=replace-with-your-nersc-user
+export SSH_LOGIN_IDENTITY=/absolute/path/to/nersc
+# Optional cert override. If omitted, the skill derives /absolute/path/to/nersc-cert.pub
+# export SSH_IDENTITY=/absolute/path/to/nersc-cert.pub
+export NERSC_ACCOUNT=replace-with-your-nersc-account
+export NERSC_QOS=debug
+export NERSC_CONSTRAINT=gpu
+
+# Remote Perlmutter paths
+export NERSC_JOB_DIR=/pscratch/sd/<first_letter>/<nersc_user>/nemo-run
+export REMOTE_WORKSPACE_ROOT=/pscratch/sd/<first_letter>/<nersc_user>/ns-agent
+
+# Container image name to use or create
+export PERLMUTTER_IMAGE_NAME=nemo-skills-api:0.1
+
+# Optional overrides
+export NERSC_HOST=perlmutter.nersc.gov
+export NODES=1
+export NTASKS_PER_NODE=1
+export DEFAULT_TIMEOUT=00:20:00
+export HF_HOME_IN_WORKSPACE=/workspace/hf-cache
+export REMOTE_IMAGE_BUILD_DIR=~/ns-image-build
+export STATUS_POLL_INTERVAL=30
+export PERLMUTTER_BASE_IMAGE=docker.io/library/python:3.11
+
+# Optional local run-artifact location
+# export PERLMUTTER_AGENT_RUNS_DIR=/absolute/path/to/perlmutter-skill-runs
+
+# Optional local state/cache location for the managed virtualenv
+# export PERLMUTTER_AGENT_STATE_DIR=/absolute/path/to/perlmutter-skill-state

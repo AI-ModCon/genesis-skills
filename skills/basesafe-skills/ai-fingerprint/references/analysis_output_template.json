@@ -1,0 +1,548 @@
+{
+  "analysis_metadata": {
+    "codebase_path": "",
+    "analysis_date": "",
+    "analysis_types_performed": [],
+    "analyzer_version": "1.0",
+    "notes": ""
+  },
+  "llm_analysis": {
+    "is_training_llm": false,
+    "is_finetuning_llm": false,
+    "is_using_llm_inference": false,
+    "training_details": {
+      "framework": "",
+      "model_architecture": "",
+      "dataset_sources": [],
+      "training_approach": "",
+      "hardware_requirements": "",
+      "evidence_files": []
+    },
+    "finetuning_details": {
+      "base_model": "",
+      "finetuning_method": "",
+      "dataset_sources": [],
+      "framework": "",
+      "evidence_files": []
+    },
+    "inference_details": {
+      "provider": "",
+      "models_used": [],
+      "api_or_local": "",
+      "integration_method": "",
+      "evidence_files": []
+    },
+    "input_modality": [],
+    "output_modality": [],
+    "notes": ""
+  },
+  "rag_analysis": {
+    "architecture_classification": {
+      "core_pattern": "",
+      "rationale": "",
+      "retrieval_strategy": {
+        "primary": "",
+        "embedding_model": "",
+        "embedding_dimension": "",
+        "distance_metric": ""
+      },
+      "indexing": {
+        "index_type": "",
+        "index_organization": "",
+        "update_strategy": ""
+      }
+    },
+    "document_processing": {
+      "ingestion": {
+        "data_sources": [],
+        "format_support": [],
+        "connector_ecosystem": "",
+        "streaming_or_batch": "",
+        "change_detection": false
+      },
+      "parsing": {
+        "capabilities": [],
+        "structure_preservation": false,
+        "metadata_extraction": [],
+        "ocr_integration": false,
+        "code_parsing": false
+      },
+      "chunking": {
+        "strategies": [],
+        "chunk_size": "",
+        "overlap": "",
+        "context_preservation": false
+      },
+      "enrichment": {
+        "metadata_generation": false,
+        "entity_extraction": false,
+        "relationship_extraction": false,
+        "summary_generation": false,
+        "keyword_extraction": false,
+        "classification": false
+      }
+    },
+    "query_processing": {
+      "understanding": {
+        "intent_classification": false,
+        "entity_extraction": false,
+        "ambiguity_detection": false,
+        "language_detection": false
+      },
+      "transformation": {
+        "query_expansion": false,
+        "query_rewriting": false,
+        "hyde": false,
+        "multi_query_generation": false,
+        "query_decomposition": false
+      },
+      "retrieval_execution": {
+        "top_k_selection": "",
+        "similarity_threshold": "",
+        "metadata_filtering": false,
+        "diversity_ranking": false,
+        "mmr": false,
+        "temporal_decay": false
+      },
+      "reranking": {
+        "enabled": false,
+        "model_type": "",
+        "approach": []
+      },
+      "context_assembly": {
+        "compression": false,
+        "compression_method": "",
+        "citation_tracking": false,
+        "context_window_management": "",
+        "prompt_stuffing_strategy": ""
+      }
+    },
+    "generation_pipeline": {
+      "synthesis_modes": [],
+      "output_enhancement": {
+        "citation_generation": false,
+        "source_attribution": false,
+        "confidence_scoring": false,
+        "fact_verification": false,
+        "hallucination_detection": false,
+        "answer_grounding": false
+      }
+    },
+    "security_posture": {
+      "attack_surface": {
+        "prompt_injection_risk": "",
+        "data_poisoning_risk": "",
+        "information_leakage_risk": "",
+        "access_control": ""
+      },
+      "security_controls": {
+        "input_validation": [],
+        "output_filtering": [],
+        "isolation": "",
+        "cryptography": {
+          "embedding_encryption_at_rest": false,
+          "tls_in_transit": false,
+          "key_management": ""
+        },
+        "monitoring": {
+          "query_logging": false,
+          "access_logs": false,
+          "anomaly_detection": false,
+          "abuse_prevention": false
+        }
+      },
+      "threat_model": ""
+    },
+    "performance_characteristics": {
+      "latency_profile": {
+        "ingestion_latency": "",
+        "query_latency_p50": "",
+        "query_latency_p95": "",
+        "query_latency_p99": "",
+        "bottlenecks": []
+      },
+      "scalability": {
+        "max_qps": "",
+        "max_corpus_size": "",
+        "scaling_strategy": ""
+      },
+      "optimization_strategies": {
+        "caching": [],
+        "batching": [],
+        "async_streaming": [],
+        "index_optimization": []
+      }
+    },
+    "accuracy_quality": {
+      "retrieval_quality": {
+        "estimated_precision_at_5": "",
+        "failure_modes": []
+      },
+      "generation_quality": {
+        "hallucination_tendency": "",
+        "groundedness": "",
+        "citation_accuracy": ""
+      },
+      "quality_controls": {
+        "retrieval_time": [],
+        "generation_time": [],
+        "evaluation_tools": []
+      }
+    },
+    "data_flow_architecture": {
+      "system_topology": "",
+      "component_dependencies": {
+        "embedding_provider": "",
+        "vector_database": "",
+        "llm_provider": "",
+        "reranking_service": "",
+        "orchestration": ""
+      },
+      "deployment_model": "",
+      "data_residency": ""
+    },
+    "implementation_patterns": {
+      "programming_paradigm": "",
+      "integration_patterns": [],
+      "extensibility": [],
+      "observability": {
+        "logging": "",
+        "tracing": "",
+        "metrics": false,
+        "debugging_tools": []
+      }
+    },
+    "system_classification": {
+      "is_bespoke": false,
+      "is_existing_framework": false,
+      "is_hybrid": false,
+      "framework_used": "",
+      "bespoke_components": []
+    },
+    "unique_configuration": {},
+    "evidence_files": [],
+    "notes": ""
+  },
+  "agentic_analysis": {
+    "structural": {
+      "topology": "",
+      "effective_agent_count": "",
+      "roles": [],
+      "communication_pattern": "",
+      "coordination": ""
+    },
+    "control": {
+      "autonomy_level": "",
+      "human_gates": [],
+      "branching_logic": false,
+      "loop_support": false,
+      "termination_strategy": ""
+    },
+    "memory": {
+      "short_term": "",
+      "long_term": "",
+      "state_persistence": false,
+      "context_management": "",
+      "memory_scope": ""
+    },
+    "capabilities": {
+      "tool_support": false,
+      "tool_categories": [],
+      "execution_model": "",
+      "tool_chaining": false,
+      "sandboxing": ""
+    },
+    "reasoning": {
+      "pattern": "",
+      "planning_strategy": "",
+      "reflection": false,
+      "model_calls_per_task": "",
+      "search_strategy": ""
+    },
+    "interface": {
+      "input_modalities": [],
+      "output_modalities": [],
+      "streaming_support": false,
+      "api_style": ""
+    },
+    "resilience": {
+      "retry_policy": "",
+      "max_retries": "",
+      "fallback_strategy": "",
+      "checkpointing": false,
+      "circuit_breaker": false
+    },
+    "boundaries": {
+      "input_validation": "",
+      "output_filtering": "",
+      "resource_limits": false,
+      "permission_model": "",
+      "sandbox_scope": ""
+    },
+    "models": {
+      "supported_providers": [],
+      "model_routing": false,
+      "fallback_models": false,
+      "parameter_control": "",
+      "provider_abstraction": ""
+    },
+    "observability": {
+      "logging": "",
+      "tracing": "",
+      "metrics": false,
+      "debug_mode": false,
+      "telemetry_export": []
+    },
+    "communication_protocols": {
+      "mcp_support": "",
+      "a2a_support": "",
+      "primary_protocol": "",
+      "transport_mechanisms": [],
+      "message_format": "",
+      "interoperability": false
+    },
+    "requirements": {
+      "primary_language": [],
+      "external_services": [],
+      "min_memory_mb": "",
+      "network_required": false,
+      "platform_support": []
+    },
+    "performance": {
+      "latency_category": "",
+      "throughput_category": "",
+      "token_efficiency": "",
+      "cost_category": "",
+      "benchmarked": false
+    },
+    "data_and_retrieval": {
+      "vector_store_support": "",
+      "supported_vector_stores": [],
+      "data_connector_count": "",
+      "connector_types": [],
+      "retrieval_strategies": [],
+      "chunking_support": "",
+      "embedding_support": "",
+      "query_transformation": false,
+      "retrieval_mode": ""
+    },
+    "system_classification": {
+      "is_bespoke": false,
+      "is_existing_framework": false,
+      "is_hybrid": false,
+      "framework_used": "",
+      "bespoke_components": []
+    },
+    "unique_configuration": {},
+    "security_pillars": {
+      "trust_architecture": {
+        "zero_trust_model": {
+          "implemented": false,
+          "trust_boundaries": [],
+          "validation_at_boundaries": false
+        },
+        "input_validation": {
+          "user_input": {
+            "schema_validation": false,
+            "content_type_verification": false,
+            "size_limits": false,
+            "allowlist_approach": false
+          },
+          "tool_results": {
+            "schema_validation": false,
+            "injection_scanning": false,
+            "size_limits": false,
+            "timeout_enforcement": false
+          },
+          "retrieval_results": {
+            "content_filtering": false,
+            "structural_validation": false,
+            "semantic_validation": false,
+            "source_attribution": false
+          }
+        },
+        "permission_model": {
+          "tool_permissions": {
+            "scoped_permissions": false,
+            "per_invocation_permissions": false,
+            "human_approval_required": false
+          },
+          "retrieval_permissions": {
+            "read_only_access": false,
+            "scoped_collections": false,
+            "no_write_access": false
+          },
+          "resource_permissions": {
+            "token_budget": false,
+            "cost_limits": false,
+            "time_limits": false,
+            "iteration_limits": false
+          }
+        },
+        "autonomy_boundaries": {
+          "autonomy_level": "",
+          "multi_tier_approval": false,
+          "approval_tiers": []
+        },
+        "sandboxing": {
+          "container_based": false,
+          "network_isolation": false,
+          "filesystem_restrictions": false,
+          "resource_limits": false,
+          "ephemeral_containers": false
+        },
+        "knowledge_base_access_control": {
+          "agents_read_only": false,
+          "ingestion_pipeline_validated": false,
+          "provenance_tracking": false,
+          "human_approval_for_writes": false
+        },
+        "embedding_validation": {
+          "validation_on_indexing": false,
+          "validation_on_retrieval": false,
+          "cryptographic_signatures": false
+        },
+        "data_connector_security": {
+          "connector_isolation": false,
+          "connector_allowlisting": false,
+          "ingestion_rate_limits": false
+        }
+      },
+      "agent_topology_coordination": {
+        "topology_type": "",
+        "hierarchical_architecture": {
+          "single_coordinator": false,
+          "specialized_workers": false,
+          "no_peer_to_peer": false,
+          "workers_cannot_spawn": false
+        },
+        "communication_protocol": {
+          "structured_messages": false,
+          "not_natural_language": false,
+          "message_validation": false
+        },
+        "coordinator_role": {
+          "task_decomposition": false,
+          "work_distribution": false,
+          "response_synthesis": false,
+          "failure_handling": false
+        },
+        "worker_constraints": {
+          "single_responsibility": false,
+          "no_direct_communication": false,
+          "no_spawning": false,
+          "timeout_enforcement": false
+        }
+      },
+      "execution_model": {
+        "tool_execution_model": {
+          "tool_registry": false,
+          "tool_validation": false,
+          "parameter_validation": false,
+          "output_validation": false
+        },
+        "sandboxed_execution": {
+          "container_per_invocation": false,
+          "network_restrictions": false,
+          "filesystem_restrictions": false,
+          "credential_isolation": false
+        },
+        "action_constraints": {
+          "read_vs_write_distinction": false,
+          "destructive_actions_blocked": false,
+          "rate_limiting": false,
+          "cost_tracking": false
+        },
+        "tool_call_validation": {
+          "schema_enforcement": false,
+          "injection_detection": false,
+          "nested_call_prevention": false
+        },
+        "retrieval_execution": {
+          "query_validation": false,
+          "result_filtering": false,
+          "max_results_enforcement": false
+        }
+      },
+      "state_memory_management": {
+        "state_isolation": {
+          "per_session_isolation": false,
+          "no_cross_session_state": false,
+          "ephemeral_state": false
+        },
+        "memory_security": {
+          "memory_validation": false,
+          "poisoning_prevention": false,
+          "memory_encryption": false
+        },
+        "context_management": {
+          "context_size_limits": false,
+          "context_pruning": false,
+          "sensitive_data_filtering": false
+        },
+        "state_persistence": {
+          "controlled_persistence": false,
+          "state_validation_on_load": false,
+          "state_versioning": false
+        },
+        "memory_poisoning_prevention": {
+          "input_sanitization": false,
+          "retrieval_result_validation": false,
+          "state_integrity_checks": false
+        }
+      },
+      "observability_resilience": {
+        "logging": {
+          "comprehensive_logging": false,
+          "structured_logs": false,
+          "sensitive_data_redaction": false,
+          "log_retention_policy": ""
+        },
+        "tracing": {
+          "distributed_tracing": false,
+          "trace_correlation": false,
+          "end_to_end_tracing": false
+        },
+        "monitoring": {
+          "real_time_monitoring": false,
+          "anomaly_detection": false,
+          "alerting": false,
+          "metrics_collection": false
+        },
+        "audit_trail": {
+          "action_logging": false,
+          "decision_logging": false,
+          "immutable_logs": false,
+          "audit_log_access_control": false
+        },
+        "resilience": {
+          "retry_mechanism": false,
+          "fallback_strategies": false,
+          "circuit_breakers": false,
+          "graceful_degradation": false
+        },
+        "incident_response": {
+          "automated_detection": false,
+          "containment_procedures": false,
+          "rollback_capability": false,
+          "post_incident_analysis": false
+        },
+        "cost_monitoring": {
+          "token_tracking": false,
+          "cost_attribution": false,
+          "budget_alerts": false,
+          "cost_optimization": false
+        }
+      }
+    },
+    "evidence_files": [],
+    "notes": ""
+  },
+  "summary": {
+    "ai_systems_detected": [],
+    "primary_system_type": "",
+    "key_findings": [],
+    "recommendations": [],
+    "confidence_level": ""
+  }
+}

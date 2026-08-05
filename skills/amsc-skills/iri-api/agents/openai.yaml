@@ -1,0 +1,4 @@
+interface:
+  display_name: "IRI API"
+  short_description: "Token + endpoint scripts for IRI API workflows"
+  default_prompt: "Use the iri-api skill scripts to inspect or refresh Globus tokens and call IRI API endpoints with operation-aware templates."

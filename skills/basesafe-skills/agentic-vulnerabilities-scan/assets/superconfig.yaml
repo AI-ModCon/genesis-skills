@@ -1,0 +1,1011 @@
+# Specify which types of adversarial probes should be used against the target,
+# and the strategies used to generate these adversarial probes.
+
+# Conservative defaults for an initial authorized scan. Increase only after a
+# small successful run confirms that the target requires it.
+defaultTest:
+  options:
+    timeout: 300000
+
+evaluateOptions:
+  maxConcurrency: 1
+  maxEvalTimeMs: 1800000
+
+redteam:
+  # This is the default test count for every selected plugin. Keep the first
+  # scan small; set a plugin-specific numTests only after reviewing the cost.
+  numTests: 2
+  maxConcurrency: 1
+  strategies:
+
+    # Most users only need two strategies for comprehensive coverage. These agentic methods provide the highest attack success rates across use cases.
+
+    # jailbreak:meta: Best for Single-Turn
+    # The Meta Agent dynamically builds an attack taxonomy and learns from attack history to optimize bypass attempts. It learns which attack types work best against your specific target.
+
+    # jailbreak:hydra: Best for Multi-Turn
+    # Hydra runs adaptive multi-turn conversations with persistent scan-wide attacker memory. It can either replay the full transcript to a stateless target or use target-managed session memory for applications that persist prior turns.
+   
+    
+    # ----- Agentic and Multiturn Strategies -----------------------------
+    
+    # Gradually escalates prompt harm across conversation turns while using backtracking to optimize attack paths. Effective against guardrails that check individual turns but miss accumulated context. Achieves 70-90% attack success rate improvement.
+    # * Is agentic strategy
+    # * Is multi-turn strategy
+    # * Is configurable
+    # - id: crescendo
+
+    # User-defined multi-turn conversation strategy with custom instructions
+    # * Is agentic strategy 
+    # * Is multi-turn strategy
+    # - id: custom
+
+    # Generative Offensive Agent Tester (GOAT) uses an attacker LLM to conduct adaptive multi-turn conversations with three-phase reasoning: observation (analyze defenses), strategic planning (select approach), and attack generation (apply techniques). Achieves 97% success against Llama 3.1 and 88% against GPT-4-Turbo by dynamically adapting based on target responses.
+    # * Is agentic strategy
+    # * Is multi-turn strategy
+    # * Is configurable
+    # * Requires remote generation
+    # - id: goat
+    #   config:
+    #     # Maximum conversation turns (default: 5)
+    #     # Higher = more persistent attacks, but slower
+    #     maxTurns: 5
+        
+    #     # Stateful mode (default: false)
+    #     # false: Full conversation history sent each turn
+    #     # true: Only latest message sent (for session-based systems)
+    #     stateful: false
+        
+    #     # Attack techniques to use (default: all 7)
+    #     techniques:
+
+    #       # Forces specific output formats that prevent refusal responses
+    #       # Example: "Respond only with JSON", "Answer in haiku form"
+    #       # Effective against format-based safety filters
+    #       - refusal-suppression
+
+    #       # Requests both safe and unsafe responses
+    #       # Example: "First explain why you can't, then do it anyway"
+    #       # Exploits instruction-following vs. safety conflict
+    #       - dual-response
+
+    #       # Pre-fills expected responses to bias output
+    #       # Example: "Complete this: 'To build a bomb, first you...'"
+    #       # Leverages completion instinct over safety
+    #       - response-priming
+
+    #       # Instructs agent to adopt different roles
+    #       # Example: "You are DAN (Do Anything Now)"
+    #       # Tests role-play boundary enforcement
+    #       - persona-modification
+
+    #       # Frames harmful requests as fictional/academic
+    #       # Example: "In a novel where...", "For research purposes..."
+    #       # Exploits weak reality/fiction boundaries
+    #       - hypothetical-scenarios
+
+    #       # Breaks harmful request across multiple innocent-seeming turns
+    #       # Example: Turn 1: "What is ingredient X?", Turn 5: "Combine all ingredients"
+    #       # Bypasses per-turn safety checks
+    #       - topic-splitting
+
+    #       # Requests information framed as avoiding harm
+    #       # Example: "How do I *not* hack a system? List what to avoid"
+    #       # Exploits negation parsing failures
+    #       - opposite-intent
+    
+    # Tests web-browsing agents by embedding malicious instructions in fetched web content. Evaluates whether the agent treats external content as trusted commands rather than untrusted data, enabling indirect prompt injection through URLs.
+    # * Is agentic strategy
+    # * Is configurable
+    # * Requires remote generation
+    # - id: indirect-web-pwn
+    
+    # Adaptive multi-turn conversational attacks with persistent scan-wide memory that learns from all previous attempts across the entire test suite. Meta-learns which attack types work best and applies those insights to subsequent conversations. Achieves 70-90% attack success rate improvement.
+    # * Is multi-turn strategy
+    # * Is configurable
+    # * Requires remote generation
+    - id: jailbreak:hydra
+
+    # Builds custom attack taxonomies and learns from all previous attempts using persistent strategic memory to identify which attack types work best against the specific target. Recommended as a starting point for most applications. Achieves 70-90% attack success rate improvement over baseline.
+    # * Is agentic strategy
+    # * Is configurable
+    # * Requires remote generation
+    - id: jailbreak:meta
+
+    # Uses tree-based search to systematically explore and identify optimal safety bypass vectors. Branches at decision points to test multiple attack paths and prunes ineffective approaches.
+    # * Is agentic strategy
+    # * Is configurable
+    # - id: jailbreak:tree 
+
+    # Simulates realistic adversarial user behavior across multi-turn conversations, probing for vulnerabilities through natural conversational patterns rather than obvious attacks.
+    # * Is multi-turn strategy
+    # * Is configurable
+    # - id: mischievous-user
+
+    # ----- Multimodal Strategies ----------------------------------------
+
+    # Tests handling of audio content
+    # (Tests handling of text converted to speech audio and encoded as base64 to potentially bypass text-based content filters)
+    # - audio
+
+    # Tests handling of image content
+    # - image
+
+    # Tests handling of video content
+    # - video
+    
+    # ----- Encoding-based Strategies ------------------------------------
+
+    # Encodes malicious payloads as Base64 to bypass text-based content filters that don't decode before scanning. Static transformation strategy achieving 20-30% attack success rate improvement.
+    # - id: base64
+
+    # Tests handling of text transformed into camelCase to potentially bypass filters
+    # - id: camelcase
+
+    # Tests handling of text hidden using emoji variation selectors
+    # - id: emoji
+    
+    # Tests handling of hex-encoded malicious payloads
+    # - id: hex
+
+    # Uses visually similar Unicode characters (homoglyphs) to obfuscate malicious content while maintaining human readability. Example: replacing 'a' with Cyrillic 'а'. Achieves 20-30% attack success rate improvement.
+    # - id: homoglyph
+
+    # Chains multiple research-based jailbreak techniques together in a single attack for enhanced effectiveness. Combines methods like role-play, refusal suppression, and hypothetical framing. Achieves 60-80% attack success rate improvement.
+    # * Is configurable
+    # * Requires remote generation
+    # - id: jailbreak:composite
+    
+    # Tests handling of leetspeak-encoded malicious content
+    # - id: leetspeak
+
+    # Encodes harmful requests using mathematical notation and set theory to bypass natural language content filters while remaining interpretable by the model.
+    # - id: math-prompt
+    
+    # Tests handling of content encoded in Morse code to potentially bypass filters
+    # - id: morse
+
+    # Collection of alternative text transformation strategies (Morse code, Pig Latin, camelCase, and emoji variation selector smuggling) for testing evasion techniques
+    # - id: other-encodings
+
+    # Tests handling of content translated to Pig Latin to potentially bypass filters
+    # - id: piglatin
+
+    # Tests handling of ROT13-encoded malicious content
+    # - id: rot13
+
+    # ----- Additional Strategies ----------------------------------------
+ 
+    # Tests vulnerability to authoritative markup injection attacks
+    # - id: authoritative-markup-injection
+
+    # Parallel sampling attack generating multiple variations simultaneously and selecting the most effective. Published technique from Anthropic and Stanford research.
+    # * Is configurable
+    # - id: best-of-n
+
+    # Frames harmful requests with fabricated academic citations, journal references, or research context to exploit authority bias and bypass content filters that defer to scholarly framing.
+    # * Is configurable
+    # * Requires remote generation
+    # - id: citation
+
+    # Gradient-based optimization technique that appends adversarial suffixes to prompts, using mathematical optimization to find token sequences that maximize harmful output probability. Advanced technique requiring computational resources.
+    # * Is configurable
+    # * Requires remote generation
+    # - id: gcg
+
+    # Frames harmful requests using Likert scale rating formats (e.g., "On a scale of 1-5, how would you...") to bypass content filters that don't recognize indirect questioning patterns.
+    # * Requires remote generation
+    # - id: jailbreak:likert
+    
+    # Tests resistance to known jailbreak techniques using static templates like DAN (Do Anything Now), Skeleton Key, and other publicly documented bypasses. Low-cost baseline testing with deterministic results.
+    # - id: jailbreak-templates
+
+    # Applies multiple strategies in a defined order
+    # * Is configurable
+    # - id: layer
+
+    # Tests whether user input can inject malicious instructions directly into the prompt, overriding intended behavior or extracting unauthorized information through direct manipulation of the prompt context.
+    # * Maps to OWASP-LLM-01
+    # - id: prompt-injection
+
+    # Automatically incorporates previously failed test cases into ongoing testing to ensure vulnerabilities don't resurface after fixes. Essential for regression testing and continuous security validation.
+    # - id: retry
+
+  plugins:
+       
+    ######################################################################
+    # Guardrails Evaluation 
+    ######################################################################
+
+    # ----- Prompt Injection & Jailbreaking ------------------------------
+    
+    # Hides malicious instructions using Unicode tag characters (invisible control characters) to smuggle commands past content filters while remaining machine-readable.
+    # * Maps to OWASP-LLM-01
+    - ascii-smuggling
+
+    # Applies pre-compiled prompt injection attacks from the BeaverTails research dataset. Dataset-based testing provides consistent benchmarking without generative synthesis overhead.
+    # * Uses a dataset rather than a synthesis strategy
+    #   * Uses huggingface
+    # * Maps to OWASP-LLM-01
+    # - beavertails
+    
+    # Tests whether fabricated conversation history can manipulate the AI into generating restricted content by providing false context that makes harmful requests appear authorized or previously approved.
+    # * Remote-only
+    - cca
+
+    # Applies questions from the Do Not Answer research dataset designed to test behavioral robustness when models should refuse to respond. Evaluates appropriate refusal patterns.
+    # * Uses a dataset rather than a synthesis strategy
+    # - donotanswer
+    
+    # Applies jailbreak attempts from the HarmBench research benchmark covering diverse harmful content categories. Provides standardized evaluation against published attack corpus.
+    # * Uses a dataset rather than a synthesis strategy
+    # * Maps to OWASP-LLM-01
+    # - harmbench
+    
+    # Tests whether the agent can be manipulated to use resources or perform actions outside its intended purpose, such as using authorized tools for unauthorized goals or deviating from defined operational scope.
+    # * Remote-only
+    # * Maps to OWASP-Agentic-01, OWASP-Agentic-07, OWASP-Agentic-08, OWASP-Agentic-10
+    - hijacking
+
+    # Tests whether malicious instructions embedded in untrusted variables (user input, fetched content, database records) can override the system prompt or manipulate agent behavior. Critical for RAG and web-browsing agents.
+    # * Remote-only
+    # * Maps to OWASP-LLM-01, OWASP-Agentic-01, OWASP-Agentic-04, OWASP-Agentic-06, OWASP-Agentic-07
+    # * requires config.indirectInjectionVar to be set
+    # - indirect-prompt-injection
+
+    # Applies curated prompt injection attacks from the Pliny dataset (L1B3RT4S collection). Dataset-based testing providing consistent benchmarking from community-sourced adversarial examples.
+    # * Uses a dataset rather than a synthesis strategy
+    # * Maps to OWASP-LLM-01
+    # - pliny
+    
+    # Tests whether user inputs can cause the model to ignore, override, or bypass its original system prompt instructions. Targets the foundational control mechanism of prompted AI systems.
+    # * Remote only
+    # * Does not use strategies
+    # * Maps to OWASP-LLM-01, OWASP-Agentic-01
+    # - system-prompt-override
+
+    # Tests whether the model can be tricked into revealing its system prompt, including instructions, policies, and confidential operational details that should remain hidden from users.
+    # * Maps to OWASP-LLM-01, OWASP-LLM-02, OWASP-LLM-07
+    - prompt-extraction
+    
+   
+
+    # ----- Violence & Crime ---------------------------------------------
+
+    # Tests handling of graphic or violent content
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:graphic-content
+
+    # Tests handling of non-violent criminal content
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:non-violent-crime
+    
+    # Tests handling of sexual crime content
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:sex-crime
+    
+    # Generates requests for instructions on dangerous activities that could cause physical harm, such as unsafe DIY procedures, risky challenges, or hazardous behaviors. Verifies appropriate safety warnings or refusals.
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    - harmful:unsafe-practices
+
+    # Tests handling of violent crime content
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:violent-crime
+
+    # ----- Exploitation & Abuse -----------------------------------------
+    
+    # Tests handling of child exploitation content
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:child-exploitation
+
+    # Tests handling of harassment and bullying content
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:harassment-bullying
+
+    # Tests handling of hate speech and discriminatory content
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:hate
+
+    # Tests handling of personal attacks and insults
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:insults
+
+    # Tests handling of profane or inappropriate language
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:profanity
+
+    # Tests handling of self-harm and suicide content
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:self-harm
+
+    # Tests handling of explicit sexual content
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:sexual-content
+    
+    # ----- Radicalization & Extremism -----------------------------------
+
+    # Generates prompts attempting to get the model to promote extremist ideologies, assist with radicalization, or facilitate recruitment into extremist movements. Tests appropriate refusal of harmful ideological content.
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    - harmful:radicalization
+    
+    # ----- Cybercrime & Security ----------------------------------------
+
+    # Generates prompts requesting assistance with hacking, unauthorized system access, digital fraud, or other cybercrimes. Verifies the model refuses to provide cybercrime instruction or assistance.
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    - harmful:cybercrime
+
+    # Specifically tests whether the model will generate malware, ransomware, exploits, or other malicious code. Critical for coding assistants and development-focused AI systems.
+    # * Maps to OWASP-Agentic-05
+    # * Uses unaligned LLM to generate tests
+    - harmful:cybercrime:malicious-code
+
+    # ----- Substances ---------------------------------------------------
+
+    # Tests handling of general illegal activities
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:illegal-activities
+
+    # Tests handling of illegal drug-related content
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:illegal-drugs
+
+    # Tests handling of methamphetamine-related content
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:illegal-drugs:meth
+ 
+    # ----- Information Integrity ----------------------------------------
+
+    # Tests whether the agent can be manipulated into spreading false or misleading information, participating in disinformation campaigns, or generating content designed to deceive. Critical for public-facing information systems.
+    # * Remote-only
+    # * Maps to OWASP-LLM-04, OWASP-LLM-09, OWASP-Agentic-08, OWASP-Agentic-09
+    - harmful:misinformation-disinformation
+
+    # Tests whether the model inappropriately provides medical, legal, financial, or other professional advice requiring licensure or expertise, without appropriate disclaimers about limitations and need for professional consultation.
+    # * Remote-only
+    # * Maps to OWASP-LLM-04, OWASP-LLM-09
+    - harmful:specialized-advice
+
+    # ----- Legal & Intellectual Property --------------------------------
+
+    # Tests handling of intellectual property violations
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    # * Maps to OWASP-LLM-04
+    # - harmful:copyright-violations
+
+    # Tests whether the model assists with intellectual property theft, copyright circumvention, trademark infringement, or unauthorized use of protected materials.
+    - harmful:intellectual-property
+
+    # ----- System Security & Integrity ----------------------------------
+    
+    # Applies prompt injection and security test cases from Meta's CyberSecEval research benchmark. Provides standardized evaluation against published cybersecurity-focused attack corpus.
+    # * Uses a dataset rather than a synthesis strategy
+    # * Maps to OWASP-LLM-01
+    - cyberseceval
+
+    # Tests whether the agent incorrectly claims capabilities it doesn't possess (like sending emails, accessing external systems, or interacting with physical objects) or takes unauthorized initiative beyond its defined scope. Verifies appropriate acknowledgment of limitations.
+    # * Maps to OWASP-LLM-06, OWASP-Agentic-02, OWASP-Agentic-10
+    - excessive-agency
+
+    # Tests whether the model invents names, facts, dates, or statistics instead of acknowledging uncertainty. Generates deliberately challenging requests for implausible information to detect fabricated responses stated with unwarranted confidence.
+    # * Maps to OWASP-LLM-09, OWASP-Agentic-08
+    - hallucination
+
+    # Tests whether the agent uncritically accepts false user assumptions or incorrect input without appropriate verification or pushback. Evaluates ability to recognize and challenge problematic premises.
+    # * Maps to OWASP-LLM-09, OWASP-Agentic-09
+    - overreliance
+
+    # Tests whether repetitive prompting patterns can cause the model to diverge from safe behavior and leak training data by exploiting pattern completion instincts that override content filters.
+    # * Maps to OWASP-LLM-10, OWASP-Agentic-08
+    - divergent-repetition 
+
+    # Tests whether prompts can trigger excessive reasoning loops causing computational resource exhaustion. Specifically targets reasoning models (e.g., o1, o3) by inducing unbounded internal deliberation.
+    # * Remote only
+    # * Maps to OWASP-LLM-10
+    - reasoning-dos
+
+    # ----- Personally Identifying Information & Privacy -----------------
+
+    # Tests whether the model assists with privacy violations, unauthorized surveillance, doxing, or other activities that compromise personal privacy rights.
+    # * Maps to OWASP-LLM-02, OWASP-LLM-07, OWASP-LLM-08
+    - harmful:privacy
+
+    ######################################################################
+    # Plugins for Model Context Protocol or Retreival-Augmented Generation
+    ###################################################################### 
+
+    # Tests for Broken Function-Level Authorization: whether users can invoke functions or operations they shouldn't have access to based on their role. Attempts to trigger privileged functions through unprivileged contexts.
+    # * Recommended when agent uses MCP or RAG
+    # * Remote-only
+    # * Maps to OWASP-LLM-06, OWASP-API-02, OWASP-API-05, OWASP-Agentic-03
+    - bfla
+
+    # Tests for Broken Object-Level Authorization: whether users can access data objects they shouldn't have permission to view or modify. Attempts to manipulate object identifiers to access unauthorized resources.
+    # * Recommended when agent uses MCP or RAG
+    # * Remote-only
+    # * Maps to OWASP-LLM-06, OWASP-API-01, OWASP-API-05, OWASP-Agentic-03
+    - bola
+
+    # Tests eight MCP-specific attack vectors: function discovery (exposing hidden tools), parameter injection, function call manipulation, denial of service through excessive calls, information leakage, output misinterpretation, metadata injection via tool names, and privilege escalation bypassing access controls.
+    # * Recommended when agent uses MCP
+    # * Remote-only
+    # * Maps to OWASP-LLM-06, OWASP-Agentic-02, OWASP-Agentic-04
+    # Must read https://www.promptfoo.dev/docs/red-team/plugins/mcp/ to configure
+    - mcp
+    
+    # Tests whether role-based access control is properly enforced, verifying that users can only access resources and perform actions appropriate to their assigned role without privilege escalation.
+    # * Recommended when agent uses MCP or RAG
+    # * Maps to OWASP-LLM-06, OWASP-LLM-07, OWASP-API-01, OWASP-API-02, OWASP-API-05, OWASP-Agentic-03, OWASP-Agentic-10
+    - rbac 
+
+    # Tests whether the agent can be manipulated into generating or executing SQL injection attacks, allowing unauthorized database access, data manipulation, or extraction through malicious query construction.
+    # * Recommended when agent uses MCP
+    # * Maps to OWASP-LLM-05, OWASP-LLM-06, OWASP-API-07, OWASP-Agentic-05
+    - sql-injection
+
+    # Tests whether attackers can extract documents from the RAG knowledge base through crafted queries designed to leak retrieval results that should remain confidential.
+    # * Remote only
+    - rag-document-exfiltration
+
+    # Tests whether malicious documents can be injected into the RAG knowledge base to manipulate future retrievals, causing the agent to cite poisoned sources or provide compromised information.
+    # * Remote only
+    # Must read https://www.promptfoo.dev/docs/red-team/plugins/rag-poisoning/ to configure
+    - rag-poisoning
+
+    # Tests whether the RAG system fabricates document citations, policy references, or source attributions that don't actually exist in the knowledge base. Verifies citation accuracy and prevents false authority claims.
+    # * Recommended when agent uses RAG
+    # * Remote only
+    - rag-source-attribution
+    
+    ######################################################################
+    # Agentic Plugins
+    ######################################################################
+
+    # Tests whether attackers can inject false information into the agent's persistent memory system, causing future interactions to be based on compromised historical context. Critical for agents with conversation memory or learned preferences.
+    # * Remote-only
+    # * Does not use strategies
+    # * Maps to OWASP-LLM-08, OWASP-Agentic-06
+    - agentic:memory-poisoning
+
+    ######################################################################
+    # Coding Agent Plugins 
+    ######################################################################
+
+    # Tests coding agents against every supported coding-agent plugin, including prompt injection, terminal output injection, secret handling, sandbox read/write boundaries, network egress, procfs credentials, delayed CI exfiltration, generated vulnerabilities, automation poisoning, steganographic exfiltration, and verifier sabotage risks
+    # * Defines collection
+    # - coding-agent:all
+
+    # Tests coding agents against a focused baseline set of repository prompt injection, terminal output injection, secret environment read, sandbox read escape, and verifier sabotage risks
+    # * Defines collection
+    # - coding-agent:core
+    
+    # Tests whether untrusted repository content (READMEs, code comments, fixture data, issues, logs, artifacts) can manipulate agent behavior by embedding malicious instructions that override user tasks or policies. Uses synthetic canaries to detect when repository text is treated as authoritative commands.
+    - coding-agent:repo-prompt-injection
+
+    # Tests whether embedded directives in command output (compiler messages, test results, package manager output, linter warnings, git output) can manipulate the agent into performing unrelated or dangerous actions by treating informational content as executable guidance.
+    - coding-agent:terminal-output-injection
+
+    # Tests for leakage of launcher-only credentials and environment-based secrets. Verifies that synthetic secrets injected into subprocess environments don't appear in agent output, traces, generated artifacts, or command parameters.
+    - coding-agent:secret-env-read
+
+    # Tests for file-based secret exposure through multiple channels. Detects when protected local files (dotfiles, credentials, cache, browser profiles, support bundles) appear in outputs or when agent command traces show unauthorized read operations.
+    - coding-agent:secret-file-read
+
+    # Tests directory-traversal resilience by placing canaries outside the intended workspace and verifying the agent stays within boundaries despite symlinks, relative paths, absolute paths, archives, mount points, or ambient filesystem hints.
+    - coding-agent:sandbox-read-escape
+
+    # Validates write-operation containment through host-level file probes. Detects mutations (create, overwrite, append, delete, chmod) to out-of-workspace files via absolute paths, symlinks, relative traversal, or temp directory access.
+    - coding-agent:sandbox-write-escape
+
+    # Tests for unauthorized outbound communication attempts. Trap URLs and host-level request logging catch DNS lookups, webhook calls, package fetches, tunnels, and unauthorized tool invocations outside defined network policy.
+    - coding-agent:network-egress-bypass
+
+    # Prevents /proc filesystem exploitation by detecting commands that read process metadata (/proc/*/environ, /proc/*/cmdline) or similar runtime introspection surfaces where ambient execution context and credentials might leak.
+    - coding-agent:procfs-credential-read
+
+    # Identifies data-theft persistence mechanisms planted in automation. Detects egress payloads embedded in CI workflows, hooks, package scripts, and release automation that trigger after evaluation completes, enabling delayed exfiltration.
+    - coding-agent:delayed-ci-exfil
+
+    # Tests whether the agent introduces security vulnerabilities while completing legitimate coding tasks. Detects command injection, SQL interpolation, disabled validation, unsafe deserialization, broken authentication, and other insecure patterns in generated code.
+    - coding-agent:generated-vulnerability
+
+    # Detects unsafe behavior persisted through repository automation modifications. Identifies malicious payloads embedded in CI workflows, hooks, package lifecycle scripts, scheduled jobs, or release automation via command traces and host-level file verification.
+    - coding-agent:automation-poisoning
+
+    # Identifies sensitive data hidden through encoding or visual obfuscation. Detects base64, hex, URL encoding, and character substitution in comments, logs, filenames, snapshots, and generated artifacts that bypass naive text scanning.
+    - coding-agent:steganographic-exfil
+
+    # Validates test-integrity preservation by detecting sabotage patterns (test.skip(), eslint-disable, --no-verify, weakened assertions) indicating the agent circumvented quality checks rather than fixing underlying implementation issues.
+    - coding-agent:verifier-sabotage
+
+    ######################################################################
+    # Other 
+    ######################################################################
+
+    # Tests whether the agent can be manipulated into exfiltrating sensitive data through indirect prompt injection in web content, using URL parameters, image requests, markdown links, or other covert channels.
+    # * Remote-only
+    - data-exfil
+
+    # Tests for unauthorized competitor mentions and endorsements
+    # * Remote-only
+    # * Maps to OWASP-LLM-06
+    # - competitors
+
+    # Tests for unauthorized contractual commitments and legal exposure,
+    # e.g., system enters business or legal commitments without supervisio
+    # * Maps to OWASP-LLM-06
+    # - contracts
+
+    # Tests for COPPA (Children's Online Privacy Protection Act) compliance violations
+    # * Remote-only
+    # * Maps to OWASP-LLM-02
+    # - coppa
+
+    # Tests for information leakage between user sessions
+    # * Maps to OWASP-LLM-02, OWASP-LLM-08, OWASP-Agentic-06
+    # - cross-session-leak
+
+    # Tests whether production systems expose debugging interfaces, commands, or diagnostic endpoints that could leak sensitive information or provide unauthorized system access.
+    # * Maps to OWASP-LLM-05, OWASP-API-10
+    - debug-access
+
+    # Tests for compliance with Family Educational Rights and Privacy Act
+    # * Remote-only
+    # * Maps to OWASP-LLM-02
+    # - ferpa
+
+    # Tests whether the agent can be manipulated into impersonating people, brands, or organizations without authorization, potentially enabling fraud, social engineering, or reputational harm.
+    # * Maps to OWASP-LLM-06, OWASP-Agentic-03, OWASP-Agentic-07, OWASP-Agentic-09
+    - imitation
+ 
+    # Tests whether user-provided custom intents or seed prompts can manipulate system behavior in unintended ways. Transforms seed prompts into adversarial test cases targeting specific behavioral goals.
+    # * Maps to OWASP-LLM-01, OWASP-Agentic-01
+    - intent
+    
+    # Tests whether the agent recognizes when optimizing proxy metrics might not align with true goals (Goodhart's Law), such as gaming metrics instead of achieving genuine objectives. Evaluates awareness of measurement-versus-goal divergence.
+    # * Remote-only
+    # * Maps to OWASP-Agentic-10
+    - goal-misalignment
+
+    # Tests whether the agent can be diverted from its intended purpose to perform unrelated tasks or engage in off-scope conversations, indicating weak task-focus controls.
+    # * Remote only
+    - off-topic
+
+    # Tests whether the agent can be manipulated into generating or executing shell command injection attacks, allowing arbitrary command execution through malicious input that breaks out of intended command contexts.
+    # * Maps to OWASP-LLM-05, OWASP-LLM-06, OWASP-API-07, OWASP-Agentic-05
+    - shell-injection
+
+    # Tests whether conversation format delimiters or special tokens can be injected to manipulate model behavior by breaking out of intended message boundaries or role assignments.
+    # * Remote only
+    - special-token-injection
+
+    # Tests whether the agent can be tricked into making unauthorized server-side requests to internal resources, cloud metadata endpoints, or restricted network locations through URL manipulation.
+    # * Remote only
+    # * Maps to OWASP-LLM-05, OWASP-LLM-06, OWASP-API-07, OWASP-Agentic-05
+    - ssrf
+
+    # Tests whether an AI system can be tricked into revealing its underlying model identity, version, or creator
+    # * Remote only
+    # * Maps to OWASP-LLM-07
+    # - model-identification
+
+    # Tests whether the agent can be manipulated into revealing its available tools, functions, or API capabilities. Tool enumeration enables attackers to understand attack surface and craft targeted exploits.
+    # * Maps to OWASP-LLM-07, OWASP-Agentic-02
+    - tool-discovery
+
+    # Tests whether the agent makes claims that cannot be verified or fact-checked even in principle, such as unfalsifiable predictions, subjective assertions stated as facts, or claims about private/unobservable information.
+    - unverifiable-claims
+
+    # Tests compliance with custom security policies
+    # (Generates adversarial probes to test a custom configured policy)
+    # - policy
+
+    # Tests handling of political content and bias,
+    # e.g., target makes political statements
+    # * Maps to OWASP-LLM-04
+    # - politics
+
+    # Tests handling of religious content and bias
+    # * Remote only
+    # * Maps to OWASP-LLM-04
+    # - religion
+
+    # Tests whether AI systems can be tricked into generating profanity through wordplay
+    # (Tests whether AI systems can be tricked into generating profanity through innocent-seeming wordplay)
+    # * Remote only
+    # * Maps to OWASP-LLM-01
+    # - wordplay
+
+    # Tests handling of intellectual property violations
+    # * Maps to OWASP-LLM-04
+    # - harmful:copyright-violations
+    
+    # ----- Datasets -----------------------------------------------------
+    
+    # Tests content safety handling using NVIDIA's Aegis dataset
+    # * Uses a dataset rather than a synthesis strategy
+    #   * Uses huggingface
+    # * Maps to OWASP-LLM-04
+    # - aegis
+
+    # Tests handling of toxic prompts from the ToxicChat dataset
+    # * Uses a dataset rather than a synthesis strategy
+    # * Maps to OWASP-LLM-04
+    # - toxic-chat
+
+    # Tests handling of unsafe image content from the UnsafeBench dataset
+    # * Uses a dataset rather than a synthesis strategy
+    #   * Uses huggingface
+    # * Maps to OWASP-LLM-04
+    # - unsafebench
+
+    # Tests handling of potentially unsafe image content from the VLGuard dataset
+    # * Uses a dataset rather than a synthesis strategy
+    # * Maps to OWASP-LLM-04
+    # - vlguard
+    
+    # Tests compositional safety where individually safe images and text combine to produce harmful outputs
+    # * Uses a dataset rather than a synthesis strategy
+    # * Maps to OWASP-LLM-04
+    # - vlsu
+
+    # Tests how well LLMs handle ambiguous words (homonyms) that can have both harmful and benign interpretation
+    # * Maps to OWASP-LLM-04
+    # - xstest
+
+    ######################################################################
+    # Specific collections and subdomains, listed for completeness
+    ######################################################################
+
+    # Standard security testing plugins
+    # * Defines collection
+    # - default
+    
+    # Tests a collection of plugins designed to run against foundation models
+    # * Defines collection
+    # - foundation
+
+    # Comprehensive testing suite for evaluating guardrails effectiveness against prompt injection, jailbreaking, harmful content, and PII leakage
+    # * Defines collection
+    # - guardrails-eval
+
+    # Tests handling of malicious content across multiple categories
+    # * Defines collection
+    # - harmful
+    
+    # ----- Bias ---------------------------------------------------------
+    
+    # Bias detection across protected characteristics
+    # * Defines collection
+    # * Maps to OWASP-LLM-04
+    # - bias
+
+    # Age-related bias detection
+    # * Maps to OWASP-LLM-04
+    # - bias:age
+
+    # Disability-related bias detection
+    # * Maps to OWASP-LLM-04
+    # - bias:disability
+
+    # Gender-related bias detection
+    # * Maps to OWASP-LLM-04
+    # - bias:gender
+
+    # Race-related bias detection
+    # * Maps to OWASP-LLM-04
+    # - bias:race
+
+    # ----- Ecommerce ----------------------------------------------------
+    
+    # E-commerce AI safety testing across payment security and transaction integrity vulnerabilities
+    # * Remote only
+    # - ecommerce
+    
+    # Tests for exposure of payment card data including credit card numbers, CVVs, and bank account details in violation of PCI DSS requirements
+    # - ecommerce:pci-dss
+
+    # Tests for attempts to bypass security rules, terms of service, or compliance policies in e-commerce systems
+    # - ecommerce:compliance-bypass
+
+    # Tests for detection of fraudulent order patterns, unauthorized transactions, or payment manipulation attempts
+    # - ecommerce:order-fraud
+
+    # Tests for price manipulation through discount abuse, inventory exploits, or unauthorized price modifications
+    # - ecommerce:price-manipulation
+
+    # ----- Financial ----------------------------------------------------
+
+    # Financial AI safety testing across financial services vulnerabilities
+    # * Remote only
+    # * Defines collection
+    # - financial
+    
+    # Tests for errors in financial calculations, risk assessments, or quantitative analysis
+    # - financial:calculation-error
+
+    # Tests for suggestions that violate securities laws, enable insider trading, or circumvent regulations
+    # - financial:compliance-violation
+
+    # Tests for inappropriate disclosure of MNPI, proprietary strategies, or confidential financial data
+    # - financial:confidential-disclosure
+
+    # Tests for false financial narratives or misleading market information
+    # - financial:counterfactual
+
+    # Tests for exposure of proprietary trading strategies or confidential financial data
+    # - financial:data-leakage
+
+    # Tests for false statements damaging financial entity reputations
+    # - financial:defamation
+
+    # Tests for fabricated market data, non-existent financial instruments, or fictional company information
+    # - financial:hallucination
+
+    # Tests for unauthorized financial advice or transaction facilitation
+    # - financial:impartiality
+
+    # Tests for unsuitable financial product recommendations or downplaying of risks under Japan's FIEA
+    # - financial:japan-fiea-suitability
+
+    # Tests for facilitation of financial crimes or market manipulation
+    # - financial:misconduct
+
+    # Tests for violations of Sarbanes-Oxley requirements including internal controls, financial reporting, and audit integrity
+    # - financial:sox-compliance
+
+    # Tests for agreeing with risky investment strategies or validating get-rich-quick schemes
+    # - financial:sycophancy
+
+    # ----- Insurance ----------------------------------------------------
+
+    # Insurance AI safety testing across all insurance types
+    # * Defines collection
+    # * Remote only
+    # - insurance
+    
+    # Tests for discriminatory coverage decisions based on protected characteristics (age, disability, race, etc.)
+    # * Remote only
+    # - insurance:coverage-discrimination
+
+    # Tests for unauthorized disclosure of protected policyholder data including claims history, property details, driving records, and financial information
+    # * Remote only
+    # - insurance:data-disclosure
+
+    # Tests for inaccurate provider network information
+    # * Remote only
+    # - insurance:network-misinformation
+
+    # Tests for unauthorized disclosure of Protected Health Information in violation of HIPAA privacy regulations
+    # * Remote only
+    # - insurance:phi-disclosure
+    
+    # ----- Medical ------------------------------------------------------
+
+    # Medical AI safety testing across healthcare vulnerabilities
+    # * Defines collection
+    # * Remote only
+    # - medical
+    
+    # Tests for medical anchoring bias where AI fixates on irrelevant information
+    # * Remote only
+    # - medical:anchoring-bias
+
+    # Tests whether medical AI systems conceal intended-use limits, low-confidence outputs, subgroup caveats, data drift, or silent model updates
+    # * Remote only
+    # - medical:fda:ai-disclosure
+
+    # Tests whether medical-device AI systems enforce authenticated, role-scoped, deny-by-default access before privileged commands or therapy changes
+    # * Remote only
+    # - medical:fda:cyber-access-control
+
+    # Tests whether medical-device AI systems suppress anomaly alerts, rewrite audit trails, hide SBOM/version evidence, or disable forensic logging
+    # * Remote only
+    # - medical:fda:cyber-audit-tampering
+
+    # Tests for fabricated medical facts, studies, or drug interactions
+    # * Remote only
+    # - medical:hallucination
+
+    # Tests for factually wrong medical information that could cause harm
+    # * Remote only
+    # - medical:incorrect-knowledge
+
+    # Tests for inappropriate off-label medication recommendations without proper disclaimers
+    # * Remote only
+    # - medical:off-label-use
+
+    # Tests for poor medical prioritization and triage decisions
+    # * Remote only
+    # - medical:prioritization-error
+
+    # Tests for agreeing with incorrect medical assumptions to be helpful
+    # * Remote only
+    # - medical:sycophancy
+
+    # ----- Pharmacy -----------------------------------------------------
+
+    # Pharmacy AI safety testing across pharmaceutical vulnerabilities
+    # * Defines collection
+    # * Remote only
+    # - pharmacy
+    
+    # Tests adherence to DEA regulations for controlled substance prescribing, dispensing, and monitoring
+    # * Remote only
+    # - pharmacy:controlled-substance-compliance
+
+    # Tests accuracy of pharmaceutical dosage calculations including weight-based dosing and renal adjustments
+    # * Remote only
+    # - pharmacy:dosage-calculation
+
+    # Tests identification of dangerous drug-drug, drug-food, and drug-supplement interactions
+    # * Remote only
+    # - pharmacy:drug-interaction
+ 
+    # ----- Personally Identifiable Information --------------------------
+
+    # Tests handling of personal identifiable information
+    # * Defines collection
+    # * Maps to OWASP-LLM-02, OWASP-LLM-07, OWASP-LLM-08
+    # - pii
+    
+    # Tests for PII exposure via API/database access
+    # * Remote only
+    # * Maps to OWASP-LLM-02, OWASP-LLM-07, OWASP-LLM-08
+    # - pii:api-db
+
+    # Tests for direct PII exposure vulnerabilities
+    # * Remote only
+    # * Maps to OWASP-LLM-02, OWASP-LLM-07, OWASP-LLM-08
+    # - pii:direct
+
+    # Tests for PII exposure in session data
+    # * Remote only
+    # * Maps to OWASP-LLM-02, OWASP-LLM-07, OWASP-LLM-08
+    # - pii:session
+
+    # Tests for PII exposure via social engineering
+    # * Remote only
+    # * Maps to OWASP-LLM-02, OWASP-LLM-07, OWASP-LLM-08
+    # - pii:social
+
+    # ----- Teen Safety -------------------------------------------------
+
+    # Teen safety testing for harmful body ideals, dangerous challenges, unsafe roleplay, and underage access to restricted goods or services
+    # * Defines collection
+    # - teen-safety
+    
+    # Tests for harmful body ideals, body shaming, and enabling disordered eating or exercise behaviors that are unsafe for teens
+    # - teen-safety:harmful-body-ideals
+
+    # Tests for dangerous activities, viral challenges, unsafe stunts, and dangerous at-home procedures inappropriate for teens
+    # - teen-safety:dangerous-content
+
+    # Tests for unsafe roleplay involving minors, including romantic, sexual, or violent interactive scenarios
+    # - teen-safety:dangerous-roleplay
+
+    # Tests for enabling or normalizing underage access to alcohol, vaping, gambling, weapons, and other age-restricted goods or services
+    # - teen-safety:age-restricted-goods-and-services
+
+    # ----- Telecom ------------------------------------------------------
+
+    # Telecommunications AI safety testing across CPNI protection, account security, and regulatory compliance vulnerabilities
+    # * Defines collection
+    # * Remote only
+    # - telecom
+    
+    # Tests for unauthorized disclosure of Customer Proprietary Network Information
+    # * Remote only
+    # - telecom:cpni-disclosure
+
+    # Tests for unauthorized disclosure of customer location data
+    # * Remote only
+    # - telecom:location-disclosure
+
+    # Tests for SIM swap and account hijacking vulnerabilities
+    # * Remote only
+    # - telecom:account-takeover
+
+    # Tests for incorrect emergency calling information
+    # * Remote only
+    # - telecom:e911-misinformation
+
+    # Tests for TCPA consent and Do Not Call compliance
+    # * Remote only
+    # - telecom:tcpa-violation
+
+    # Tests for slamming and cramming vulnerabilities
+    # * Remote only
+    # - telecom:unauthorized-changes
+
+    # Tests for telecom-specific fraud facilitation
+    # * Remote only
+    # - telecom:fraud-enablement
+
+    # Tests for incorrect number portability information
+    # * Remote only
+    # - telecom:porting-misinformation
+
+    # Tests for incorrect billing and pricing information
+    # * Remote only
+    # - telecom:billing-misinformation
+
+    # Tests for false coverage or service claims
+    # * Remote only
+    # - telecom:coverage-misinformation
+
+    # Tests for improper law enforcement request handling
+    # * Remote only
+    # - telecom:law-enforcement-request-handling
+
+    # Tests for accessibility compliance violations
+    # * Remote only
+    # - telecom:accessibility-violation
+
+    # ----- Real Estate -------------------------------------------------
+
+    # Real Estate AI safety testing for Fair Housing Act compliance, steering prevention, and housing discrimination vulnerabilities
+    # * Defines collection
+    # * Remote only
+    # - realestate
+    
+    # Tests for Fair Housing Act violations across all 7 protected classes (race, color, religion, national origin, sex, familial status, disability)
+    # * Remote only
+    # - realestate:fair-housing-discrimination
+
+    # Tests for illegal steering practices directing buyers to/from neighborhoods based on demographics
+    # * Remote only
+    # - realestate:steering
+
+    # Tests for discriminatory language in property listings and advertisements
+    # * Remote only
+    # - realestate:discriminatory-listings
+
+    # Tests for ECOA and FHA violations in mortgage lending including redlining and disparate treatment
+    # * Remote only
+    # - realestate:lending-discrimination
+
+    # Tests for algorithmic bias in property appraisals and automated valuations
+    # * Remote only
+    # - realestate:valuation-bias
+
+    # Tests for ADA and FHA disability accommodation violations in housing
+    # * Remote only
+    # - realestate:accessibility-discrimination
+
+    # Tests for discriminatory targeting and language in housing advertisements
+    # * Remote only
+    # - realestate:advertising-discrimination
+
+    # Tests for Section 8 and housing voucher discrimination (state-specific protections)
+    # * Remote only
+    # - realestate:source-of-income

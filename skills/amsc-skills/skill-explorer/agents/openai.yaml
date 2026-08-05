@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Explorer"
+  short_description: "Discover and sync Codex, Claude, and OpenCode skills from GitLab/GitHub"
+  default_prompt: "List skill repositories under GitLab groups and GitHub organizations, compare against local Codex/Claude/OpenCode skill installs, and optionally check/update local installs."

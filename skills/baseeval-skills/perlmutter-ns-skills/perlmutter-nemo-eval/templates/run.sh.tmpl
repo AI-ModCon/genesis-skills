@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck disable=SC1090
+source "{{ENV_FILE}}"
+
+cd /tmp
+
+# Reasoning models (gpt-5*, o<digit>*) reject temperature != 0.0
+_temperature_extra=""
+if [[ "{{IS_REASONING_MODEL}}" == "true" ]]; then
+  _temperature_extra="++inference.temperature=0.0"
+fi
+
+# Portable 600s timeout: GNU timeout, macOS gtimeout (brew coreutils), or no-op fallback.
+_ns_timeout() {
+  if command -v timeout >/dev/null 2>&1; then timeout 600 "$@"
+  elif command -v gtimeout >/dev/null 2>&1; then gtimeout 600 "$@"
+  else "$@"
+  fi
+}
+
+# Verify benchmark data is present. prepare_data is confirmed COMPLETED by check_status.sh
+# before this script runs, so a few quick retries handle any NFS visibility lag.
+_data_dir="{{REMOTE_RUN_DIR}}/ns-data/{{BENCHMARK}}"
+echo "Verifying benchmark data at ${_data_dir} ..." >&2
+_data_ok=false
+for _attempt in 1 2 3; do
+  if ssh -i "$SSH_LOGIN_IDENTITY" \
+      -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+      "$NERSC_USER@$NERSC_HOST" "ls '${_data_dir}'/*.jsonl 2>/dev/null | grep -q ." 2>/dev/null; then
+    _data_ok=true
+    break
+  fi
+  echo "  data not yet visible (attempt ${_attempt}/3, retrying in 10s) ..." >&2
+  sleep 10
+done
+[[ "${_data_ok}" == "true" ]] || { echo "Error: data not found in ${_data_dir} — check prepare_data job logs" >&2; exit 1; }
+echo "Data verified." >&2
+
+if [[ "{{JOB_TYPE}}" == "robust_eval" ]]; then
+  _ns_timeout "{{NS_BIN}}" robust_eval \
+    --cluster=perlmutter \
+    --config_dir="$SCRIPT_DIR" \
+    --server_type=openai \
+    --model="{{MODEL}}" \
+    --server_address="$OPENAI_BASE_URL" \
+    --output_dir="{{MOUNT_OUTPUT_DIR}}" \
+    --expname="{{EXPNAME}}" \
+    --benchmarks="{{BENCHMARK}}:{{NUM_SEEDS}}" \
+    --prompt_set_config="{{PROMPT_SET_CONFIG_LOCAL_PATH}}" \
+    ++skip_filled=True \
+    ++max_concurrent_requests="{{MAX_CONCURRENT_REQUESTS}}" \
+    ++max_samples="{{MAX_SAMPLES}}" \
+    ++parse_reasoning=False \
+    ${_temperature_extra} || {
+      rc=$?
+      [[ $rc -eq 124 ]] \
+        && echo "Warning: ns robust_eval timed out after 600s — Slurm jobs may still be submitted" >&2 \
+        || { echo "ns robust_eval failed (rc=$rc)" >&2; exit $rc; }
+    }
+else
+  _ns_timeout "{{NS_BIN}}" eval \
+    --cluster=perlmutter \
+    --config_dir="$SCRIPT_DIR" \
+    --server_type=openai \
+    --model="{{MODEL}}" \
+    --server_address="$OPENAI_BASE_URL" \
+    --output_dir="{{MOUNT_OUTPUT_DIR}}" \
+    --expname="{{EXPNAME}}" \
+    --benchmarks="{{BENCHMARK}}:{{NUM_SEEDS}}" \
+    ++skip_filled=True \
+    ++max_concurrent_requests="{{MAX_CONCURRENT_REQUESTS}}" \
+    ++max_samples="{{MAX_SAMPLES}}" \
+    ++parse_reasoning=False \
+    ${_temperature_extra} || {
+      rc=$?
+      [[ $rc -eq 124 ]] \
+        && echo "Warning: ns eval timed out after 600s — Slurm jobs may still be submitted" >&2 \
+        || { echo "ns eval failed (rc=$rc)" >&2; exit $rc; }
+    }
+fi
+
+# Replace NeMo-Run code symlinks with real copies so podman-hpc can mount them.
+# Scope search to experiment dirs only (avoids scanning all past runs in NERSC_JOB_DIR).
+echo "Resolving code symlinks for podman-hpc compatibility ..." >&2
+ssh -o ConnectTimeout=30 -i "$SSH_LOGIN_IDENTITY" \
+    -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+    "$NERSC_USER@$NERSC_HOST" \
+    "find '$NERSC_JOB_DIR' -maxdepth 6 -name code -type l -path '*{{EXPNAME}}*' 2>/dev/null | \
+     while IFS= read -r lnk; do
+       tgt=\$(readlink \"\$lnk\") || continue
+       rm \"\$lnk\" && cp -r \"\$tgt\" \"\$lnk\" && echo \"  fixed: \$lnk\" >&2 || echo \"  FAILED: \$lnk\" >&2
+     done" 2>&1 || echo "Warning: code symlink resolution had errors (continuing)" >&2
+echo "Symlink resolution done." >&2
+

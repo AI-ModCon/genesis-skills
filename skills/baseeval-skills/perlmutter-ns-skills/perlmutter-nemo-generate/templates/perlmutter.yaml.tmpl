@@ -1,0 +1,24 @@
+executor: slurm
+runtime: podman-hpc
+
+ssh_tunnel:
+  host: "{{NERSC_HOST}}"
+  user: "{{NERSC_USER}}"
+  identity: "{{SSH_LOGIN_IDENTITY}}"
+  job_dir: "{{NERSC_JOB_DIR}}"
+
+containers:
+  nemo-skills: "{{PERLMUTTER_IMAGE_NAME}}"
+
+account: "{{NERSC_ACCOUNT}}"
+qos: "{{NERSC_QOS}}"
+constraint: "{{NERSC_CONSTRAINT}}"
+nodes: {{NODES}}
+ntasks_per_node: {{NTASKS_PER_NODE}}
+default_timeout: "{{DEFAULT_TIMEOUT}}"
+
+mounts:
+  - "{{REMOTE_RUN_DIR}}:/workspace"
+
+env_vars:
+  - "HF_HOME={{HF_HOME_IN_WORKSPACE}}"

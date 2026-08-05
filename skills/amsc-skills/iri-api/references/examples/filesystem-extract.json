@@ -1,0 +1,5 @@
+{
+  "path": "/global/homes/<first-letter>/<username>/iri-demo.tar.gz",
+  "target_path": "/global/homes/<first-letter>/<username>/iri-demo-extracted",
+  "compression": "gzip"
+}
