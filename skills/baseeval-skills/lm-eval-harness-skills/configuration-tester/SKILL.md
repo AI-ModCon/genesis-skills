@@ -9,7 +9,7 @@ description: Runs testing of the generated configuration for the benchmark and i
 
 2. Update the code to fix any issues that are identified.
 
-3. Test the functionality of each full task using `scripts/test_config.sh` in the configuration-tester skill directory. This script may take several minutes. It accepts overrides for model, model args, sample limit, and whether to enable `--run_llm_judge`, but use the default parameters unless there is a strong justification for changing them. Especially make sure that the model used is large enough to achieve better than zero accuracy on the task.
+3. Test the functionality of each full task using `scripts/test_config.sh` in the configuration-tester skill directory. This script may take several minutes. It accepts overrides for model, model args, and sample limit, but use the default parameters unless there is a strong justification for changing them. Especially make sure that the model used is large enough to achieve better than zero accuracy on the task.
    
    **Sandbox Mode**:
    - **Issue**: lm-eval-harness requires access to `/dev/shm` (shared memory) for PyTorch/HuggingFace operations, which may be restricted in some sandbox modes
@@ -98,10 +98,10 @@ Manually verify at least 3 samples:
 ## test_config.sh
 
 ```
-./test_config.sh <benchmark_name> <path_to_task_directory> [model] [model_args] [limit] [run_llm_judge]
+./test_config.sh <benchmark_name> <path_to_task_directory> [model] [model_args] [limit]
 ```
 
-Defaults may also be supplied via `LM_EVAL_MODEL`, `LM_EVAL_MODEL_ARGS`, `LM_EVAL_LIMIT`, and `LM_EVAL_RUN_JUDGE`.
+Defaults may also be supplied via `LM_EVAL_MODEL`, `LM_EVAL_MODEL_ARGS`, and `LM_EVAL_LIMIT`.
 
 ## display_sample_results.py
 
