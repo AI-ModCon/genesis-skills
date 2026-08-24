@@ -19,8 +19,9 @@ Skills are organized by domain in the `skills/` directory:
 - **Genesis Core (3):** `skills/academy/`, `skills/literature-search/`, and
   `skills/multi-agent-systems/`
 - **BaseSAFE (5):** `skills/basesafe-skills/` for AI-safety analysis workflows
-- **BaseEval (7):** `skills/baseeval-skills/` for language-model evaluation
-  workflows (lm-evaluation-harness configuration and running NeMo-Skills on Perlmutter)
+- **BaseEval (8):** `skills/baseeval-skills/` for language-model evaluation
+  workflows (lm-evaluation-harness configuration, running NeMo-Skills on
+  Perlmutter, and distilling a run into a model card)
 - **HPC (5):** `skills/hpc-skills/` for Slurm, PBS, and leadership-computing systems
 - **ModCon Data (4):** `skills/modcon-data-skills/` for Croissant, HDMF, data
   cards, and Well conversion

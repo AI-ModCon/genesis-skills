@@ -1,8 +1,8 @@
 # BaseEval Skills
 
-Agent skills for language-model evaluation workflows, sourced from two upstream
-projects. The category is split into two sub-groups, each with its own
-attribution.
+Agent skills for language-model evaluation workflows. Two sub-groups carry skills
+sourced from upstream projects, each with its own attribution; `card-eval-updater`
+sits alongside them as a standalone skill.
 
 ## Sub-groups
 
@@ -33,6 +33,19 @@ Fernando Llorente (BNL) and Eric Chagnon (LBNL). See
 | [`perlmutter-nemo-eval`](perlmutter-ns-skills/perlmutter-nemo-eval/) | `ns eval` / `ns robust_eval` | Benchmark evaluation; produces `metrics.json`. |
 | [`perlmutter-nemo-generate`](perlmutter-ns-skills/perlmutter-nemo-generate/) | `ns generate` | LLM inference over `input.jsonl` with a `prompt.yaml`. |
 
+### `card-eval-updater/` (1)
+
+Turns an evaluation run into documentation. Authored by Fernando Llorente (BNL).
+Licensed **Apache-2.0** rather than the repository's root BSD-2-Clause — see
+[`card-eval-updater/LICENSE`](card-eval-updater/LICENSE).
+
+| Skill | Description |
+|-------|-------------|
+| [`card-eval-updater`](card-eval-updater/) | Parses lm-evaluation-harness, Eval Factory and NeMo-Skills output into a canonical eval bundle, then writes the evaluation sections and `metrics:` frontmatter of a Genesis/BPSW model card. |
+
+This closes the loop on `lm-eval-harness-skills`: those skills produce a run, this
+one turns the run into a card.
+
 ## Structure
 
 ```
@@ -45,8 +58,11 @@ baseeval-skills/
 │   ├── data-exploration/
 │   ├── configuration-implementor/
 │   └── configuration-tester/
-└── perlmutter-ns-skills/          
-    ├── ATTRIBUTION.md
-    ├── perlmutter-nemo-eval/
-    └── perlmutter-nemo-generate/
+├── perlmutter-ns-skills/          
+│   ├── ATTRIBUTION.md
+│   ├── perlmutter-nemo-eval/
+│   └── perlmutter-nemo-generate/
+└── card-eval-updater/
+    ├── LICENSE                    # Apache-2.0, governs this subtree
+    └── SKILL.md
 ```
