@@ -10,8 +10,8 @@ tags:
 license: {spdx_license_id} # use an SPDX license identifier https://spdx.org/licenses/
 license_name: {license_name}  # If license = other (license not in https://hf.co/docs/hub/repositories-licenses), specify an id for it here, like `my-license-1.0`. if not delete this line
 license_link: {license_link}  # If license = other, specify "LICENSE" or "LICENSE.md" to link to a file of that name inside the repo, or a URL to a remote file. if not delete this line
-base_model: {base_model} # if fine tuning, include the basemodel url here
-new_version: meta-llama/Llama-3.1-8B # if this model has been superseeded by a new version, omit for now
+base_model: {base_model} # if fine-tuning, include the base model url here
+new_version: meta-llama/Llama-3.1-8B # if this model has been superseded by a new version, omit for now
 datasets:
     - # a list of download URLs for dataset files used for training, mid-training, post-training, etc...
 metrics:
@@ -52,7 +52,7 @@ Examples:
 4. The goal for the model is to predict the next text token, given the query embeddings and the previous text. 
 5. This allows the model to be used for tasks like image captioning, visual question answering (VQA), or scientific text summarization.
 
-## Finetuned from model (optional)
+## Fine-tuned from model (optional)
 
 If your model is a fine-tune, an adapter, or a quantized version of a base (parent) model, you can specify the base model here. This information can also be used to indicate if your model is a merge of multiple existing models.   
 
@@ -62,7 +62,7 @@ List of related/parent models (optional)
 
 Examples:  
 
-RoBERTA Large, VIT-huge-patch14-224-in21k, CLIP ViT-g/14, RESNET-50, GPT-OSS, etc. 
+RoBERTa Large, ViT-huge-patch14-224-in21k, CLIP ViT-g/14, ResNet-50, GPT-OSS, etc. 
  
 ## Inputs and outputs
 
