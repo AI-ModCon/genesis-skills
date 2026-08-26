@@ -180,7 +180,7 @@ carries (partial, LLM-judged, unverified model identity).
 
 `render_card_sections.py` is the **model-card** renderer. It is deliberately
 separable from the parser: a model card wants benchmark values with provenance
-and stderr, whereas SIM wants drift-relevant series across runs and SAFE wants
+and stderr, whereas SIM wants drift-relevant series across runs, and SAFE wants
 the failure and refusal tail. Those are different reductions of the same run and
 belong in sibling renderers reading the same
 `references/eval-bundle.schema.json` contract — not in this file, and not by

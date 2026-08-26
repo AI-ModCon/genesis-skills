@@ -7,8 +7,8 @@ An [Agent Skill](https://agentskills.io) that distills evaluation-harness output
 into the evaluation sections of a Genesis/BPSW model card.
 
 Three harnesses in use across BASE emit three unrelated result formats, with
-three metric-naming conventions and two numeric scales. This parses any of them
-into one canonical **eval bundle**, then renders that into a model card.
+three metric-naming conventions and two numeric scales. The tool parses any of
+them into one canonical **eval bundle**, then renders that into a model card.
 
 **Benchmark numbers are extracted deterministically and never pass through a
 language model's context.** The validator re-renders from the bundle and diffs
@@ -88,7 +88,7 @@ the same benchmark with hand-written artifacts.
 
 Develop this skill in its development repository,
 [`AI-ModCon/BaseEval_card-eval-updater_DEV`](https://github.com/AI-ModCon/BaseEval_card-eval-updater_DEV), which carries the test
-suite, `Makefile`, `pyproject.toml`, lockfile and CI (`make install`, `make
+suite, `Makefile`, `pyproject.toml`, the lockfile, and CI (`make install`, `make
 test`, `make lint`, `make format`). This copy is vendored and carries no tests;
 changes land there first and are re-vendored here.
 
@@ -114,9 +114,9 @@ Author: Fernando Llorente, Brookhaven National Laboratory.
 This directory is a vendored copy of
 [`AI-ModCon/BaseEval_card-eval-updater_DEV`](https://github.com/AI-ModCon/BaseEval_card-eval-updater_DEV)
 @ `c565305`, which remains the place to develop and test the skill. `SKILL.md`,
-`scripts/`, `references/` and `examples/` are unmodified. The upstream `tests/`
+`scripts/`, `references/`, and `examples/` are unmodified. The upstream `tests/`
 directory is not vendored — it lives in the development repository — so this
-file, `docs/getting_started.md` and one line of `SKILL.md`'s References section
+file, `docs/getting_started.md`, and one line of `SKILL.md`'s References section
 are adapted to this layout. Licensed Apache-2.0 — see [`LICENSE`](LICENSE), which governs this
 directory in place of the repository's root BSD-2-Clause, as described in the
 root [`NOTICE`](../../../NOTICE).

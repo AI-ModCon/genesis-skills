@@ -29,7 +29,7 @@ is the dataset.
 
 **Model** — `lexical-overlap`, a custom lm-eval model class
 ([`models/lexical_overlap.py`](models/lexical_overlap.py)) that picks the answer
-sharing the most content words with the question. It needs no weights, no GPU
+sharing the most content words with the question. It needs no weights, no GPU,
 and no network, so the example is exactly reproducible — and it is a meaningful
 control rather than a toy: any real model on this benchmark should beat it, and
 one that does not has learned nothing beyond surface word matching.
@@ -124,7 +124,7 @@ identity was operator-supplied and unverified.
 **2. `dataset_path: json` names a loader, not a dataset.** Custom tasks load
 local files through a generic loader, so the real source is in
 `dataset_kwargs.data_files`. The parser sees through `json`, `csv`, `parquet`,
-`text`, `arrow`, `pandas` and `generator` to the actual path, and also picks up
+`text`, `arrow`, `pandas`, and `generator` to the actual path, and also picks up
 `metadata.description` so a custom benchmark documents itself in the card.
 
 ## Known limitation

@@ -69,8 +69,8 @@ placeholders (`- # list of metrics used to...`) are dropped.
 
 ## Caveat notes
 
-Rendered into the sections that show numbers, so a reader meets the caveat where
-they meet the figure:
+Rendered into the sections that show numbers, so a reader sees the caveat at
+the same place they see the figure:
 
 | Note | Trigger |
 |---|---|

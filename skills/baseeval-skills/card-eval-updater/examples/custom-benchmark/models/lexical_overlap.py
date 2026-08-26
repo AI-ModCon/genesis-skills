@@ -6,7 +6,7 @@ question, after removing stopwords, and prefers the choice with the highest
 overlap. Ties break toward the shorter answer.
 
 Why a baseline rather than a downloaded LLM: it is deterministic, needs no
-weights, no GPU and no network, so the example is exactly reproducible and its
+weights, no GPU, and no network, so the example is exactly reproducible and its
 accuracy is a genuine measurement rather than a placeholder. It is also a
 meaningful control — any real model evaluated on this benchmark should beat it,
 and a model that does not has learned nothing beyond surface word matching.

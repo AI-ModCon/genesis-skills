@@ -1,6 +1,6 @@
 # FAQ
 
-## Why does this need installing? It doesn't — why is there a `pyproject.toml`?
+## Why does this need installing? It doesn't. Why is there a `pyproject.toml`?
 
 The skill is used by symlinking the repository into an agent's skills directory;
 the scripts are invoked by path. `pyproject.toml` carries project metadata, the
@@ -25,7 +25,7 @@ that the label survives.
 Two cases, both deliberate.
 
 **A custom lm-eval model class.** lm-eval derives `model_name` from
-`pretrained`, `model`, `path` or `engine` in `model_args`. A custom model class
+`pretrained`, `model`, `path`, or `engine` in `model_args`. A custom model class
 ignores those arguments, so any value there describes something other than what
 ran — often a wrapper script's leftover default. The parser discards the name
 and asks for `--model-id`.

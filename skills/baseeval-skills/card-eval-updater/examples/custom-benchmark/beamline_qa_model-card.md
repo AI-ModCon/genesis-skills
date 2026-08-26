@@ -47,7 +47,7 @@ Examples:
 Examples: 
 
 1. This model is trained on RoBERTa large with the binary classification setting of the Stanford Sentiment Treebank. It achieves 95.11% accuracy on the test set. 
-2. BLIP-2 consists of 3 models: a CLIP-like image encoder, a Querying Transformer (Q-Former) and a large language model. 
+2. BLIP-2 consists of 3 models: a CLIP-like image encoder, a Querying Transformer (Q-Former), and a large language model. 
 3. The authors initialize the weights of the image encoder and large language model from pre-trained checkpoints and keep them frozen while training the Querying Transformer, which is a BERT-like Transformer encoder that maps a set of "query tokens" to query embeddings, which bridge the gap between the embedding space of the image encoder and the large language model. 
 4. The goal for the model is to predict the next text token, given the query embeddings and the previous text. 
 5. This allows the model to be used for tasks like image captioning, visual question answering (VQA), or scientific text summarization.
@@ -150,7 +150,7 @@ This section is the most important for reusability of the model.  This section s
 
 # Code snippets of how to use the model  
 
-Include code for training and inference and running the model on CPU and GPU. This can showcase usage of the model and tokenizer classes, and any other code that is needed to use the model and any other code you think might be helpful. 
+Include code for training, inference, and running the model on CPU and GPU. This can showcase usage of the model and tokenizer classes, and any other code that is needed to use the model and any other code you think might be helpful. 
 
 
 # Limitations
@@ -168,7 +168,7 @@ From the AI Action Plan, please document risks associated with your model consis
 
 ## Limitations
 
-Any additional concerns, or tests/data needed. Please include discussion of potential biases and systematic errors.
+Any additional concerns or tests/data needed. Please include discussion of potential biases and systematic errors.
 
 Other relevant cases not covered by the testing data data 
 
@@ -217,7 +217,7 @@ Examples:
 
 This model was trained for 100k gradient steps with a batch size of 512k tokens and a linearly decaying learning rate from 6e-4 to zero, with a linear warmup of 5k steps. ... 
 
-The model uses NormalFloat4 datatype and LoRA adapters on all linear layers with BFloat16 as computation datatype. We set LoRA r=64, alpha=16. We also use Adam beta2 of 0.999, max grad norm of 0.3 and LoRA dropout of 0.1 for models up to 13B and 0.05 for 33B and 65B models. For the finetuning process, we use constant learning rate schedule and paged AdamW optimizer. ... 
+The model uses NormalFloat4 datatype and LoRA adapters on all linear layers with BFloat16 as computation datatype. We set LoRA r=64, alpha=16. We also use Adam beta2 of 0.999, max grad norm of 0.3, and LoRA dropout of 0.1 for models up to 13B and 0.05 for 33B and 65B models. For the finetuning process, we use constant learning rate schedule and paged AdamW optimizer. ... 
 
 
 # Evaluation details 
@@ -248,7 +248,7 @@ URL-Link(s) to dataset card(s) with relevant information, if available
 
 Use cases – relevant context amongst which the model was evaluated  (e.g particular methods, materials, etc...)
 
-Performance metrics, benchmarks tested, the baseline(s) and the current SOTA (achieved by other models) on the specified metrics. 
+Performance metrics, benchmarks tested, the baseline(s), and the current SOTA (achieved by other models) on the specified metrics. 
 
 ### Automated benchmark results
 

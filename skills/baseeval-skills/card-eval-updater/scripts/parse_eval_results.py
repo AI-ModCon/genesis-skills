@@ -560,7 +560,7 @@ def parse_eval_factory(path: Path) -> dict:
                 if value is None:
                     continue
                 # Eval Factory wraps 20+ harnesses. Most emit rates in [0,1], but
-                # some emit perplexity, BLEU on 0-100, token counts or latency.
+                # some emit perplexity, BLEU on 0-100, token counts, or latency.
                 # Presenting those as fractions would be a fabricated reading, so
                 # they are marked 'raw' and rendered in the harness's own units.
                 scale = "fraction" if 0.0 <= value <= 1.0 else "raw"

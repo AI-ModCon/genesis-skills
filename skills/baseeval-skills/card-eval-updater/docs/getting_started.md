@@ -107,4 +107,4 @@ Full field-by-field mapping:
 
 [`examples/skill-chain/`](../examples/skill-chain/) builds a custom benchmark
 with the `lm-eval-harness-skills` configuration skills, evaluates it with a
-custom model class, and produces a card — with no weights, GPU or network.
+custom model class, and produces a card with no weights, GPU, or network.

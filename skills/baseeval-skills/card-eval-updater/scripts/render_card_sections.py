@@ -313,7 +313,7 @@ def render_evaluation_results(bundle: dict) -> str:
     if any(r.get("scale") == "raw" for r in bundle["results"]):
         body.append(
             "† Not a rate. This metric is reported in the harness's own units "
-            "(for example perplexity, BLEU, token counts or latency) and is shown "
+            "(for example perplexity, BLEU, token counts, or latency) and is shown "
             "unchanged; it must not be read as a fraction or a percentage."
         )
 

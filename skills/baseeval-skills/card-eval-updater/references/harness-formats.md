@@ -83,17 +83,17 @@ as a metric in its own right.
 
 **Detection**: any `*/artifacts/run_config.yml` under the given path.
 
-**Coverage across the ~23 harnesses Eval Factory wraps.** `results.yml` is Eval
-Factory's *normalized* output — that is the point of the abstraction — so the
+**Coverage across the ~23 harnesses Eval Factory wraps:** `results.yml` is Eval
+Factory's *normalized* output, which is the point of the abstraction, so the
 adapter is written against that schema rather than against any one
-sub-framework, and iterates `(metric, score_key)` pairs generically instead of
-assuming names. Verified against three real sub-frameworks
+sub-framework. It iterates `(metric, score_key)` pairs generically instead of
+assuming names, and is verified against three real sub-frameworks
 (`bigcode-evaluation-harness`, `lm-evaluation-harness`, `simple_evals`) plus a
 hand-written fixture standing in for an unseen one. An unrecognized
 `framework_name` passes straight through.
 
 The one assumption that does not generalize is scale: most harnesses emit rates
-in [0,1], but some emit perplexity, BLEU on 0-100, token counts or latency.
+in [0,1], but some emit perplexity, BLEU on 0-100, token counts, or latency.
 Values outside [0,1] are marked `scale: "raw"`, rendered in the harness's own
 units and footnoted, so they are never read as fractions. If you run a harness
 we have not seen, spot-check the first bundle — particularly the metric labels
