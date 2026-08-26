@@ -7,7 +7,7 @@ description: Reads the information about the benchmark provided by the user, ask
 
 Follow these steps to make a plan for configuration creation:
 1. Read the information provided by the user to understand the benchmark data
-2. Read only the reference files needed for this benchmark from [configuration files](references/config_files.md), [new task creation](references/new_task_guide.md), [more details on task creation](references/task_guide.md), [LLM-as-judge evaluations](references/llm_as_judge.md), [common pitfalls](references/footguns.md), and [troubleshooting guide](references/troubleshooting.md).
+2. Read only the reference files needed for this benchmark from [configuration files](references/config_files.md), [new task creation](references/new_task_guide.md), [more details on task creation](references/task_guide.md), [common pitfalls](references/footguns.md), and [troubleshooting guide](references/troubleshooting.md).
 3. Resolve the benchmark task, dataset, and metrics and how they should map to lm-eval-harness parameters. Ask the user targeted questions only for missing information that would materially change the configuration; otherwise make a reasonable assumption and record it in the plan.
 4. Create `tasks/{benchmark_name}/` if needed.
 5. Write a summary of the plan using the [assets/plan_template.md](assets/plan_template.md) format and save it to `tasks/{benchmark_name}/plan.md`.

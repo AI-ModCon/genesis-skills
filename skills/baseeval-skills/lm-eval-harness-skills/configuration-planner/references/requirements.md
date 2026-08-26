@@ -30,7 +30,6 @@ These are installed with lm-evaluation-harness:
 - Jinja2 templating in prompts (with conditionals, loops, filters)
 - Direct field name references for simple cases
 - `fewshot_config` for flexible few-shot configuration
-- LLM-as-a-judge evaluation support
 
 ### Deprecated Features (avoid using)
 - Python-only task definitions (pre-v0.4.0 style)
@@ -51,12 +50,6 @@ pip install sacrebleu     # For BLEU
 ```bash
 pip install pandas        # For data analysis
 pip install numpy         # For numerical operations
-```
-
-### For LLM-as-Judge
-```bash
-pip install anthropic     # For Claude models
-pip install openai        # For OpenAI models
 ```
 
 ### For Specific Datasets
@@ -113,19 +106,6 @@ def check_version():
             f"This task requires lm-eval >= {min_version}, "
             f"but found {current}"
         )
-```
-
-## Feature Detection
-
-Instead of version checks, detect features:
-```python
-def has_llm_judge_support():
-    """Check if LLM-as-judge is available."""
-    try:
-        from lm_eval.api.metrics import llm_judge_from_template
-        return True
-    except ImportError:
-        return False
 ```
 
 ## Installation Instructions
