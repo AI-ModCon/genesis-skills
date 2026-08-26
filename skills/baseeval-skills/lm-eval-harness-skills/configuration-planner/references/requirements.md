@@ -52,12 +52,6 @@ pip install pandas        # For data analysis
 pip install numpy         # For numerical operations
 ```
 
-### For LLM-as-Judge
-```bash
-pip install anthropic     # For Claude models
-pip install openai        # For OpenAI models
-```
-
 ### For Specific Datasets
 Some datasets may require additional packages:
 ```bash
