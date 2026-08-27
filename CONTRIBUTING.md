@@ -341,17 +341,6 @@ Run the bundled inspection script:
 python ${CLAUDE_SKILL_DIR}/scripts/inspect_nc.py $ARGUMENTS
 ```
 
-## Manual Analysis
-
-For detailed analysis, I can:
-- List dimensions, variables, and attributes
-- Check CF convention compliance
-- Identify coordinate systems
-- Report data ranges and missing values
-```
-
----
-
 ## Testing Your Skill
 
 ### Manual Testing
