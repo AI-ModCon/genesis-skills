@@ -129,7 +129,8 @@ We welcome contributions from the scientific community. See the [Contributing Gu
 ---
 
 ## License
-
+This product is licensed under an umbrella Apache [LICENSE](LICENSE) found
+at the root of this repository.
 Some skills under `skills/` are sourced from third parties. Where a `LICENSE`
 (or `LICENSE.txt`) file is present in a subdirectory, that license governs the
 contents of that subdirectory and supersedes the root license for that subtree.
