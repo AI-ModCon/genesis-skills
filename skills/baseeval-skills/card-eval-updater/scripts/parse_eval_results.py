@@ -59,6 +59,10 @@ class PartialRunError(RuntimeError):
     """Raised when a run is limited/truncated and --allow-partial was not given."""
 
 
+class UnknownModelError(RuntimeError):
+    """Raised when no model identity is known and --allow-unknown-model was not given."""
+
+
 # --------------------------------------------------------------------------
 # helpers
 # --------------------------------------------------------------------------
@@ -237,6 +241,8 @@ def _eval_factory_tasks(path: Path) -> list[Path]:
     """Return Eval Factory task directories (those holding artifacts/run_config.yml)."""
     if path.is_file():
         path = path.parent
+        if path.name == "artifacts":  # <task>/artifacts/results.yml -> <task>
+            path = path.parent
     seen: list[Path] = []
     for cfg in sorted(path.rglob("artifacts/run_config.yml")):
         seen.append(cfg.parent.parent)
@@ -333,7 +339,7 @@ def parse_lm_eval(path: Path) -> dict:
             "git_hash": data.get("git_hash") or data.get("upper_git_hash"),
             "date": _epoch_to_iso(data.get("date")),
             "runtime_seconds": _as_float(data.get("total_evaluation_time_seconds")),
-            "artifact_root": str(path.resolve()),
+            "artifact_root": str(path),
         },
         "model": {
             "id": model_id,
@@ -463,7 +469,7 @@ def parse_eval_factory(path: Path) -> dict:
             "git_hash": None,
             "date": None,
             "runtime_seconds": None,
-            "artifact_root": str(path.resolve()),
+            "artifact_root": str(path),
         },
         "model": {
             "id": None,
@@ -655,7 +661,7 @@ def parse_nemo_skills(path: Path, model_id: str | None = None) -> dict:
             "git_hash": None,
             "date": None,
             "runtime_seconds": None,
-            "artifact_root": str(path.resolve()),
+            "artifact_root": str(path),
         },
         # NeMo-Skills records no model identity anywhere in its output.
         "model": {
@@ -754,7 +760,33 @@ def parse_nemo_skills(path: Path, model_id: str | None = None) -> dict:
 # --------------------------------------------------------------------------
 
 
-def parse(path: Path, model_id: str | None = None, allow_partial: bool = False) -> dict:
+def _relativize_artifact_paths(bundle: dict) -> None:
+    """Rewrite each result's artifact_path relative to run.artifact_root.
+
+    The adapters record whatever path the caller supplied, so a bundle would
+    otherwise depend on the working directory it was produced from. Anchoring
+    the per-result paths to the run root leaves a bundle depending only on the
+    run's own layout: the same run parsed from a different directory, or a
+    different machine, yields the same bundle.
+    """
+    root = Path(bundle["run"]["artifact_root"])
+    base = (root if root.is_dir() else root.parent).resolve()
+    for row in bundle["results"]:
+        raw = row.get("artifact_path")
+        if not raw:
+            continue
+        try:
+            row["artifact_path"] = str(Path(raw).resolve().relative_to(base))
+        except ValueError:  # recorded from outside the run root; leave as-is
+            pass
+
+
+def parse(
+    path: Path,
+    model_id: str | None = None,
+    allow_partial: bool = False,
+    allow_unknown_model: bool = False,
+) -> dict:
     harness = detect(path)
     if harness == "lm-evaluation-harness":
         bundle = parse_lm_eval(path)
@@ -762,6 +794,8 @@ def parse(path: Path, model_id: str | None = None, allow_partial: bool = False) 
         bundle = parse_eval_factory(path)
     else:
         bundle = parse_nemo_skills(path, model_id=model_id)
+
+    _relativize_artifact_paths(bundle)
 
     if model_id and harness != "nemo-skills":
         bundle["model"]["id"] = model_id
@@ -784,6 +818,13 @@ def parse(path: Path, model_id: str | None = None, allow_partial: bool = False) 
             "this run is partial and must not be written into a card as a headline "
             f"result: {detail}. Re-run the eval without a sample limit, or pass "
             "--allow-partial to record it explicitly labelled as partial."
+        )
+
+    if bundle["model"]["id"] is None and not allow_unknown_model:
+        raise UnknownModelError(
+            "this run records no model identity, so the card cannot say which model "
+            "was evaluated. Pass --model-id with the model that was run, or "
+            "--allow-unknown-model to record the identity as unknown in the card."
         )
     return bundle
 
@@ -815,22 +856,36 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("path", type=Path, help="harness run directory or results file")
     ap.add_argument(
         "--model-id",
-        help="model identifier. Required for NeMo-Skills runs, which record none.",
+        help="model identifier. Required unless --allow-unknown-model is given; "
+        "NeMo-Skills runs record none, so they always need one of the two.",
     )
     ap.add_argument(
         "--allow-partial",
         action="store_true",
         help="permit sample-limited runs; they are labelled partial wherever rendered",
     )
+    ap.add_argument(
+        "--allow-unknown-model",
+        action="store_true",
+        help="permit a run with no model identity; the card records it as unknown",
+    )
     ap.add_argument("-o", "--output", type=Path, help="write bundle here (default: stdout)")
     ap.add_argument("--no-validate", action="store_true", help="skip schema validation")
     args = ap.parse_args(argv)
 
     try:
-        bundle = parse(args.path, model_id=args.model_id, allow_partial=args.allow_partial)
+        bundle = parse(
+            args.path,
+            model_id=args.model_id,
+            allow_partial=args.allow_partial,
+            allow_unknown_model=args.allow_unknown_model,
+        )
     except PartialRunError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+    except UnknownModelError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 4
     except ParseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -839,8 +894,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"warning: {warning}", file=sys.stderr)
     if bundle["model"]["id"] is None:
         print(
-            "warning: no model identity found in the harness output. Pass --model-id "
-            "so the card records which model was evaluated.",
+            "warning: no model identity found; the card will record it as unknown.",
             file=sys.stderr,
         )
 

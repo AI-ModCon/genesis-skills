@@ -177,7 +177,8 @@ nothing about *what* was averaged. The parser recovers the name (e.g.
 falls back to `score`. Keep the whole run directory.
 
 **Trap 3 — no model identity anywhere.** Not in `metrics.json`, not in the
-sbatch logs, not in the `output-rs*.jsonl` records. `--model-id` is required,
+sbatch logs, not in the `output-rs*.jsonl` records. `--model-id` is required
+(or `--allow-unknown-model`, which records the identity as unknown),
 and the resulting bundle marks `id_provenance: "user"` so the card can say the
 identity was not verified against the run.
 

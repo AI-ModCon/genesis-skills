@@ -8,7 +8,7 @@
     "git_hash": null,
     "date": "2026-07-30T15:45:13.892051Z",
     "runtime_seconds": 5.770390125000631,
-    "artifact_root": "/path/to/card-eval-updater/examples/custom-benchmark/results/beamline_qa"
+    "artifact_root": "examples/custom-benchmark/results/beamline_qa"
   },
   "model": {
     "id": "lexical-overlap-baseline v1.0",
@@ -56,7 +56,10 @@
       "num_runs": null,
       "prompt_sensitivity": null,
       "no_answer": null,
-      "artifact_path": "results/beamline_qa/41pjso2k/results_2026-07-30T11-45-17.836290.json"
+      "artifact_path": "41pjso2k/results_2026-07-30T11-45-17.836290.json"
     }
+  ],
+  "_warnings": [
+    "lm-eval recorded model_name='41pjso2k', but the model type was 'lexical-overlap' - a custom class for which model_args does not identify the weights. That name may be a leftover default naming a model that never ran, so it was discarded. Pass --model-id."
   ]
 }

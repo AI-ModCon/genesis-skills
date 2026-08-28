@@ -8,7 +8,7 @@
     "git_hash": null,
     "date": "2026-07-30T16:06:34.673441Z",
     "runtime_seconds": 4.947278875000848,
-    "artifact_root": "/path/to/card-eval-updater/examples/skill-chain/results/beamline_qa"
+    "artifact_root": "examples/skill-chain/results/beamline_qa"
   },
   "model": {
     "id": "lexical-overlap-baseline v1.0",
@@ -56,7 +56,7 @@
       "num_runs": null,
       "prompt_sensitivity": null,
       "no_answer": null,
-      "artifact_path": "examples/skill-chain/results/beamline_qa/lexical-overlap-baseline-v1.0/results_2026-07-30T12-06-37.838784.json"
+      "artifact_path": "lexical-overlap-baseline-v1.0/results_2026-07-30T12-06-37.838784.json"
     },
     {
       "benchmark": "beamline_qa",
@@ -87,7 +87,7 @@
       "num_runs": null,
       "prompt_sensitivity": null,
       "no_answer": null,
-      "artifact_path": "examples/skill-chain/results/beamline_qa/lexical-overlap-baseline-v1.0/results_2026-07-30T12-06-37.838784.json"
+      "artifact_path": "lexical-overlap-baseline-v1.0/results_2026-07-30T12-06-37.838784.json"
     }
   ],
   "_warnings": [

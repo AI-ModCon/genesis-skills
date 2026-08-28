@@ -105,9 +105,9 @@ artifact path), `## Uncertainty Quantification` (the standard error), and a
 `beamline_qa/acc` entry in the `metrics:` frontmatter.
 
 The finished card is [`beamline_qa_model-card.md`](beamline_qa_model-card.md). The
-absolute artifact path it records has been redacted to a
-`/path/to/card-eval-updater/...` placeholder; re-running regenerates it with
-your own checkout path.
+artifact path it records is the run path as handed to the parser, so running the
+commands above from the skill root reproduces this card and `bundle.json` exactly,
+on any machine.
 
 ## Two things this example surfaced
 

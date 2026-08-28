@@ -31,7 +31,7 @@
         "git_hash": {"type": ["string", "null"]},
         "date": {"type": ["string", "null"], "description": "ISO 8601 UTC."},
         "runtime_seconds": {"type": ["number", "null"]},
-        "artifact_root": {"type": "string", "description": "Absolute path the bundle was parsed from."}
+        "artifact_root": {"type": "string", "description": "Path the run was parsed from, as supplied to the parser."}
       }
     },
     "model": {
@@ -114,7 +114,7 @@
           "num_runs": {"type": ["integer", "null"]},
           "prompt_sensitivity": {"type": ["number", "null"], "description": "NeMo-Skills robust_eval: spread across prompt variants."},
           "no_answer": {"type": ["number", "null"], "description": "Per-result no-answer fraction."},
-          "artifact_path": {"type": "string", "description": "File this number was read from. Every rendered number must be traceable to one of these."}
+          "artifact_path": {"type": "string", "description": "File this number was read from, relative to `artifact_root`. Every rendered number must be traceable to one of these."}
         }
       }
     }

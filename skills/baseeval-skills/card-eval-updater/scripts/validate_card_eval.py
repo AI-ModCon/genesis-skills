@@ -13,7 +13,7 @@ Findings use structured codes so a caller can act on them:
     UNTRACED            a generated block does not match a re-render of the bundle
     METRICS_MISMATCH    frontmatter `metrics:` is missing a bundle entry
     PARTIAL_UNLABELLED  a partial run is not disclosed as partial
-    PLACEHOLDER         template placeholder markup survived into the card
+    PLACEHOLDER         template placeholder markup survived into a generated block
 
 Usage:
     validate_card_eval.py <card.md> <bundle.json> [--json]
@@ -39,6 +39,7 @@ from card_text import (  # noqa: E402
 )
 from render_card_sections import (  # noqa: E402
     ANCHOR,
+    PARTIAL_NOTE_PREFIX,
     SECTION_ORDER,
     render_metrics_frontmatter,
     render_sections,
@@ -64,6 +65,7 @@ def validate(card_text: str, bundle: dict) -> list[dict]:
     frontmatter, body = split_frontmatter(card_text)
     body_lines = body.split("\n")
     expected = render_sections(bundle)
+    generated: list[tuple[str, tuple[int, int]]] = []
 
     for name in SECTION_ORDER:
         headings = scan_headings(body_lines)
@@ -90,6 +92,7 @@ def validate(card_text: str, bundle: dict) -> list[dict]:
             )
             continue
         actual = _normalize_block("\n".join(body_lines[inner[0] : inner[1]]))
+        generated.append((name, inner))
         wanted = _normalize_block(expected[name])
         if actual != wanted:
             diff = next(
@@ -130,7 +133,7 @@ def validate(card_text: str, bundle: dict) -> list[dict]:
                 )
 
     if any(r.get("is_partial") for r in bundle["results"]):
-        if "partial" not in card_text.lower():
+        if PARTIAL_NOTE_PREFIX not in card_text:
             findings.append(
                 {
                     "code": "PARTIAL_UNLABELLED",
@@ -143,15 +146,16 @@ def validate(card_text: str, bundle: dict) -> list[dict]:
                 }
             )
 
-    for match in PLACEHOLDER_RE.finditer(card_text):
-        findings.append(
-            {
-                "code": "PLACEHOLDER",
-                "severity": "warn",
-                "section": "body",
-                "message": f"template placeholder left in card: {match.group(0)}",
-            }
-        )
+    for name, (start, end) in generated:
+        for match in PLACEHOLDER_RE.finditer("\n".join(body_lines[start:end])):
+            findings.append(
+                {
+                    "code": "PLACEHOLDER",
+                    "severity": "error",
+                    "section": name,
+                    "message": f"template placeholder left in a generated block: {match.group(0)}",
+                }
+            )
 
     return findings
 

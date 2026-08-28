@@ -36,13 +36,18 @@ The harness is detected automatically. The bundle is validated against
 [`references/eval-bundle.schema.json`](../references/eval-bundle.schema.json)
 before it is written.
 
-Two flags matter:
+Three flags matter:
 
-- `--model-id ID` — required for NeMo-Skills runs, which record no model
-  identity. The value is marked as operator-supplied and the card discloses that
-  it could not be verified against the run.
+- `--model-id ID` — required whenever the harness records no model identity,
+  always the case for NeMo-Skills. The value is marked as operator-supplied and
+  the card discloses that it could not be verified against the run.
+- `--allow-unknown-model` — records the identity as unknown instead. Use it only
+  when nobody knows what ran; never invent an id to get past the error.
 - `--allow-partial` — permits sample-limited runs. Withheld by default; see
   [FAQ](./faq.md#why-was-my-run-refused-as-partial).
+
+The parser refuses rather than guessing: a run with no identity and no flag is
+an error, not a warning.
 
 ### 2. Preview the card edit
 

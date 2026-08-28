@@ -59,9 +59,11 @@ write. Read it. Do not proceed on a bundle you have not looked at.
 
 ### 3. Resolve model identity
 
-If the parser warns that no model identity was found — always the case for
+If the parser refuses because no model identity was found — always the case for
 NeMo-Skills — **ask the user** which model was evaluated and re-run with
-`--model-id`. Do not guess it from the directory name.
+`--model-id`. Do not guess it from the directory name. If the user genuinely
+does not know, `--allow-unknown-model` records the identity as unknown in the
+card; never invent one to get past the error.
 
 A user-supplied id is recorded as `id_provenance: "user"` and the card
 discloses that it could not be verified against the run. That disclosure is not
@@ -163,8 +165,8 @@ carries (partial, LLM-judged, unverified model identity).
 7. **A custom lm-eval model gets a random name.** lm-eval derives `model_name`
    from `pretrained`/`model`/`path`/`engine` in `model_args`; a custom model
    class with none of those falls back to an 8-character nonce. The parser
-   detects this and reports no identity rather than writing the nonce into a
-   card — supply `--model-id`.
+   detects this and refuses rather than writing the nonce into a card — supply
+   `--model-id`, or `--allow-unknown-model` to record it as unknown.
 
 8. **Eval Factory wraps ~23 harnesses; three are verified.** The adapter targets
    Eval Factory's normalized `results.yml`, so it should generalize, and

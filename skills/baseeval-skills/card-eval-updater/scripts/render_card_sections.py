@@ -23,6 +23,9 @@ from pathlib import Path
 # strips HTML/YAML comments, which would silently destroy the anchor and break
 # idempotent re-runs.
 ANCHOR = "### Automated benchmark results"
+# The disclosure the validator looks for. Kept as a constant so the check and the
+# text it looks for cannot drift apart.
+PARTIAL_NOTE_PREFIX = "> **Partial run.**"
 
 SECTION_DATA = "evaluation data"
 SECTION_PROCEDURE = "evaluation procedure"
@@ -102,7 +105,7 @@ def _partial_note(bundle: dict) -> str | None:
     if not partial:
         return None
     return (
-        "> **Partial run.** These figures come from a sample-limited evaluation and are "
+        f"{PARTIAL_NOTE_PREFIX} These figures come from a sample-limited evaluation and are "
         "not comparable with full-benchmark results. They are recorded for traceability "
         "only and should not be cited as the model's benchmark performance."
     )

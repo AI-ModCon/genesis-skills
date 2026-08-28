@@ -47,7 +47,7 @@ and `Evaluation results`, and adds `<benchmark>/<metric>` entries to the card's
 |---|---|---|
 | lm-evaluation-harness | `results_*.json` containing `lm_eval_version` | Richest provenance. Covers runs from the `lm-eval-harness-skills` configuration skills |
 | nemo-evaluator-launcher (Eval Factory) | `*/artifacts/results.yml` | Targets Eval Factory's normalized output; 3 of ~23 sub-frameworks verified |
-| NeMo-Skills | `metrics.json` from `ns eval` / `ns robust_eval` | Reports percentages; records no model identity, so `--model-id` is required |
+| NeMo-Skills | `metrics.json` from `ns eval` / `ns robust_eval` | Reports percentages; records no model identity, so `--model-id` (or `--allow-unknown-model`) is required |
 
 Formats and their traps: [references/harness-formats.md](references/harness-formats.md).
 

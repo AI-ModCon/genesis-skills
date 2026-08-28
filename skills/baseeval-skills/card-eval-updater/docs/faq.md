@@ -28,13 +28,15 @@ Two cases, both deliberate.
 `pretrained`, `model`, `path`, or `engine` in `model_args`. A custom model class
 ignores those arguments, so any value there describes something other than what
 ran — often a wrapper script's leftover default. The parser discards the name
-and asks for `--model-id`.
+and refuses until you supply `--model-id` or `--allow-unknown-model`.
 
 **No identifying argument at all.** lm-eval then falls back to
 `random_name_id()`, an eight-character nonce. That is not a model identity.
 
-NeMo-Skills records no model identity anywhere, so `--model-id` is always
-required there.
+NeMo-Skills records no model identity anywhere, so it always needs either
+`--model-id` or `--allow-unknown-model`. Without one of the two the parser
+refuses rather than emitting a bundle no one can attribute; with
+`--allow-unknown-model` the card states that the identity is unknown.
 
 In every case a supplied identity is marked operator-supplied, and the card
 states that it could not be verified against the run.

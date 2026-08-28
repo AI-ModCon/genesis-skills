@@ -54,13 +54,14 @@ Both scores sit at or below the 0.25 random baseline. The `acc`/`acc_norm` gap
 (0.042) is well inside the ~0.09 standard error, so on 24 items it is not
 evidence of anything; the plan flags differences under ~0.18 as noise.
 
-> **Portability note.** The absolute path the skill originally emitted pointed at
-> the checkout it was generated on. It has been redacted to the placeholder
-> `/path/to/card-eval-updater/...` in
-> [`tasks/beamline_qa/beamline_qa.yaml`](tasks/beamline_qa/beamline_qa.yaml),
-> in the recorded run config, and in the artifact paths carried by
-> [`bundle.json`](bundle.json) and the model card. Substitute your own checkout
-> path before re-running. The scores and every other field are untouched.
+> **Portability note.** The parser records the run path as supplied, so
+> [`bundle.json`](bundle.json) and the model card carry paths relative to the skill
+> root and reproduce byte-for-byte on any machine. The dataset path baked into the
+> committed harness artifact is a different matter: it pointed at the checkout the
+> run was generated on and is redacted to `/path/to/card-eval-updater/...` in
+> [`tasks/beamline_qa/beamline_qa.yaml`](tasks/beamline_qa/beamline_qa.yaml) and in
+> the recorded run config. Substitute your own checkout path before re-running that
+> evaluation. The scores and every other field are untouched.
 
 ## Friction worth knowing about
 
