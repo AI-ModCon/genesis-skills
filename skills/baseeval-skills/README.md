@@ -35,7 +35,7 @@ Fernando Llorente (BNL) and Eric Chagnon (LBNL). See
 
 ### `card-eval-updater/` (1)
 
-Turns an evaluation run into documentation. Authored by Fernando Llorente (BNL).
+Turns an evaluation run into documentation. Authored by Fernando Llorente (BNL); see [`card-eval-updater/README.md#attribution`](card-eval-updater/README.md#attribution).
 Licensed **Apache-2.0** rather than the repository's root BSD-2-Clause — see
 [`card-eval-updater/LICENSE`](card-eval-updater/LICENSE).
 
