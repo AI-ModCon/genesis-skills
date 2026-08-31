@@ -1,7 +1,7 @@
 # Bundle → card mapping
 
 How eval bundle fields land in the BPSW model card
-(`modcon-bpsw/cards/templates/model-card.md` in `https://gitlab.osti.gov/genesis`).
+(`modcon-bpsw/cards/templates/model-card.md` in `{}`).
 
 ## Sections written
 
