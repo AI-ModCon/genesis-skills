@@ -91,6 +91,6 @@
     }
   ],
   "_warnings": [
-    "lm-eval recorded model_name='lexical-overlap-baseline-v1.0', but the model type was 'lexical-overlap' - a custom class for which model_args does not identify the weights. That name may be a leftover default naming a model that never ran, so it was discarded. Pass --model-id."
+    "lm-eval recorded model_name='lexical-overlap-baseline-v1.0', but the model type was 'lexical-overlap' - a custom class for which model_args does not identify the weights. That name may be a leftover default naming a model that never ran, so it was discarded."
   ]
 }

@@ -20,6 +20,19 @@ limit. If the partial run genuinely needs recording, `--allow-partial` labels it
 as partial in every section where a number appears, and the validator enforces
 that the label survives.
 
+## Why was my path refused for holding more than one harness?
+
+Because a bundle records one run. Detection searches the whole tree, so pointing
+at a parent directory that holds, say, an lm-eval run beside a NeMo-Skills run
+matches twice. Returning whichever matched first would build a card from one of
+them and drop the other without saying so — a card missing half its benchmarks,
+with nothing to indicate anything was lost.
+
+Point at the individual run directory instead. Note that running the tool twice
+over the same card does not combine the two: the generated block is rendered
+from one bundle, so a second pass replaces the first one's results rather than
+adding to them. Reporting two harnesses in a single card is not supported today.
+
 ## Why is `model.id` empty when the harness clearly named a model?
 
 Two cases, both deliberate.

@@ -45,6 +45,11 @@ knowing which harness you have tells you what to expect:
 | nemo-evaluator-launcher | `<task>/artifacts/results.yml` | Wraps three sub-frameworks; `framework_name` is in `run_config.yml` |
 | NeMo-Skills | `metrics.json` from `ns eval` / `ns robust_eval` | No model identity anywhere; percentages not fractions |
 
+Point at **one** run. Detection searches the whole tree, so a parent directory
+holding two runs is refused rather than parsed as whichever harness matched
+first — a bundle records a single run, and the other one could only be dropped
+silently.
+
 Runs produced by the `lm-eval-harness-skills` configuration skills need nothing
 special — they shell out to stock `lm_eval --output_path ... --log_samples`.
 

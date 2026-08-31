@@ -273,17 +273,32 @@ def _nemo_skills_file(path: Path) -> Path | None:
     return None
 
 
+# Detection probes, in the order they are tried. Each returns a truthy value
+# when `path` holds output from that harness.
+_DETECTORS = (
+    ("lm-evaluation-harness", _lm_eval_files),
+    ("nemo-evaluator-launcher", _eval_factory_tasks),
+    ("nemo-skills", _nemo_skills_file),
+)
+
+
 def detect(path: Path) -> str:
-    if _lm_eval_files(path):
-        return "lm-evaluation-harness"
-    if _eval_factory_tasks(path):
-        return "nemo-evaluator-launcher"
-    if _nemo_skills_file(path):
-        return "nemo-skills"
-    raise ParseError(
-        f"{path} does not look like output from any supported harness "
-        "(lm-evaluation-harness, nemo-evaluator-launcher, nemo-skills)."
-    )
+    # Every probe searches the whole tree, so a parent holding two runs matches
+    # twice. A bundle records one `run.harness`, so the second run could only be
+    # dropped silently - refuse and let the caller name the run they meant.
+    found = [name for name, probe in _DETECTORS if probe(path)]
+    if len(found) > 1:
+        raise ParseError(
+            f"{path} holds output from more than one harness ({', '.join(found)}). "
+            "A bundle describes a single run: point at one run directory rather "
+            "than a parent holding several."
+        )
+    if not found:
+        raise ParseError(
+            f"{path} does not look like output from any supported harness "
+            "(lm-evaluation-harness, nemo-evaluator-launcher, nemo-skills)."
+        )
+    return found[0]
 
 
 # --------------------------------------------------------------------------
@@ -319,7 +334,7 @@ def parse_lm_eval(path: Path) -> dict:
             f"lm-eval recorded model_name={untrusted!r}, but the model type was "
             f"{model_type!r} - a custom class for which model_args does not "
             "identify the weights. That name may be a leftover default naming a "
-            "model that never ran, so it was discarded. Pass --model-id."
+            "model that never ran, so it was discarded."
         )
     if _is_generated_model_name(model_id, model_args):
         # lm-eval derives model_name from peft/delta/pretrained/model/path/engine
