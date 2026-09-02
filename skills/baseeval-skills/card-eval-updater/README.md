@@ -1,7 +1,7 @@
 # card-eval-updater
 
 [![CI](https://github.com/AI-ModCon/BaseEval_card-eval-updater_DEV/actions/workflows/ci.yml/badge.svg)](https://github.com/AI-ModCon/BaseEval_card-eval-updater_DEV/actions/workflows/ci.yml)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](../LICENSE)
 
 An [Agent Skill](https://agentskills.io) that distills evaluation-harness output
 into the evaluation sections of a Genesis/BPSW model card.
@@ -117,6 +117,6 @@ This directory is a vendored copy of
 `scripts/`, `references/`, and `examples/` are unmodified. The upstream `tests/`
 directory is not vendored — it lives in the development repository — so this
 file, `docs/getting_started.md`, and one line of `SKILL.md`'s References section
-are adapted to this layout. Licensed Apache-2.0 — see [`LICENSE`](LICENSE), which governs this
-directory in place of the repository's root BSD-2-Clause, as described in the
-root [`NOTICE`](../../../NOTICE).
+are adapted to this layout. Licensed Apache-2.0 as part of the
+`skills/baseeval-skills/` subtree — see [`../LICENSE`](../LICENSE), which
+governs this directory as described in the root [`NOTICE`](../../../NOTICE).

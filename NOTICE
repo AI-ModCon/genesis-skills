@@ -24,19 +24,13 @@ Known third-party subtrees at the time of this writing:
                                     information accompanied these skills.
                                     See skills/amsc-skills/ATTRIBUTION.md.
 
-  skills/baseeval-skills/           Sourced from the ModCon Base Eval project.
-                                    No explicit license was found in the
-                                    upstream repository at the time of
-                                    inclusion. See
+  skills/baseeval-skills/           Sourced from the ModCon Base Eval project
+                                    and related development repositories.
+                                    This subtree includes an Apache-2.0
+                                    LICENSE at skills/baseeval-skills/LICENSE,
+                                    which is authoritative for this subtree
+                                    and its descendants. See
                                     skills/baseeval-skills/README.md.
-
-  skills/baseeval-skills/card-eval-updater/
-                                    Sourced from the ModCon BaseEval
-                                    card-eval-updater development
-                                    repository. This subtree includes its
-                                    own LICENSE file (Apache-2.0), which is
-                                    authoritative for the subtree and
-                                    supersedes the repository root license.
 
   skills/modcon-data-skills/        Sourced from the ModCon Base Data project.
                                     No explicit license was found in the

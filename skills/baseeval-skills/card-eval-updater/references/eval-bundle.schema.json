@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gitlab.osti.gov/genesis/genesis-skills/card-eval-updater/eval-bundle.schema.json",
+  "$id": "https://github.com/AI-ModCon/genesis-skills/blob/main/skills/baseeval-skills/card-eval-updater/references/eval-bundle.schema.json",
   "title": "Eval Bundle",
   "description": "Canonical, harness-independent representation of a single evaluation run. Produced by parse_eval_results.py; consumed by per-audience renderers (model card, SIM, SAFE, leaderboard). Numbers in this document are extracted deterministically from harness artifacts and are never model-generated.",
   "type": "object",
