@@ -91,6 +91,7 @@ genesis-skills/
 │   ├── literature-search/SKILL.md
 │   ├── multi-agent-systems/SKILL.md
 │   ├── basesafe-skills/        # AI safety analysis workflows (5)
+│   ├── baseeval-skills/        # evaluation workflow skills and card updater
 │   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
 │   ├── plasma-sim-skills/      # gs2, gkeyll (2)
 │   ├── modcon-data-skills/     # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert (4)
