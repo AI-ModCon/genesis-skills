@@ -1,0 +1,33 @@
+## Custom lm-evaluation-harness task.
+##
+## This is the kind of file the `configuration-implementor` skill (from
+## baseeval-skills/lm-eval-harness-skills) produces. It is included here so the
+## example runs end to end; in a real workflow you would generate it with that
+## skill rather than write it by hand.
+##
+## Registered by passing --include_path to this directory.
+
+task: beamline_qa
+dataset_path: json
+dataset_kwargs:
+  data_files:
+    test: data/beamline_qa.jsonl
+test_split: test
+output_type: multiple_choice
+
+doc_to_text: "Question: {{question}}\nAnswer:"
+doc_to_choice: "{{choices}}"
+doc_to_target: "{{answer_index}}"
+
+metric_list:
+  - metric: acc
+    aggregation: mean
+    higher_is_better: true
+
+metadata:
+  version: 1.0
+  description: >-
+    24 four-way multiple-choice questions on synchrotron light-source science:
+    accelerator physics, beamline optics, and X-ray techniques. Correct-answer
+    positions were shuffled with a fixed seed, so the majority-position baseline
+    is 8/24.

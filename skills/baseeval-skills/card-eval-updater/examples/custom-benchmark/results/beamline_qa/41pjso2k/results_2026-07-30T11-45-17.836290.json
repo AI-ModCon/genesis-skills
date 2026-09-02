@@ -1,0 +1,109 @@
+{
+  "results": {
+    "beamline_qa": {
+      "alias": "beamline_qa",
+      "acc,none": 0.20833333333333334,
+      "acc_stderr,none": 0.08468112965594378
+    }
+  },
+  "group_subtasks": {
+    "beamline_qa": []
+  },
+  "configs": {
+    "beamline_qa": {
+      "task": "beamline_qa",
+      "dataset_path": "json",
+      "dataset_kwargs": {
+        "data_files": {
+          "test": "data/beamline_qa.jsonl"
+        }
+      },
+      "test_split": "test",
+      "doc_to_text": "Question: {{question}}\nAnswer:",
+      "doc_to_target": "{{answer_index}}",
+      "unsafe_code": false,
+      "doc_to_choice": "{{choices}}",
+      "description": "",
+      "target_delimiter": " ",
+      "fewshot_delimiter": "\n\n",
+      "fewshot_config": {
+        "sampler": "default",
+        "split": null,
+        "process_docs": null,
+        "fewshot_indices": null,
+        "samples": null,
+        "doc_to_text": "Question: {{question}}\nAnswer:",
+        "doc_to_choice": "{{choices}}",
+        "doc_to_target": "{{answer_index}}",
+        "gen_prefix": null,
+        "fewshot_delimiter": "\n\n",
+        "target_delimiter": " "
+      },
+      "num_fewshot": 0,
+      "metric_list": [
+        {
+          "metric": "acc",
+          "aggregation": "mean",
+          "higher_is_better": true
+        }
+      ],
+      "output_type": "multiple_choice",
+      "repeats": 1,
+      "should_decontaminate": false,
+      "metadata": {
+        "version": 1.0,
+        "description": "24 four-way multiple-choice questions on synchrotron light-source science: accelerator physics, beamline optics, and X-ray techniques. Correct-answer positions were shuffled with a fixed seed, so the majority-position baseline is 8/24."
+      }
+    }
+  },
+  "versions": {
+    "beamline_qa": 1.0
+  },
+  "n-shot": {
+    "beamline_qa": 0
+  },
+  "higher_is_better": {
+    "beamline_qa": {
+      "acc": true
+    }
+  },
+  "n-samples": {
+    "beamline_qa": {
+      "original": 24,
+      "effective": 24
+    }
+  },
+  "config": {
+    "model": "lexical-overlap",
+    "model_args": {},
+    "batch_size": 1,
+    "batch_sizes": [],
+    "device": "cuda:0",
+    "use_cache": null,
+    "limit": null,
+    "bootstrap_iters": 100000,
+    "gen_kwargs": {},
+    "random_seed": 0,
+    "numpy_seed": 1234,
+    "torch_seed": 1234,
+    "fewshot_seed": 1234
+  },
+  "git_hash": null,
+  "date": 1785426313.892051,
+  "pretty_env_info": "PyTorch version: 2.5.0\nIs debug build: False\nCUDA used to build PyTorch: None\nROCM used to build PyTorch: N/A\n\nOS: macOS 26.5.2 (arm64)\nGCC version: Could not collect\nClang version: 21.0.0 (clang-2100.1.1.101)\nCMake version: Could not collect\nLibc version: N/A\n\nPython version: 3.10.16 (main, Dec 11 2024, 10:22:29) [Clang 14.0.6 ] (64-bit runtime)\nPython platform: macOS-26.5.2-arm64-arm-64bit\nIs CUDA available: False\nCUDA runtime version: No CUDA\nCUDA_MODULE_LOADING set to: N/A\nGPU models and configuration: No CUDA\nNvidia driver version: No CUDA\ncuDNN version: No CUDA\nHIP runtime version: N/A\nMIOpen runtime version: N/A\nIs XNNPACK available: True\n\nCPU:\nApple M4 Max\n\nVersions of relevant libraries:\n[pip3] botorch==0.16.1\n[pip3] gpytorch==1.14.2\n[pip3] msgpack-numpy==0.4.8\n[pip3] mypy-extensions==1.0.0\n[pip3] numpy==1.26.4\n[pip3] numpydoc==1.10.0\n[pip3] optree==0.15.0\n[pip3] pytorch-lightning==2.5.1\n[pip3] torch==2.9.1\n[pip3] torchaudio==2.5.1\n[pip3] torchmetrics==1.7.0\n[pip3] torchvision==0.20.0\n[conda] numpy                     1.26.4                   pypi_0    pypi\n[conda] torch                     2.10.0                   pypi_0    pypi",
+  "transformers_version": "N/A",
+  "lm_eval_version": "0.4.10",
+  "upper_git_hash": null,
+  "task_hashes": {
+    "beamline_qa": "226f64d07989b7498fc88867eb42d15bc47e2560a4b0de6362e8ce1edf6d04b4"
+  },
+  "model_source": "lexical-overlap",
+  "model_name": "41pjso2k",
+  "model_name_sanitized": "41pjso2k",
+  "system_instruction": null,
+  "system_instruction_sha": null,
+  "fewshot_as_multiturn": null,
+  "chat_template": null,
+  "chat_template_sha": null,
+  "total_evaluation_time_seconds": "5.770390125000631"
+}

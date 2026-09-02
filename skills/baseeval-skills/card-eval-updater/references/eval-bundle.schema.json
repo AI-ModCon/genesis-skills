@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gitlab.osti.gov/genesis/genesis-skills/card-eval-updater/eval-bundle.schema.json",
+  "title": "Eval Bundle",
+  "description": "Canonical, harness-independent representation of a single evaluation run. Produced by parse_eval_results.py; consumed by per-audience renderers (model card, SIM, SAFE, leaderboard). Numbers in this document are extracted deterministically from harness artifacts and are never model-generated.",
+  "type": "object",
+  "required": ["schema_version", "run", "model", "results"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Contract version. Downstream renderers should refuse bundles with an unknown major version."
+    },
+    "run": {
+      "type": "object",
+      "required": ["harness", "artifact_root"],
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {"type": ["string", "null"], "description": "Harness-assigned run identifier, or the timestamped directory name."},
+        "harness": {
+          "type": "string",
+          "enum": ["lm-evaluation-harness", "nemo-evaluator-launcher", "nemo-skills"],
+          "description": "Which harness produced the run."
+        },
+        "harness_version": {"type": ["string", "null"]},
+        "framework": {
+          "type": ["string", "null"],
+          "description": "For nemo-evaluator-launcher only: the wrapped sub-framework, from run_config.yml (bigcode-evaluation-harness | lm-evaluation-harness | simple_evals)."
+        },
+        "git_hash": {"type": ["string", "null"]},
+        "date": {"type": ["string", "null"], "description": "ISO 8601 UTC."},
+        "runtime_seconds": {"type": ["number", "null"]},
+        "artifact_root": {"type": "string", "description": "Path the run was parsed from, as supplied to the parser."}
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": ["string", "null"], "description": "Model identifier. Null only when the harness records none and the caller supplied none."},
+        "base_model": {"type": ["string", "null"]},
+        "num_parameters": {"type": ["integer", "null"]},
+        "dtype": {"type": ["string", "null"]},
+        "endpoint_url": {"type": ["string", "null"]},
+        "api_type": {"type": ["string", "null"], "description": "chat | completions | null."},
+        "source": {"type": ["string", "null"], "description": "e.g. hf, nim-chat, nim-base."},
+        "id_provenance": {
+          "type": "string",
+          "enum": ["harness", "user"],
+          "description": "Whether model.id came from the artifacts or was supplied via --model-id. 'user' values are unverified against the run."
+        }
+      }
+    },
+    "compute": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "device": {"type": ["string", "null"]},
+        "batch_size": {"type": ["string", "integer", "null"]},
+        "hardware_note": {"type": ["string", "null"]}
+      }
+    },
+    "audit": {
+      "type": "object",
+      "description": "Signals for error analysis and auditing. Populated opportunistically; absent keys mean the harness did not record them.",
+      "additionalProperties": false,
+      "properties": {
+        "no_answer_rate": {"type": ["number", "null"], "description": "Fraction of items with no parseable answer."},
+        "finish_reason": {"type": ["object", "null"], "additionalProperties": {"type": "integer"}},
+        "status_codes": {"type": ["object", "null"], "additionalProperties": {"type": "integer"}},
+        "avg_latency_ms": {"type": ["number", "null"]},
+        "avg_completion_tokens": {"type": ["number", "null"]},
+        "avg_tokens": {"type": ["number", "null"]},
+        "successful_count": {"type": ["integer", "null"]},
+        "request_count": {"type": ["integer", "null"]},
+        "llm_judge_names": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Names of LLM judges detected alongside the run (lm-eval --run_llm_judge sidecars). Presence means scores were model-assigned, which the card must disclose."
+        }
+      }
+    },
+    "results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["benchmark", "metric", "value", "scale", "is_partial"],
+        "additionalProperties": false,
+        "properties": {
+          "benchmark": {"type": "string"},
+          "variant": {"type": ["string", "null"], "description": "Prompt variant / sub-run label (NeMo-Skills robust_eval), or null."},
+          "task_yaml": {"type": ["string", "null"], "description": "Path to the custom task YAML (lm-eval --include_path runs). Required for reproducibility of non-registered tasks."},
+          "dataset_path": {"type": ["string", "null"]},
+          "dataset_name": {"type": ["string", "null"]},
+          "dataset_description": {"type": ["string", "null"], "description": "The benchmark's own description, from the task config metadata. Present for custom tasks that declare one."},
+          "metric": {"type": "string", "description": "Normalized metric name, e.g. acc, acc_norm, pass@1, symbolic_correct."},
+          "value": {"type": "number", "description": "A fraction in [0,1] when scale is fraction/percent. When scale is 'raw' this is the harness value unchanged and carries the harness's own units."},
+          "value_raw": {"type": ["number", "null"], "description": "The number as the harness reported it, before rescaling."},
+          "scale": {"type": "string", "enum": ["fraction", "percent", "raw"], "description": "Scale of value_raw as emitted by the harness. 'raw' means the metric is not a rate (perplexity, BLEU on 0-100, token counts, latency) and must not be presented as a fraction."},
+          "stderr": {"type": ["number", "null"], "description": "Rescaled to match value."},
+          "stddev": {"type": ["number", "null"]},
+          "higher_is_better": {"type": ["boolean", "null"]},
+          "num_fewshot": {"type": ["integer", "null"]},
+          "num_samples": {"type": ["integer", "null"], "description": "Items actually evaluated."},
+          "num_samples_total": {"type": ["integer", "null"], "description": "Items available in the split."},
+          "is_partial": {"type": "boolean", "description": "True when the run was limited/truncated. Partial results must be labelled wherever they are rendered."},
+          "temperature": {"type": ["number", "null"]},
+          "top_p": {"type": ["number", "null"]},
+          "max_new_tokens": {"type": ["integer", "null"]},
+          "seeds": {"type": ["array", "null"], "items": {"type": ["integer", "string"]}},
+          "num_runs": {"type": ["integer", "null"]},
+          "prompt_sensitivity": {"type": ["number", "null"], "description": "NeMo-Skills robust_eval: spread across prompt variants."},
+          "no_answer": {"type": ["number", "null"], "description": "Per-result no-answer fraction."},
+          "artifact_path": {"type": "string", "description": "File this number was read from, relative to `artifact_root`. Every rendered number must be traceable to one of these."}
+        }
+      }
+    }
+  }
+}

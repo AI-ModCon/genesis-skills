@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "run": {
+    "run_id": "41pjso2k",
+    "harness": "lm-evaluation-harness",
+    "harness_version": "0.4.10",
+    "framework": null,
+    "git_hash": null,
+    "date": "2026-07-30T15:45:13.892051Z",
+    "runtime_seconds": 5.770390125000631,
+    "artifact_root": "examples/custom-benchmark/results/beamline_qa"
+  },
+  "model": {
+    "id": "lexical-overlap-baseline v1.0",
+    "base_model": null,
+    "num_parameters": null,
+    "dtype": null,
+    "endpoint_url": null,
+    "api_type": null,
+    "source": "lexical-overlap",
+    "id_provenance": "user"
+  },
+  "compute": {
+    "device": "cuda:0",
+    "batch_size": 1,
+    "hardware_note": null
+  },
+  "audit": {},
+  "results": [
+    {
+      "benchmark": "beamline_qa",
+      "variant": null,
+      "task_yaml": null,
+      "dataset_path": "data/beamline_qa.jsonl",
+      "dataset_name": null,
+      "dataset_description": "24 four-way multiple-choice questions on synchrotron light-source science: accelerator physics, beamline optics, and X-ray techniques. Correct-answer positions were shuffled with a fixed seed, so the majority-position baseline is 8/24.",
+      "metric": "acc",
+      "value": 0.20833333333333334,
+      "value_raw": 0.20833333333333334,
+      "scale": "fraction",
+      "stderr": 0.08468112965594378,
+      "stddev": null,
+      "higher_is_better": true,
+      "num_fewshot": 0,
+      "num_samples": 24,
+      "num_samples_total": 24,
+      "is_partial": false,
+      "temperature": null,
+      "top_p": null,
+      "max_new_tokens": null,
+      "seeds": [
+        0,
+        1234,
+        1234
+      ],
+      "num_runs": null,
+      "prompt_sensitivity": null,
+      "no_answer": null,
+      "artifact_path": "41pjso2k/results_2026-07-30T11-45-17.836290.json"
+    }
+  ],
+  "_warnings": [
+    "lm-eval recorded model_name='41pjso2k', but the model type was 'lexical-overlap' - a custom class for which model_args does not identify the weights. That name may be a leftover default naming a model that never ran, so it was discarded."
+  ]
+}
