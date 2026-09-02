@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "run": {
+    "run_id": "lexical-overlap-baseline-v1.0",
+    "harness": "lm-evaluation-harness",
+    "harness_version": "0.4.10",
+    "framework": null,
+    "git_hash": null,
+    "date": "2026-07-30T16:06:34.673441Z",
+    "runtime_seconds": 4.947278875000848,
+    "artifact_root": "examples/skill-chain/results/beamline_qa"
+  },
+  "model": {
+    "id": "lexical-overlap-baseline v1.0",
+    "base_model": null,
+    "num_parameters": null,
+    "dtype": null,
+    "endpoint_url": null,
+    "api_type": null,
+    "source": "lexical-overlap",
+    "id_provenance": "user"
+  },
+  "compute": {
+    "device": "cuda:0",
+    "batch_size": 1,
+    "hardware_note": null
+  },
+  "audit": {},
+  "results": [
+    {
+      "benchmark": "beamline_qa",
+      "variant": null,
+      "task_yaml": null,
+      "dataset_path": "/path/to/card-eval-updater/examples/custom-benchmark/data/beamline_qa.jsonl",
+      "dataset_name": null,
+      "dataset_description": "24 four-way multiple-choice questions on synchrotron light-source science: accelerator physics, beamline optics, and X-ray techniques. Zero-shot. Random baseline 0.250; always-best-position baseline 0.333. Known artifact: correct answers are longer than distractors (38.8 vs 27.3 chars on average), so acc_norm is the honest headline metric and a high acc alone should not be read as domain knowledge.",
+      "metric": "acc",
+      "value": 0.20833333333333334,
+      "value_raw": 0.20833333333333334,
+      "scale": "fraction",
+      "stderr": 0.08468112965594378,
+      "stddev": null,
+      "higher_is_better": true,
+      "num_fewshot": 0,
+      "num_samples": 24,
+      "num_samples_total": 24,
+      "is_partial": false,
+      "temperature": null,
+      "top_p": null,
+      "max_new_tokens": null,
+      "seeds": [
+        0,
+        1234,
+        1234
+      ],
+      "num_runs": null,
+      "prompt_sensitivity": null,
+      "no_answer": null,
+      "artifact_path": "lexical-overlap-baseline-v1.0/results_2026-07-30T12-06-37.838784.json"
+    },
+    {
+      "benchmark": "beamline_qa",
+      "variant": null,
+      "task_yaml": null,
+      "dataset_path": "/path/to/card-eval-updater/examples/custom-benchmark/data/beamline_qa.jsonl",
+      "dataset_name": null,
+      "dataset_description": "24 four-way multiple-choice questions on synchrotron light-source science: accelerator physics, beamline optics, and X-ray techniques. Zero-shot. Random baseline 0.250; always-best-position baseline 0.333. Known artifact: correct answers are longer than distractors (38.8 vs 27.3 chars on average), so acc_norm is the honest headline metric and a high acc alone should not be read as domain knowledge.",
+      "metric": "acc_norm",
+      "value": 0.25,
+      "value_raw": 0.25,
+      "scale": "fraction",
+      "stderr": 0.09028938981432691,
+      "stddev": null,
+      "higher_is_better": true,
+      "num_fewshot": 0,
+      "num_samples": 24,
+      "num_samples_total": 24,
+      "is_partial": false,
+      "temperature": null,
+      "top_p": null,
+      "max_new_tokens": null,
+      "seeds": [
+        0,
+        1234,
+        1234
+      ],
+      "num_runs": null,
+      "prompt_sensitivity": null,
+      "no_answer": null,
+      "artifact_path": "lexical-overlap-baseline-v1.0/results_2026-07-30T12-06-37.838784.json"
+    }
+  ],
+  "_warnings": [
+    "lm-eval recorded model_name='lexical-overlap-baseline-v1.0', but the model type was 'lexical-overlap' - a custom class for which model_args does not identify the weights. That name may be a leftover default naming a model that never ran, so it was discarded."
+  ]
+}
