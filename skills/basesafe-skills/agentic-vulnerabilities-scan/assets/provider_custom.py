@@ -9,6 +9,7 @@ from contextlib import contextmanager
 import inspect
 import json
 import os
+import re
 from typing import Iterator, TypedDict
 
 
@@ -19,18 +20,24 @@ class ProviderResponse(TypedDict, total=False):
     conversationEndReason: str
 
 
+_target_lock = asyncio.Lock()
+
+
 @contextmanager
-def temporary_environment(values: dict[str, str]) -> Iterator[None]:
-    previous = {key: os.environ.get(key) for key in values}
-    os.environ.update(values)
+def target_environment(values: dict[str, str]) -> Iterator[None]:
+    """Expose only configured target variables while target code is running."""
+    previous = os.environ.copy()
+    environment = {"PATH": previous["PATH"]} if "PATH" in previous else {}
+    for key, value in values.items():
+        if re.fullmatch(r"[A-Z_][A-Z0-9_]*", str(key)):
+            environment[str(key)] = str(value)
+    os.environ.clear()
+    os.environ.update(environment)
     try:
         yield
     finally:
-        for key, value in previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+        os.environ.clear()
+        os.environ.update(previous)
 
 
 async def call_api(prompt: str, options: dict, context: dict) -> ProviderResponse:
@@ -46,14 +53,15 @@ async def call_api(prompt: str, options: dict, context: dict) -> ProviderRespons
         return {"output": "", "error": "Invalid provider configuration."}
 
     try:
-        with temporary_environment({str(key): str(value) for key, value in config.items()}):
-            # TODO: import the real target here and construct it once per call.
-            # Example: from target import Agent; agent = Agent()
-            # Do not execute both forms below: use one interface for the target.
-            raise NotImplementedError("Customize this provider for the target.")
-            # response = agent.process_messages(messages)
-            # if inspect.isawaitable(response):
-            #     response = await response
+        async with _target_lock:
+            with target_environment(config):
+                # TODO: import the real target here and construct it once per call.
+                # Example: from target import Agent; agent = Agent()
+                # Do not execute both forms below: use one interface for the target.
+                raise NotImplementedError("Customize this provider for the target.")
+                # response = agent.process_messages(messages)
+                # if inspect.isawaitable(response):
+                #     response = await response
 
         # TODO: adapt this mapping to the documented target response schema.
         # return {"output": response["reply"], "conversationEnded": False}

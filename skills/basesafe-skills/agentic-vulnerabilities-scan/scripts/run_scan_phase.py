@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 
+from promptfoo_environment import promptfoo_environment
+
 
 def promptfoo_command(phase: str) -> list[str]:
     if phase == "generate":
@@ -21,14 +23,6 @@ def promptfoo_command(phase: str) -> list[str]:
         "--max-concurrency",
         "1",
     ]
-
-
-def promptfoo_environment(phase: str) -> dict[str, str]:
-    """Treat failed red-team assertions as findings, not runner failures."""
-    environment = os.environ.copy()
-    if phase == "evaluate":
-        environment["PROMPTFOO_FAILED_TEST_EXIT_CODE"] = "0"
-    return environment
 
 
 def main() -> None:
