@@ -9,12 +9,12 @@ running a scan.
 """
 
 import asyncio
-from contextlib import contextmanager
 import json
 import os
+import re
 import shlex
 import subprocess
-from typing import Iterator, TypedDict
+from typing import TypedDict
 
 
 class ProviderResponse(TypedDict, total=False):
@@ -23,18 +23,13 @@ class ProviderResponse(TypedDict, total=False):
     conversationEnded: bool
 
 
-@contextmanager
-def temporary_environment(values: dict[str, str]) -> Iterator[None]:
-    previous = {key: os.environ.get(key) for key in values}
-    os.environ.update(values)
-    try:
-        yield
-    finally:
-        for key, value in previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+def target_environment(config: dict) -> dict[str, str]:
+    """Build the target environment from provider config, not ambient secrets."""
+    environment = {"PATH": os.environ["PATH"]} if "PATH" in os.environ else {}
+    for key, value in config.items():
+        if re.fullmatch(r"[A-Z_][A-Z0-9_]*", str(key)):
+            environment[str(key)] = str(value)
+    return environment
 
 
 def prompt_text(prompt: str) -> str:
@@ -58,16 +53,15 @@ async def call_api(prompt: str, options: dict, context: dict) -> ProviderRespons
         if not command:
             raise ValueError("empty command")
         target_dir = config.get("AGENTIC_SCAN_TARGET_DIR", ".")
-        with temporary_environment({str(key): str(value) for key, value in config.items()}):
-            result = await asyncio.to_thread(
-                subprocess.run,
-                command,
-                cwd=target_dir,
-                capture_output=True,
-                text=True,
-                timeout=300,
-                env=os.environ.copy(),
-            )
+        result = await asyncio.to_thread(
+            subprocess.run,
+            command,
+            cwd=target_dir,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            env=target_environment(config),
+        )
         if result.returncode:
             return {"output": "", "error": "Target command failed.", "conversationEnded": True}
 

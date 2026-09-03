@@ -39,6 +39,11 @@ Set non-empty `PROMPTFOO_HOST` and `PROMPTFOO_API_KEY` for the exact Promptfoo h
 Its value is a comma-separated list of variable *names*, not values. Each named variable must already exist in the current sandbox environment.
 Do not list unrelated sandbox variables, as every listed value becomes part of the sensitive scan workspace configuration.
 
+Promptfoo subprocesses receive a separate fixed allowlist containing only its
+runtime/configuration directories, Promptfoo authentication and generation
+settings, and the OpenAI-compatible provider settings. Unrelated ambient
+environment variables are not passed to Promptfoo.
+
 **Optional scan settings**
 
 - Set `AGENTIC_SCAN_DIR` only to a dedicated subdirectory of the target repository; otherwise the default is `.agentic-vulnerabilities-scan`.
