@@ -7,9 +7,9 @@ set -euo pipefail
 task_name="$1"
 path_to_tasks="$2"
 model="${3:-${LM_EVAL_MODEL:-hf}}"
-model_args="${4:-${EVAL_MODEL_ARGS:-${LM_EVAL_MODEL_ARGS:-}}}"
+model_args="${4:-${LM_EVAL_MODEL_ARGS:-}}"
 if [ -z "$model_args" ]; then
-  echo "error: EVAL_MODEL_ARGS is required. Ask the user which model to use and set it before running." >&2
+  echo "error: model_args is required (pass as the 4th arg or set LM_EVAL_MODEL_ARGS)." >&2
   exit 64
 fi
 limit="${5:-${LM_EVAL_LIMIT:-5}}"
