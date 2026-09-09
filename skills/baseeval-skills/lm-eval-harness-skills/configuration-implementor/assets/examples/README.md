@@ -9,4 +9,5 @@
 
 ## Advanced Examples
 * `eq_bench`: example of calculating a custom metric in `utils.py`.
+* `pisa`: example of implementing LLM-as-a-judge metrics.
 * `common_patterns`: **examples of regex extraction, utility functions, templates vs functions, and data preprocessing patterns**. See this for edge cases and advanced techniques.

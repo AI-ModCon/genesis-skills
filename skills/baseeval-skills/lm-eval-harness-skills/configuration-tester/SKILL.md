@@ -98,10 +98,12 @@ Manually verify at least 3 samples:
 ## test_config.sh
 
 ```
-./test_config.sh <benchmark_name> <path_to_task_directory> [model] [model_args] [limit]
+./test_config.sh <benchmark_name> <path_to_task_directory> [model] [model_args] [limit] [apply_chat_template]
 ```
 
-Defaults may also be supplied via `LM_EVAL_MODEL`, `LM_EVAL_MODEL_ARGS`, and `LM_EVAL_LIMIT`.
+Defaults may also be supplied via `LM_EVAL_MODEL`, `LM_EVAL_MODEL_ARGS`, `LM_EVAL_LIMIT`, and `LM_EVAL_APPLY_CHAT_TEMPLATE`.
+
+Set `apply_chat_template` to `true` (or `LM_EVAL_APPLY_CHAT_TEMPLATE=true`) to pass `--apply_chat_template` to `lm_eval`. Use this when the model requires chat formatting (e.g., instruction-tuned models with a chat template). Defaults to `false`.
 
 ## display_sample_results.py
 

@@ -1,6 +1,40 @@
 # Troubleshooting Guide
 
 This guide documents common failure modes when creating lm-evaluation-harness configurations and how to recover from them.
+## Endpoint and backend failures
+
+### `openai-chat-completions`: full endpoint path and `--apply_chat_template`
+
+lm-eval posts directly to `self.base_url` — it does not append `/chat/completions`.
+Passing only a base URL (e.g., `https://host/v1`) returns 404. Pass the full path:
+
+```bash
+--model_args "base_url=https://host/v1/chat/completions,model=<id>,api_key=<key>"
+```
+
+Also pass `--apply_chat_template`; without it the run fails with an assertion error
+before any API calls are made.
+
+See `../../configuration-implementor/references/footguns.md` for
+the full `openai-chat-completions` rules.
+
+---
+
+## Triage map
+
+Start with the shared validation protocol: a rendered-prompt, empty/uniform
+output, parser-wide, metric, or count problem is a validity failure before it
+is a harness problem. Then use the matching section below:
+
+| Symptom | First section |
+| --- | --- |
+| Task missing, YAML, template, or import failure | Common Errors During Testing |
+| Dataset/split/configuration failure | Data Loading Issues |
+| Slow run or OOM | Performance Issues |
+| Need a reproducible diagnostic sequence | Debugging Strategies |
+
+For task-schema details, use the implementor's `new_task_guide.md`,
+`task_guide.md`, and `footguns.md`; this page is the symptom-to-recovery index.
 
 ## Common Errors During Testing
 
@@ -304,7 +338,7 @@ This shows:
 Ask the user for guidance when:
 
 1. **After 3 failed fix attempts** - you might be missing context about the task requirements
-2. **Ambiguous evaluation semantics** - unclear what "correct" means
+2. **Ambiguous evaluation criteria** - unclear what "correct" means
 3. **Data quality issues** - dataset has significant problems that affect validity
 4. **Performance tradeoffs** - multiple valid approaches with unclear preferences
 5. **Missing information** - need clarification on task specifications
