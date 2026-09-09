@@ -36,17 +36,7 @@ None.
 #### Tasks
 
 * `pisa_en`
-* `pisa_de`
-* `pisa_es`
-* `pisa_fr`
-* `pisa_it`
-* `pisa_ch`
 * `pisa_en_llm_judged`
-* `pisa_de_llm_judged`
-* `pisa_es_llm_judged`
-* `pisa_fr_llm_judged`
-* `pisa_it_llm_judged`
-* `pisa_ch_llm_judged`
 
 ### Checklist
 

@@ -218,7 +218,7 @@ def parse_multi_choice_response(response, all_choices, index2ans):
 
 def extract_numbers(string):
     """
-    Exact all forms of numbers from a string with regex.
+    Extract all forms of numbers from a string with regex.
     """
     # Pattern for numbers with commas
     pattern_commas = r"-?\b\d{1,3}(?:,\d{3})+\b"
