@@ -24,11 +24,11 @@ Known third-party subtrees at the time of this writing:
                                     information accompanied these skills.
                                     See skills/amsc-skills/ATTRIBUTION.md.
 
-  skills/modcon-data-skills/        Sourced from the ModCon Base Data project.
+  skills/basedata-skills/          Sourced from the ModCon Base Data project.
                                     No explicit license was found in the
                                     upstream repository at the time of
                                     inclusion. See
-                                    skills/modcon-data-skills/ATTRIBUTION.md.
+                                    skills/basedata-skills/ATTRIBUTION.md.
 
 This list is informational and may not be exhaustive. Always check for
 a LICENSE file in any subdirectory before assuming the root license

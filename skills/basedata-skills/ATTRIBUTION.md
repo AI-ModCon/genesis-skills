@@ -1,6 +1,6 @@
 # Attribution
 
-The skills in this directory were sourced from the **ModCon Base Data** project.
+The skills in this directory belong to the **ModCon Base Data** project. `skill-creator` is maintained in this directory. The other four were sourced from the upstream repository below.
 
 **Original repository:** https://github.com/AI-ModCon/BaseData_Skills
 
@@ -13,3 +13,6 @@ Skills included:
 - `datacard-generator` — Generate MODCON data cards at readiness levels L1–L3
 - `hdmf-schema-builder` — Create HDMF schemas for organizing HDF5 data files
 - `well-convert` — Convert a simulation dataset to the Well HDF5 format (preprocess, inspect, plan, generate scripts, run, monitor)
+
+Maintained here (not sourced from the upstream repository):
+- `skill-creator` — Author a new Agent Skill (a `SKILL.md` directory) from a template and save it where the agent discovers it
