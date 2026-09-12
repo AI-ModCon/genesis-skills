@@ -16,3 +16,8 @@ Skills included:
 
 Maintained here (not sourced from the upstream repository):
 - `skill-creator` — Author a new Agent Skill (a `SKILL.md` directory) from a template and save it where the agent discovers it
+- `coding` — Rules and procedures for writing, changing, and removing code: simplicity, encapsulation, failure handling, structure, verification, and the commit procedure
+- `documentation` — Which document holds a fact, and the shape of a docstring, comment, README, repository `CLAUDE.md`, development plan, and decision-log entry
+- `cleanup` — Bring a repository's documents, memories, and `CLAUDE.md` back in line with its code, with a mechanical drift check and a ledger
+- `autodocs` — Set up or extend a MkDocs documentation site with the API reference generated from docstrings and a strict CI build
+- `write-like-aaron` — Direct technical prose for papers, READMEs, docstrings, comments, commit messages, and replies

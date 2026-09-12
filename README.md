@@ -93,7 +93,7 @@ genesis-skills/
 │   ├── basesafe-skills/        # AI safety analysis workflows (5)
 │   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
 │   ├── plasma-sim-skills/      # gs2, gkeyll (2)
-│   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator (5)
+│   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator, coding, documentation, cleanup, autodocs, write-like-aaron (10)
 │   └── amsc-skills/            # amsc-python-client, iri-api, i2-api, globus-compute, ... (6)
 ├── CONTRIBUTING.md
 ├── LICENSE
