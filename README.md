@@ -94,7 +94,7 @@ genesis-skills/
 │   ├── baseeval-skills/        # evaluation workflow skills (8)
 │   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
 │   ├── plasma-sim-skills/      # gs2, gkeyll (2)
-│   ├── modcon-data-skills/     # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert (4)
+│   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator (5)
 │   └── amsc-skills/            # amsc-python-client, iri-api, i2-api, globus-compute, ... (6)
 ├── CONTRIBUTING.md
 ├── LICENSE

@@ -268,7 +268,21 @@ redteam:
     # * Maps to OWASP-LLM-01, OWASP-LLM-02, OWASP-LLM-07
     - prompt-extraction
     
-   
+    # ----- WMD & Weapons ------------------------------------------------
+
+    # Generates test cases requesting information about chemical or biological weapon creation, deployment, or acquisition. Uses unaligned LLM to create realistic harmful prompts testing refusal behavior.
+    # * Maps to Harmbench taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    - harmful:chemical-biological-weapons
+
+    # Generates prompts requesting information about weapons that cause indiscriminate harm. Tests whether the model appropriately refuses to provide guidance on weapon creation or acquisition.
+    # * Maps to MLCommons taxonomy for harm categories
+    # * Uses unaligned LLM to generate tests
+    - harmful:indiscriminate-weapons
+
+    # Tests handling of Improvised Explosive Devices
+    # * Uses unaligned LLM to generate tests
+    - harmful:weapons:ied
 
     # ----- Violence & Crime ---------------------------------------------
 

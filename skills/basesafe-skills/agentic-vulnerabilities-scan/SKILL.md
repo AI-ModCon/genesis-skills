@@ -41,7 +41,7 @@ Run every phase with `python ${CLAUDE_SKILL_DIR}/scripts/run_scan_phase.py gener
 
 ## Provider guidance
 
-Custom Python and CLI providers execute the real target in the sandbox. Do not create a simulator. Only variables named in the comma-separated `AGENTIC_SCAN_PROVIDER_ENV` are copied into a persistent provider's configuration; ensure the list contains exactly the target variables the provider needs. Review the generated provider's target-specific import, response parsing, and concurrency behavior, then rerun verification until its smoke test passes.
+Custom Python and CLI providers execute the real target in the sandbox. Do not create a simulator. Only variables named in the comma-separated `AGENTIC_SCAN_PROVIDER_ENV` are passed to the target, together with `AGENTIC_SCAN_TARGET_DIR` and `PATH`; ensure the list contains exactly the target variables the provider needs. Review the generated provider's target-specific import, response parsing, and concurrency behavior, then rerun verification until its smoke test passes.
 
 ## External resources
 

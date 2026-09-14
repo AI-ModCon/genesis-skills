@@ -8,13 +8,7 @@ import shutil
 import subprocess
 import sys
 
-
-def promptfoo_environment(phase: str) -> dict[str, str]:
-    """Treat failed red-team assertions as findings, not runner failures."""
-    environment = os.environ.copy()
-    if phase == "evaluate":
-        environment["PROMPTFOO_FAILED_TEST_EXIT_CODE"] = "0"
-    return environment
+from promptfoo_environment import promptfoo_environment
 
 
 def main() -> None:

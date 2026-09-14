@@ -11,6 +11,8 @@ import sys
 from urllib.error import HTTPError, URLError
 import urllib.request
 
+from promptfoo_environment import promptfoo_environment
+
 try:
     from ruyaml import YAML
 except ModuleNotFoundError:
@@ -89,7 +91,7 @@ def validate_promptfoo_config(path: Path = PROMPTFOO_CONFIG_PATH) -> None:
         capture_output=True,
         text=True,
         timeout=300,
-        env=os.environ,
+        env=promptfoo_environment(),
     )
     if result.returncode:
         match = re.search(r"Debug log: (.*\.log)", result.stdout)
@@ -205,7 +207,7 @@ def preflight_validate() -> None:
         capture_output=True,
         text=True,
         timeout=300,
-        env=os.environ,
+        env=promptfoo_environment(),
     )
     if result.returncode:
         raise safe_error("Promptfoo authentication failed")
