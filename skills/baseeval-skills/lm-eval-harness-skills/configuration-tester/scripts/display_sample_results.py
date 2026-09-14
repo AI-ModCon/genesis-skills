@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import textwrap
-import glob
 import argparse
 
 TRUNCATE_LEN = 10000
@@ -143,7 +142,7 @@ def display_dict_fields(data: Dict[str, Any], title: str, exclude_keys: set = No
         print('\n')
 
 
-def display_sample(sample: Dict[str, Any], sample_num: int, total_samples: int, judge_data_list: Optional[List] = None, width: int = 95):
+def display_sample(sample: Dict[str, Any], sample_num: int, total_samples: int, width: int = 95):
     """Display a single sample based on its structure."""
     doc_id = sample.get('doc_id', 'Unknown')
 
@@ -156,11 +155,6 @@ def display_sample(sample: Dict[str, Any], sample_num: int, total_samples: int, 
         display_multiple_choice_sample(sample, width=width)
     else:
         display_generic_sample(sample, width=width)
-
-    # Display LLM judge results if available
-    if judge_data_list:
-        for judge_name, judge_data in judge_data_list:
-            display_judge_results(judge_name, judge_data, width=width)
 
     print("\n")
 
@@ -306,8 +300,6 @@ def display_metrics(sample: Dict[str, Any]):
 
     print("\n📊 METRICS:")
     for field in fields_to_display:
-        if 'llm_judge' in field:
-            continue
         value = sample[field]
         if isinstance(value, list):
             value_str = ', '.join(str(v) for v in value)
@@ -315,51 +307,6 @@ def display_metrics(sample: Dict[str, Any]):
             value_str = str(value)
 
         print(f"   {field:20} {value_str}")
-
-
-def display_judge_results(judge_name: str, judge_data: Dict[str, Any], width: int = 95):
-    """Display LLM judge scores and explanation."""
-    print(f"\n⚖️  LLM JUDGE EVALUATION: {judge_name}")
-
-    # Check for errors first
-    if judge_data.get('error'):
-        print(f"   ❌ Error: {judge_data['error']}")
-        return
-
-    # Display overall score
-    overall_score = judge_data.get('score')
-    if overall_score is not None:
-        print(f"   Overall Score:      {overall_score}")
-
-    # Display parsed judgment if available
-    judgment_parsed = judge_data.get('judgment_parsed')
-    if judgment_parsed and isinstance(judgment_parsed, dict):
-        # Separate numeric (scores) from non-numeric (explanations) fields
-        score_fields = {}
-        explanation_fields = {}
-
-        for key, value in judgment_parsed.items():
-            if isinstance(value, (int, float)):
-                score_fields[key] = value
-            else:
-                explanation_fields[key] = value
-
-        # Display scores
-        if score_fields:
-            print("   Scores:")
-            for key, value in score_fields.items():
-                print(f"      {key:20} {value}")
-
-        # Display explanations/text fields
-        if explanation_fields:
-            print("\n   Details:")
-            for key, value in explanation_fields.items():
-                print(f"   {key}:")
-                print(wrap_text(truncate_if_long(str(value), TRUNCATE_LEN), width=width))
-    elif judge_data.get('judgment_raw'):
-        # Fall back to raw judgment if parsed not available
-        print("\n   Raw Judgment:")
-        print(wrap_text(truncate_if_long(str(judge_data['judgment_raw']), TRUNCATE_LEN), width=width))
 
 
 def display_summary(samples: List[Dict[str, Any]]):
@@ -460,64 +407,16 @@ def examine_outputs(file_path, no_pager=False, width=95, sample_ids=None):
         except ValueError:
             print(f"Warning: Could not parse sample IDs '{sample_ids}', displaying all samples\n")
 
-    # Try to find and load accompanying judge file(s)
-    # Extract datetime and task from samples filename
-    # Pattern: samples_{task}_{datetime}.jsonl
-    # Judge pattern: llm_judge_{task}_{judge_name}_{datetime}.jsonl
-    file_name = Path(file_path).name
-    judge_lookup = {}  # Maps idx -> list of (judge_name, judge_data)
-
-    if file_name.startswith('samples_'):
-        # Extract the datetime part (last part before .jsonl with 'T' in it)
-        parts = file_name.replace('samples_', '').replace('.jsonl', '').split('_')
-        # Find datetime pattern (must contain 'T' for timestamp)
-        datetime_parts = [p for p in parts if 'T' in p]
-        if datetime_parts:
-            # Should be just one part with the datetime
-            datetime_str = datetime_parts[-1]  # Take the last one if multiple
-            # Extract task name (everything before datetime)
-            task_name = '_'.join([p for p in parts if 'T' not in p])
-
-            # Build pattern to find matching judge files
-            dir_path = Path(file_path).parent
-            judge_pattern = str(dir_path / f"llm_judge_*{datetime_str}.jsonl")
-            judge_files = glob.glob(judge_pattern)
-
-            for judge_file in judge_files:
-                print(f"📂 Loading judge results from: {judge_file}\n")
-
-                # Extract judge name from filename
-                # Pattern: llm_judge_{task}_{judge_name}_{datetime}.jsonl
-                judge_file_name = Path(judge_file).name
-                judge_file_parts = judge_file_name.replace('llm_judge_', '').replace('.jsonl', '')
-                # Remove task name and datetime to get judge name
-                judge_name_full = judge_file_parts.replace(task_name + '_', '').replace('_' + datetime_str, '')
-
-                judge_samples = parse_jsonl_file(judge_file)
-                # Create lookup dictionary by idx, storing list of judges
-                for judge in judge_samples:
-                    if 'idx' in judge:
-                        idx = judge['idx']
-                        if idx not in judge_lookup:
-                            judge_lookup[idx] = []
-                        judge_lookup[idx].append((judge_name_full, judge))
-
     if not samples:
         print("Error: No samples found in file")
         sys.exit(1)
 
     total_samples = len(samples)
     print(f"Total samples: {total_samples}\n")
-    if judge_lookup:
-        print(f"Total judge evaluations: {len(judge_lookup)}\n")
 
     # Display each sample
     for i, sample in enumerate(samples, 1):
-        # Get corresponding judge data by doc_id (which should match idx)
-        doc_id = sample.get('doc_id')
-        judge_data_list = judge_lookup.get(doc_id) if doc_id is not None else None
-
-        display_sample(sample, i, total_samples, judge_data_list, width=width)
+        display_sample(sample, i, total_samples, width=width)
 
         # Optional: pause after each sample for large files
         if not no_pager and total_samples > 10 and i < total_samples:
