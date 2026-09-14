@@ -30,7 +30,7 @@ Reusable AI / agentic "**skills**" for the safe development of frontier AI/ML mo
 # Attribution 
 
 The ModCon BaseSafe Team:
-| Name              | Instititution |
+| Name              | Institution   |
 |-------------------|---------------|
 | Nathan Hodas      | PNNL          |
 | Robin Cosbey      | PNNL          |
