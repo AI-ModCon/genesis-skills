@@ -342,17 +342,6 @@ Run the bundled inspection script:
 python ${CLAUDE_SKILL_DIR}/scripts/inspect_nc.py $ARGUMENTS
 ```
 
-## Manual Analysis
-
-For detailed analysis, I can:
-- List dimensions, variables, and attributes
-- Check CF convention compliance
-- Identify coordinate systems
-- Report data ranges and missing values
-```
-
----
-
 ## Testing Your Skill
 
 ### Manual Testing
@@ -402,9 +391,12 @@ For detailed analysis, I can:
 
 ## Community Guidelines
 
+This project and everyone participating in it is governed by our [Code of Conduct](./CODE_OF_CONDUCT.md). 
+By participating, you are expected to uphold this code.
+
 ### Communication
 
-- Use GitLab issues for bugs and feature requests
+- Use Github issues for bugs and feature requests
 - Tag issues appropriately: `new-skill`, `bug`, `enhancement`
 - Be respectful and constructive
 
@@ -413,6 +405,21 @@ For detailed analysis, I can:
 - Credit contributors in skill descriptions
 - Build on existing skills rather than duplicating
 - Share learnings with the community
+
+### Guidelines for AI/LLM-Assisted Contributions
+
+- **Remain accountable for all your outputs and decisions.**
+   Individuals remain fully responsible and accountable for the accuracy, quality, appropriateness, and consequences of their work. Use of AI does not transfer this responsibility to the AI model, agent, or other tool.
+- **Understand your work.**
+   Regardless of how code or PR was produced, this project requires that authors illustrate a thorough understanding of any proposed changes. You must review such code line-by-line; it is your responsibility to ensure that it is correct, and that it does not breach copyright. Always critically engage with AI outputs, do not trust them implicitly. AI-assisted code, analysis, and artifacts must be tested and validated at a level appropriate to their impact. Authors are responsible for ensuring that generated code is correct, secure, maintainable, non-obfuscated, appropriately scoped, documented, and reproducible where relevant.
+- **Disclose AI-generated or AI-assisted work.**
+   If AI/LLM tools were primarily used to generate code or artifacts, this should be clearly indicated in the PR. 
+- **Use of AI to review PRs.**
+   All PRs must be reviewed by a human reviewer. An LLM review may be used in addition to a human reviewer since this can help spot issues that a human may have missed, but this should not be the sole reviewer. The human reviewer should be fully accountable and responsible for the review feedback or comments (see 1).
+- **Proprietary or personal information.**
+   For this project, proprietary or personal information should never be sent to code generators or AI tools.
+- **Be transparent, assume goodwill, and share what you learn.**
+   Contributors should be open about relevant AI use, disclose details of AI use as appropriate to the project, engage constructively with colleagues, and share experiences and lessons learned with the project.
 
 ---
 

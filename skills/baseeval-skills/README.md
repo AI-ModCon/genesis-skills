@@ -1,8 +1,10 @@
 # BaseEval Skills
 
-Agent skills for language-model evaluation workflows. Two sub-groups carry skills
-sourced from upstream projects, each with its own attribution; `card-eval-updater`
-sits alongside them as a standalone skill.
+Agent skills for language-model evaluation workflows. The
+`skills/baseeval-skills/` subtree is licensed Apache-2.0; see
+[`LICENSE`](LICENSE). Two sub-groups carry skills sourced from upstream
+projects, each with its own attribution; `card-eval-updater` sits alongside them
+as a standalone skill in the same subtree.
 
 ## Sub-groups
 
@@ -36,8 +38,7 @@ Fernando Llorente (BNL) and Eric Chagnon (LBNL). See
 ### `card-eval-updater/` (1)
 
 Turns an evaluation run into documentation. Authored by Fernando Llorente (BNL); see [`card-eval-updater/README.md#attribution`](card-eval-updater/README.md#attribution).
-Licensed **Apache-2.0** rather than the repository's root BSD-2-Clause — see
-[`card-eval-updater/LICENSE`](card-eval-updater/LICENSE).
+Licensed **Apache-2.0** as part of this subtree — see [`LICENSE`](LICENSE).
 
 | Skill | Description |
 |-------|-------------|
@@ -50,6 +51,7 @@ one turns the run into a card.
 
 ```
 baseeval-skills/
+├── LICENSE                    # Apache-2.0, governs this subtree
 ├── README.md                      
 ├── lm-eval-harness-skills/        
 │   ├── ATTRIBUTION.md
@@ -63,6 +65,5 @@ baseeval-skills/
 │   ├── perlmutter-nemo-eval/
 │   └── perlmutter-nemo-generate/
 └── card-eval-updater/
-    ├── LICENSE                    # Apache-2.0, governs this subtree
     └── SKILL.md
 ```

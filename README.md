@@ -91,6 +91,7 @@ genesis-skills/
 │   ├── literature-search/SKILL.md
 │   ├── multi-agent-systems/SKILL.md
 │   ├── basesafe-skills/        # AI safety analysis workflows (5)
+│   ├── baseeval-skills/        # evaluation workflow skills (8)
 │   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
 │   ├── plasma-sim-skills/      # gs2, gkeyll (2)
 │   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator (5)
@@ -129,9 +130,12 @@ We welcome contributions from the scientific community. See the [Contributing Gu
 ---
 
 ## License
-
+This product is licensed under the root [LICENSE](LICENSE) found at the root of
+this repository.
 Some skills under `skills/` are sourced from third parties. Where a `LICENSE`
 (or `LICENSE.txt`) file is present in a subdirectory, that license governs the
 contents of that subdirectory and supersedes the root license for that subtree.
+The `skills/baseeval-skills/` subtree has its own Apache-2.0 `LICENSE`, which
+governs that subtree and its descendants.
 See [NOTICE](NOTICE) and the attribution file in each identified subtree for the
 licensing information supplied with that content.

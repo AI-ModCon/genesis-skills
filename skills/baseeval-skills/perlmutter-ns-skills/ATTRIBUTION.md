@@ -3,7 +3,7 @@
 The skills in this directory were sourced from the **perlmutter-ns-skill**
 project.
 
-**Original repository:** https://github.com/FLlorente/perlmutter-ns-skill
+**Original repository:** https://github.com/AI-ModCon/BaseEval_perlmutter-nemo-skills_DEV
 
 **Authors:**
 - Fernando Llorente, Brookhaven National Laboratory (BNL)
@@ -15,6 +15,8 @@ retrieved, unmodified. They provide Claude Code agent workflows for running
 against an external OpenAI-compatible API endpoint. Each skill handles the full
 lifecycle: sshproxy MFA certificate, remote preflight checks, optional container
 image build, job submission, polling, and result retrieval.
+In this catalog, they are also covered by the Apache-2.0 LICENSE at
+`../LICENSE`.
 
 > **Note:** The upstream repository references a NeMo-Skills fork as a git
 > submodule (`Skills/`). That submodule is **not** vendored here; follow the
