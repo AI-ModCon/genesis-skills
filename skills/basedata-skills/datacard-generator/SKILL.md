@@ -384,7 +384,7 @@ relationship requirement, etc.), see
 ## References
 
 - **Template (do not edit)**: [references/genesis_v1.0_template.md](references/genesis_v1.0_template.md)
-- **Upstream provenance**: https://gitlab.osti.gov/genesis/data-cards (vendored at commit `7226c2c`).
+- **Upstream provenance**: https://gitlab.osti.gov/genesis/data-cards (vendored at commit `7226c2c`). The template carries local corrections that make it agree with the model; re-vendoring it verbatim reintroduces the schema errors those corrections remove.
 - **Pydantic model** (validator source of truth): `scripts/genesis_models.py`
 - **Field-by-field guidance**: [references/genesis_field_guide.md](references/genesis_field_guide.md)
 - **Per-capability prompts**: [references/capability-prompts.md](references/capability-prompts.md)

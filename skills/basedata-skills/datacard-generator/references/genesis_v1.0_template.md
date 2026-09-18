@@ -70,8 +70,14 @@
 #                                     but may be removed/left blank if not yet known or not applicable.
 #
 # PLACEHOLDER CONVENTIONS:
-#   ${VALUE}        — fill in your value;
-#   __VALUE__       — fill in if applicable; delete or leave blank if not
+#   ${VALUE}        — fill in your value; the field is required by the schema
+#   __VALUE__       — fill in if applicable; otherwise leave the scalar blank or delete the line
+#   commented block — an optional block whose sub-fields are required once the block is present
+#                     (id, additional_ids, tags, affiliation, source_data, ...). Uncomment and fill
+#                     it, or leave it commented. A block left present with blank sub-fields fails
+#                     validation.
+#   [] on a list    — the list is definitively empty. The lists marked "omit if empty" reject [];
+#                     leave those blank or delete the line.
 #   not_applicable  — use when a field definitively does not apply
 #                     (distinct from blank, which means "not yet known")
 #
@@ -162,11 +168,11 @@ discoverability:
                                                 # use genesis_datacard_other for datasets that are not part of a Genesis project or sub-project.
     language: en                                # [discoverability_required] ISO 639-1 language code for this data card's content
 
-    id:                                         # [discoverability_if_applicable] Persistent identifier for this data card document itself,
-                                                # distinct from the dataset identifier. Assign if the data card is
-                                                # registered in a catalog or repository independently of the dataset.
-      type: __TYPE__                            # doi | ark | handle | url | local | other
-      value: __VALUE__
+    id:                                         # [discoverability_required] Identifier for this data card document itself,
+                                                # distinct from the dataset identifier. Before the data card is
+                                                # registered in a catalog, use type local with the filename stem as the value.
+      type: ${TYPE}                             # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+      value: ${VALUE}                           # e.g., genesis_datacard_${SNAKE_CASE_DATASET_NAME}
 
     sensitivity:                                # Sensitivity of the DATA CARD itself, which may differ from the sensitivity of the dataset it describes. Populate based on the sensitivity of the data card content alone, not the dataset. See NOTE ON SENSITIVITY above.
       overall_sensitivity: ${OVERALL_SENSITIVITY} # [discoverability_required] The overall sensitivity of THE DATA CARD only.
@@ -188,7 +194,7 @@ discoverability:
                                                 # if a Legacy_OUO is unresolved to a current standard marking, normalized_control_basis should be populated as "Legacy_Needs_Mapping" to indicate that the control basis is legacy and needs interpretation for governance purposes.
       classified_status: ${STATUS}             # [discoverability_required] "Yes" | "No" description: Indicates whether the asset is classified.
       classification_level: __LEVEL__           # [discoverability_if_applicable] For classified information, Top_Secret | Secret | Confidential classification level
-      classification_category: []               # [discoverability_if_applicable] For classified information, list the classification category or categories, if applicable.
+      classification_category: __LIST__         # [discoverability_if_applicable, omit if empty] For classified information, list the classification category or categories, if applicable.
                                                 # use vocabulary: NSI | RD | FRD | TFNI | Other_Classified
       classified_control_markings: []           # [discoverability_if_applicable] For classified information, list the specific control markings that apply, if any.  
                                                 # Provide as a list of unique entries if multiple markings apply.
@@ -198,10 +204,10 @@ discoverability:
                                                 #       - "REL TO USA, CAN, GBR"
                                                 #       - "ORCON"
       cui_status: ${STATUS}                     # [discoverability_required] "Yes" | "No" description: Indicates whether the asset is CUI.
-      cui_basic_categories: []                     # [discoverability_if_applicable, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the basic category or categories that apply, if any.         
+      cui_basic_categories: __LIST__               # [discoverability_if_applicable, omit if empty, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the basic category or categories that apply, if any.
                                                   # use DOE/ISOO-authoritative CUI Basic categories or subcategories.
                                                   # provide as a list of unique entries if multiple categories apply.
-      cui_specified_categories: []                  # [discoverability_if_applicable, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the specified category or categories that apply, if any.   
+      cui_specified_categories: __LIST__            # [discoverability_if_applicable, omit if empty, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the specified category or categories that apply, if any.
                                                   # use DOE/ISOO-authoritative CUI Specified categories or subcategories.
                                                   # provide as a list of unique entries if multiple categories apply.
       cui_limited_dissemination_controls: []        # [discoverability_if_applicable] List the applicable CUI limited dissemination controls, if any. 
@@ -217,7 +223,7 @@ discoverability:
                                                   # and should not be treated as an ordinary CUI category value.
       uk_mda_status: __STATUS__                   # [discoverability_if_applicable] "Yes" | "No"| "Unknown" | "not_applicable"
                                                   # Indicates whether the asset is subject to UK Ministry of Defence Assessment (MDA) controls.
-      legacy_label_source: []                     # [discoverability_if_applicable]  Preserves deprecated or local historical control labels such as OUO, SBU,
+      legacy_label_source: __LIST__               # [discoverability_if_applicable, omit if empty] Preserves deprecated or local historical control labels such as OUO, SBU,
                                                   # if source_marking_scheme = Legacy_OUO, legacy_label_source should be populated                                             
                                                   # or site-specific legacy markings as provenance/source information only.
                                                   # Provide as a list of unique entries if multiple legacy labels apply.
@@ -259,11 +265,11 @@ discoverability:
         description: __DESCRIPTION__            # [discoverability_if_applicable] Describe what this contributor did.
                                                 # e.g., "Automated generation of data card from dataset metadata"
                                                 # e.g., "Reviewed and corrected AI-generated content"
-        creator:                                # [discoverability_required] person | organization | ai_model | software
-                                                # add one block per creator; 
-                                                # list the block that corresponds to the parent {ROLE} contributed to the creation of this data card
-                                                # Delete the three blocks below that do not apply.
-          agent_type: ${TYPE}                   # [discoverability_required] person | organization | ai_model | software
+        creator:                                # [discoverability_required] exactly one of: person | organization | ai_model | software
+                                                # add one created_by entry per creator;
+                                                # keep the one block below that matches this creator and
+                                                # delete the other three. There is no type field: the
+                                                # block name is the type.
                                                 # TYPE: person — use for a human contributor
           person:
             given_name: ${GIVEN_NAME}
@@ -272,42 +278,39 @@ discoverability:
                                                 # Required where DOE employee/contractor author policy applies, if locally applicable
                                                 # Register at https://orcid.org if needed
             email: ${EMAIL}
-            affiliation:
-              name: ${ORG_NAME}
-              ror_id: __ROR_ID__                 # [discoverability_if_applicable] Format: https://ror.org/XXXXXXX
+            # affiliation:                      # [discoverability_if_applicable] Uncomment and fill name, or leave commented.
+            #   name: __ORG_NAME__
+            #   ror_id: __ROR_ID__              # [discoverability_if_applicable] Format: https://ror.org/XXXXXXX
                                                 # Look up at https://ror.org
-            role: 
-              - __ROLE__                           # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+            role: []                            # [discoverability_if_applicable] list from roles extending the CRediT taxonomy, e.g., [Data_Curation, Writing_Review_Editing]: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
 
           # TYPE: organization — use when a team or org created the data card without a named individual
           organization:
             name: ${ORG_NAME}
             ror_id: __ROR_ID__
-            role: 
-              - __ROLE__                           # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+            role: []                            # [discoverability_if_applicable] list from roles extending the CRediT taxonomy, e.g., [Data_Curation]: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
 
           # TYPE: ai_model — use when an AI model generated or substantially contributed to this data card
           ai_model:
-            name: ${MODEL_NAME}                  # e.g., Claude 3.5 Sonnet | GPT-4o | Llama 3
-            version: __VERSION__
-            accessed_date: "${YYYY-MM-DD}"
-            identifier:
-              type: __TYPE__                     # doi | ark | handle | url | local | other
-              value: __VALUE__                   # Link to model card or documentation if available
-            role: 
-              - __ROLE__                           # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
-            relationship: __RELATIONSHIP__             # [discoverability_if_applicable, required for ai_model] select from: used_to_create | used_to_process | used_to_analyze | recorded_by | trained_on | evaluated_on; relationship of AI model to the  data card creation process. e.g., "used_to_create" if the AI model generated the initial draft of the data card, "used_to_analyze" if the AI model analyzed dataset metadata to populate the data card, "evaluated_on" if the AI model was used to evaluate or validate the data card content, or "other" if none of the predefined relationships apply.
+            name: ${MODEL_NAME}                  # [discoverability_required] the model identifier as the provider names it, e.g., claude-sonnet-4-5 | gpt-4o | Llama 3
+            version: __VERSION__                 # [discoverability_if_applicable] numeric only, MAJOR.MINOR or MAJOR.MINOR.PATCH, e.g., "4.5".
+                                                 # A hyphenated provider string such as claude-sonnet-4-5 belongs in name and fails validation here.
+            accessed_date: "${YYYY-MM-DD}"       # [discoverability_required] ISO 8601 date the model was used
+            identifier:                          # [discoverability_required] required whenever the ai_model block is present
+              type: ${TYPE}                      # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+              value: ${VALUE}                    # Link to model card or documentation, e.g., https://www.anthropic.com/claude
+            role: []                             # [discoverability_if_applicable] list from roles extending the CRediT taxonomy, e.g., [Writing_Original_Draft]: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+            relationship: ${RELATIONSHIP}        # [discoverability_required] select from: used_to_create | used_to_process | used_to_analyze | recorded_by | trained_on | evaluated_on; relationship of AI model to the data card creation process. e.g., "used_to_create" if the AI model generated the initial draft of the data card, "used_to_analyze" if the AI model analyzed dataset metadata to populate the data card, "evaluated_on" if the AI model was used to evaluate or validate the data card content.
 
           # TYPE: software — use when an automated pipeline or script generated this data card
           software:
             name: ${SOFTWARE_NAME}
-            version: __VERSION__
-            identifier:
-              type: __TYPE__                     # doi | ark | handle | url | local | other
-              value: __VALUE__
-            role: 
-              - __ROLE__                           # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
-            relationship: __RELATIONSHIP__             # [discoverability_if_applicable, required for software] select from: used_to_create | used_to_process | used_to_analyze | recorded_by | trained_on | evaluated_on; relationship of software to the  data card creation process. e.g., "used_to_create" if the software generated the initial draft of the data card, "used_to_analyze" if the software analyzed dataset metadata to populate the data card, "evaluated_on" if the software was used to evaluate or validate the data card content, or "other" if none of the predefined relationships apply.
+            version: __VERSION__                 # [discoverability_if_applicable] numeric only, MAJOR.MINOR or MAJOR.MINOR.PATCH, e.g., "1.2.3"
+            identifier:                          # [discoverability_required] required whenever the software block is present
+              type: ${TYPE}                      # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+              value: ${VALUE}
+            role: []                             # [discoverability_if_applicable] list from roles extending the CRediT taxonomy, e.g., [Software]: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+            relationship: ${RELATIONSHIP}        # [discoverability_required] select from: used_to_create | used_to_process | used_to_analyze | recorded_by | trained_on | evaluated_on; relationship of software to the data card creation process. e.g., "used_to_create" if the software generated the initial draft of the data card, "used_to_analyze" if the software analyzed dataset metadata to populate the data card, "evaluated_on" if the software was used to evaluate or validate the data card content.
   # --- Identification ---------------------------------------------
   identification:                               # [discoverability_required] Key metadata fields that uniquely identify this dataset.
     name: "${DATASET_NAME}"                     # [discoverability_required] Single human-readable name for this dataset.
@@ -324,35 +327,36 @@ discoverability:
     primary_id:                                 # [discoverability_required] Primary persistent identifier for this dataset.
                                                 # Aligns with dcterms:identifier and is the main identifier used in citations and references.
                                                 # Use ark or local if a DOI has not yet been assigned.
-      type: ${TYPE}                             # doi | ark | handle | url | osti | local | other | unregistered
+      type: ${TYPE}                             # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
       value: __VALUE__
       # ARK format:  ark:/NAAN/shoulder+assigned_name  e.g., ark:/12345/b2345679k
       # Resolve via: https://n2t.net/ark:/NAAN/...
       # Convention:  use ark for pre-published states; mint a doi upon publication
       #              and retain the ark in additional_ids for provenance continuity
 
-    additional_ids:                             # [discoverability_if_applicable] Additional identifiers for this dataset.
+    # additional_ids:                           # [discoverability_if_applicable] Additional identifiers for this dataset.
                                                 # Aligns with adms:identifier and can include secondary identifiers, legacy identifiers, or identifiers for specific versions if primary_id is a collection-level identifier.
-      - type: __TYPE__                          # doi | ark | handle | url | osti | sand | la-ur | local | other
-        value: __VALUE__                        # e.g., SAND2024-XXXXX | LAUR-XX-XXXXX
+                                                # Uncomment and fill type, or leave commented.
+    #   - type: __TYPE__                        # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+    #     value: __VALUE__                      # e.g., SAND2024-XXXXX | LAUR-XX-XXXXX
 
-    supersedes:                                 # [discoverability_if_applicable] Identifier of the prior version this dataset replaces.
+    # supersedes:                               # [discoverability_if_applicable] Identifier of the prior version this dataset replaces.
                                                 # See stewardship.versioning_strategy for how versions are managed.
-      type: __TYPE__                            # doi | ark | handle | url | local | other
-      value: __VALUE__
+    #   type: __TYPE__                          # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+    #   value: __VALUE__
 
-    superseded_by:                              # [discoverability_if_applicable] Identifier of the newer version that replaces this dataset.
+    # superseded_by:                            # [discoverability_if_applicable] Identifier of the newer version that replaces this dataset.
                                                 # Populate when this version is deprecated.
-      type: __TYPE__                            # doi | ark | handle | url | local | other
-      value: __VALUE__
+    #   type: __TYPE__                          # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+    #   value: __VALUE__
 
-    parent_collection:                          # [discoverability_if_applicable] Parent collection or experimental campaign this
+    # parent_collection:                        # [discoverability_if_applicable] Parent collection or experimental campaign this
                                                 # dataset belongs to. Use when this dataset is one of many in a
                                                 # larger organized collection or ensemble.
-      name: __NAME__
-      identifier:
-        type: __TYPE__                          # doi | ark | handle | url | local | other
-        value: __VALUE__
+    #   name: __NAME__
+    #   identifier:
+    #     type: __TYPE__                        # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+    #     value: __VALUE__
   # --- Description ------------------------------------------------
   dataset_description:                        # [discoverability_required] 
     science_domain: __DOMAIN__                # [discoverability_if_applicable] Extends the the list of OSTI Subject Areas with an Other category for datasets that do not fit into the OSTI list.
@@ -368,11 +372,12 @@ discoverability:
                                               # scale, dimensionality, temporal coverage, spatial resolution
     limitations: __LIMITATIONS__              # [discoverability_if_applicable] Known limitations, gaps, or caveats users should
                                               # be aware of before using this dataset.
-    tags:                                     # [discoverability_if_applicable] Structured tags for catalog filtering and discovery.
-      project: __PROJECT__                     # e.g., genesis | SCIDAC 
-      science: __SCIENCE__                    # e.g., lightsource | fusion | materials | biology
-      object_type: __TYPE__                   # select one of: Dataset | Model | Software | AI_Agent | Infrastructure | Resource | Other
-    task_category: []                         # [discoverability_if_applicable, at least one value required if task_subcategory is present] Primary ML task category or categories for this dataset.
+    # tags:                                   # [discoverability_if_applicable] Structured tags for catalog filtering and discovery.
+                                              # Uncomment and fill project and object_type, or leave commented.
+    #   project: __PROJECT__                  # e.g., genesis | SCIDAC
+    #   science: __SCIENCE__                  # e.g., lightsource | fusion | materials | biology
+    #   object_type: __TYPE__                 # select one of: Dataset | Model | Software | AI_Agent | Infrastructure | Resource | Other
+    task_category: __LIST__                   # [discoverability_if_applicable, omit if empty, at least one value required if task_subcategory is present] Primary ML task category or categories for this dataset.
                                               # Populate for AI-ready data; helps ML practitioners find
                                               # relevant datasets in the catalog.
                                               # e.g., classification | regression | segmentation | detection |
@@ -415,33 +420,33 @@ discoverability:
                                                 #   Published     — publicly released and accessible
                                                 #   Deprecated    — superseded or retired; no longer recommended for use
 
-  dataset_publisher:                            # [discoverability_if_applicable, required when release_status = Approved | Published] 
+  # dataset_publisher:                          # [discoverability_if_applicable, required when release_status = Approved | Published]
                                                 # Entity responsible for making this dataset available. Often the same as the primary research organization, but may differ if a separate publisher is involved.
-    name: __ORG_NAME__                           # [discoverability_if_applicable] Organization or individual that published this dataset.
-    ror_id: __ROR_ID__                          # [discoverability_if_applicable] Format: https://ror.org/XXXXXXX
+                                                # Uncomment and fill name, or leave commented.
+  #   name: __ORG_NAME__                        # [discoverability_if_applicable] Organization or individual that published this dataset.
+  #   ror_id: __ROR_ID__                        # [discoverability_if_applicable] Format: https://ror.org/XXXXXXX
 
   # --- Dataset Contacts ---------------------------------------------------
   contact:                                     # [discoverability_required] Primary point of contact for questions about this DATASET.
-    agent_type: ${TYPE}                        # person (only a person is allowed as the primary contact to ensure accountability and a clear point of contact) | organization (e.g., data management office if no single named contact)
+                                               # The schema requires a person (accountability and a clear point of contact);
+                                               # an office or team goes in additional_contacts as a person with succession_note.
     person:
       given_name: ${GIVEN_NAME}
       family_name: ${FAMILY_NAME}
       orcid: __ORCID__                         # [discoverability_if_applicable] Format: https://orcid.org/0000-0000-0000-0000
                                                # Required where DOE employee/contractor author policy applies, if locally applicable
       email: __EMAIL__
-      affiliation:
-        name: __ORG_NAME__
-        ror_id: __ROR_ID__                     # [discoverability_if_applicable] Format: https://ror.org/XXXXXXX
+      # affiliation:                           # [discoverability_if_applicable] Uncomment and fill name, or leave commented.
+      #   name: __ORG_NAME__
+      #   ror_id: __ROR_ID__                   # [discoverability_if_applicable] Format: https://ror.org/XXXXXXX
     valid_until: __YYYY-MM-DD__               # [discoverability_if_applicable] Date after which this contact may no longer be valid.
                                               # Use for project-bound contacts (students, postdocs, term staff).
     succession_note: __NOTE__                 # [discoverability_if_applicable] Who to contact if this contact is no longer reachable.
                                               # e.g., "Contact the ORNL data management office at data@ornl.gov"
 
   additional_contacts: []                     # [discoverability_if_applicable] Additional contacts (e.g., instrument PI, data steward).
-                                              # Same structure as contact above:
-                                              # contact_details:
-                                              # - type: person | organization
-                                              #   person:
+                                              # Same structure as contact above (person is required; there is no type field):
+                                              # - person:
                                               #     given_name: __GIVEN_NAME__
                                               #     family_name: __FAMILY_NAME__
                                               #     orcid: __ORCID__ # Required where DOE employee/contractor author policy applies, if locally applicable
@@ -455,9 +460,10 @@ discoverability:
   # --- Authorship & Credit ----------------------------------------
   # [discoverability_required] At least one author required.
   # For draft or in-workflow data, populate with known contributors.
-  authors:                                      # [discoverability_required]
-    - type: ${TYPE}                             # person | organization
-      person:
+  authors:                                      # [discoverability_required] one entry per author; each entry is exactly one of
+                                                # person | organization. There is no type field: the block name is the type.
+                                                # Keep the block that applies and delete the other.
+    - person:
         given_name: ${GIVEN_NAME}
         family_name: ${FAMILY_NAME}
         orcid: __ORCID__                        # [discoverability_if_applicable] Strongly recommended — enables disambiguation and credit tracking
@@ -466,13 +472,11 @@ discoverability:
         affiliation:
           name: ${ORG_NAME}
           ror_id: __ROR_ID__                    # [discoverability_if_applicable]
-        role: 
-              - __ROLE__                           # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
-      organization:
-        name: __ORG_NAME__
-        ror_id: __ROR_ID__
-        role: 
-              - __ROLE__                           # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+        role: []                                # [discoverability_if_applicable] list from roles extending the CRediT taxonomy, e.g., [Investigation, Data_Collection]: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+    # - organization:
+    #     name: __ORG_NAME__
+    #     ror_id: __ROR_ID__
+    #     role: []                              # [discoverability_if_applicable] same list as above
 
   contributors: []                              # [discoverability_if_applicable] Supporting contributors who are not primary authors.
                                                 # e.g., sample preparers, annotators, reviewers, submitters.
@@ -510,8 +514,7 @@ discoverability:
                                               # used to collect, process, or store the dataset.
     # - name: __FACILITY_NAME__               # e.g., Spallation Neutron Source | Summit | Frontier
     #   ror_id: __ROR_ID__
-    #   role: 
-    #          - __ROLE__                           # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+    #   role: []                              # [discoverability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
     #   location:                             # [discoverability_if_applicable] Point location for facility-based experimental data.
     #     description: __DESC__               # e.g., "SNS Beamline 1B, Oak Ridge National Laboratory, TN, USA"
     #     ror_id: __ROR_ID__                  # ROR ID of the facility; cross-reference with name above
@@ -541,7 +544,7 @@ discoverability:
                                                 # use vocabulary: DOE_CUI | DOE_UCNI | EO13526_Classified | AEA_RD_FRD_TFNI | DOD_CUI | DHS_CUI | Legacy_OUO | Legacy_Site_Specific | Other_Agency | None
     classified_status: ${STATUS}               # [discoverability_required] "Yes" | "No" description: Indicates whether the asset is classified.
     classification_level: __LEVEL__             # [discoverability_if_applicable] For classified information, Top_Secret | Secret | Confidential classification level
-    classification_category: []                 # [discoverability_if_applicable] For classified information, list the classification category or categories, if applicable.
+    classification_category: __LIST__           # [discoverability_if_applicable, omit if empty] For classified information, list the classification category or categories, if applicable.
                                                 # use vocabulary: NSI | RD | FRD | TFNI | Other_Classified
     classified_control_markings: []             # [discoverability_if_applicable] For classified information, list the specific control markings that apply, if any.  
                                                 # Provide as a list of unique entries if multiple markings apply.
@@ -551,10 +554,10 @@ discoverability:
                                                 #       - "REL TO USA, CAN, GBR"
                                                 #       - "ORCON"
     cui_status: ${STATUS}                       # [discoverability_required] "Yes" | "No" description: Indicates whether the asset is CUI.
-    cui_basic_categories: []                    # [discoverability_if_applicable, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the basic category or categories that apply, if any.         
+    cui_basic_categories: __LIST__              # [discoverability_if_applicable, omit if empty, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the basic category or categories that apply, if any.
                                                 # use DOE/ISOO-authoritative CUI Basic categories or subcategories.
                                                 # provide as a list of unique entries if multiple categories apply.
-    cui_specified_categories: []                # [discoverability_if_applicable, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the specified category or categories that apply, if any.   
+    cui_specified_categories: __LIST__          # [discoverability_if_applicable, omit if empty, at least one basic or specified category is required if cui_status = "Yes"] For CUI, list the specified category or categories that apply, if any.
                                                 # use DOE/ISOO-authoritative CUI Specified categories or subcategories.
                                                 # provide as a list of unique entries if multiple categories apply.
     cui_limited_dissemination_controls: []      # [discoverability_if_applicable] List the applicable CUI limited dissemination controls, if any. 
@@ -570,7 +573,7 @@ discoverability:
                                                 # and should not be treated as an ordinary CUI category value.
     uk_mda_status: __STATUS__                   # [discoverability_if_applicable] "Yes" | "No" | "Unknown" | not_applicable
                                                 # Indicates whether the asset is subject to UK Ministry of Defence Assessment (MDA) controls.
-    legacy_label_source: __STRING__             # [discoverability_if_applicable]  Preserves deprecated or local historical control labels such as OUO, SBU,
+    legacy_label_source: __LIST__               # [discoverability_if_applicable, omit if empty] Preserves deprecated or local historical control labels such as OUO, SBU,
                                                 # or site-specific legacy markings as provenance/source information only.
                                                 # Provide as a list of unique entries if multiple legacy labels apply.
                                                 # E.g., - "OUO"
@@ -638,8 +641,8 @@ accessibility:                              # [accessibility_required]
     access_level: ${LEVEL}                      # [accessibility_required] Open | Restricted | Controlled
     access_restrictions: __RESTRICTIONS__       # [accessibility_if_applicable] Freetext description of access restrictions.
                                                 # e.g., "Requires signed DUA" | "None - publicly accessible"
-    authorization_required: __AUTH__             # [accessibility_if_applicable] Required if access_level is not open. 
-                                                # List of authorization needed to access this dataset:                
+    authorization_required: []                  # [accessibility_if_applicable] Required if access_level is not open.
+                                                # List of authorization needed to access this dataset, e.g., [Account, User_Agreement]:
                                                 #   Account               — registered account required
                                                 #   User_Agreement        — user agreement or terms of service
                                                 #   Data_Use_Agreement    — formal DUA required
@@ -676,28 +679,29 @@ accessibility:                              # [accessibility_required]
     publicly_facing_landing_page_url: __URL__ # [accessibility_if_applicable] URL to the publicly facing landing page for this dataset.
                                               # This is the URL that should be shared publicly and included in citations.
                                               # It may differ from the current_location if the dataset is not yet publicly released or if the current_location is an internal storage path.
-    intended_repositories:                    # [accessibility_if_applicable] Repositories you intend to deposit or have deposited
+    # intended_repositories:                  # [accessibility_if_applicable] Repositories you intend to deposit or have deposited
                                               # this dataset in. The managing repository or catalog system will
                                               # resolve and populate repository-assigned fields at ingest
                                               # (see REPOSITORY-MANAGED block). Repositories may be institutional,
                                               # project-owned, community, or national (e.g., OSTI, Zenodo,
                                               # institutional data repository, project data store).
-      - name: __NAME__                        # [accessibility_if_applicable] e.g.,  "Zenodo" | "Globus" | "internal"
-        access_level: __LEVEL__               # [accessibility_if_applicable] Intended access level: Open | Restricted | Controlled
+                                              # Uncomment and fill name and access_level per entry, or leave commented.
+    #   - name: __NAME__                      # [accessibility_if_applicable] e.g.,  "Zenodo" | "Globus" | "internal"
+    #     access_level: __LEVEL__             # [accessibility_if_applicable] Intended access level: Open | Restricted | Controlled
                                               # The same dataset may have different access levels per repository.
                                               # Open: anyone can discovery and access without special permissions.
                                               # Restricted: data may be discoverable, but users must satisfy basic access requirements (authentication, institutional affiliation, registration, agreement to terms, etc.). Approval is generally automatic or administrative.
                                               # Controlled: Access is granted only after review and explicit authorization based on the requester, intended use, legal requirements, or security considerations. Requests may be denied.
-        is_primary: "__Yes|No__"              # [accessibility_if_applicable] "Yes" | "No" — only one entry should be marked "Yes"
-        date_deposited: __YYYY-MM-DD__        # [accessibility_if_applicable]
-        data_services:                        # [accessibility_if_applicable] Populate if Data Service / API endpoints exists for this dataset
+    #     is_primary: "__Yes|No__"            # [accessibility_if_applicable] "Yes" | "No" — only one entry should be marked "Yes"
+    #     date_deposited: __YYYY-MM-DD__      # [accessibility_if_applicable]
+    #     data_services:                      # [accessibility_if_applicable] Populate if Data Service / API endpoints exists for this dataset
                                               # aligns with dcterms:DataService. If more than one data service or API endpoint exists, list them all.
-          - name: __NAME__                    # e.g., "REST API" | "GraphQL endpoint"
-            endpoint: __URL__
-            documentation_url: __URL__
-            authentication: __AUTH__           # None | API_Key | OAuth2 | SAML | Certificate | OpenID_Connect | Basic_Auth | Bearer_Token | Other
-            version: __VERSION__
-            rate_limit: __LIMIT__              # e.g., "1000 requests/hour"
+    #       - name: __NAME__                  # e.g., "REST API" | "GraphQL endpoint"
+    #         endpoint: __URL__
+    #         documentation_url: __URL__
+    #         authentication: __AUTH__        # None | API_Key | OAuth2 | SAML | Certificate | OpenID_Connect | Basic_Auth | Bearer_Token | Other
+    #         version: __VERSION__
+    #         rate_limit: __LIMIT__           # e.g., "1000 requests/hour"
 
   # --- Dataset Scale & Size Metrics -------------------------------------------
   # These fields describe the scale of the dataset, which is important for users to understand the scope and potential resource requirements for using the dataset. 
@@ -756,10 +760,10 @@ interoperability:                             # [interoperability_required]
       description: __DESC__                   # [interoperability_if_applicable] e.g., "Continental United States" | "SNS Beamline 1B, ORNL"
       geo_location_box:                       # [interoperability_if_applicable] WGS84 decimal degrees; use for area coverage
                                               # aligns with datacite:geoLocationBox
-        westBoundLongitude: __DECIMAL_DEG__   # aligns with datacite:westBoundLongitude
-        eastBoundLongitude: __DECIMAL_DEG__.  # aligns with datacite:eastBoundLongitude
-        southBoundLatitude: __DECIMAL_DEG__   # aligns with datacite:southBoundLatitude
-        northBoundLatitude: __DECIMAL_DEG__   # aligns with datacite:northBoundLatitude
+        west_bound_longitude: __DECIMAL_DEG__ # aligns with datacite:westBoundLongitude
+        east_bound_longitude: __DECIMAL_DEG__ # aligns with datacite:eastBoundLongitude
+        south_bound_latitude: __DECIMAL_DEG__ # aligns with datacite:southBoundLatitude
+        north_bound_latitude: __DECIMAL_DEG__ # aligns with datacite:northBoundLatitude
     temporal_coverage:                        # [interoperability_if_applicable] Time period the dataset content represents.
                                               # aligns with schema:temporalCoverage
                                               # NOTE: distinct from dates.data_collection_start/end, which describe
@@ -771,9 +775,6 @@ interoperability:                             # [interoperability_required]
                                               #   dates.data_collection_start = 2024-01-01
       start_date: __YYYY-MM-DD__              # [interoperability_if_applicable] aligns with dcterms:coverage
       end_date: __YYYY-MM-DD__                # [interoperability_if_applicable] aligns with dcterms:coverage
-      description: __DESC__                   # [interoperability_if_applicable]
-
-  # --- Provenance -------------------------------------------------
   # Describes how this dataset was created, what it was derived
   # from, and what processing was applied.
   provenance:
@@ -782,12 +783,13 @@ interoperability:                             # [interoperability_required]
                                               # e.g., "Neutron scattering experiment at SNS Beamline 1B"
                                               # e.g., "Monte Carlo simulation using MCNP 6.2"
                                               # e.g., "Derived from raw telemetry via calibration pipeline v2.1"
-    source_data:                              # [interoperability_if_applicable] Source datasets this dataset was derived from.
-      - name: __NAME__
-        identifier:
-          type: __TYPE__                      # doi | ark | handle | url | local | other
-          value: __VALUE__
-        relationship: __REL__                 # is_derived_from | is_based_on | is_part_of | has_part | references | other
+    # source_data:                            # [interoperability_if_applicable] Source datasets this dataset was derived from.
+                                              # Uncomment and fill name and identifier.type, or leave commented.
+    #   - name: __NAME__
+    #     identifier:
+    #       type: __TYPE__                    # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+    #       value: __VALUE__
+    #     relationship: __REL__               # is_derived_from | is_based_on | is_part_of | has_part | references | other
     processing_steps: ${DESCRIPTION}         # [interoperability_required] Key processing, cleaning, calibration, or
                                               # transformation steps applied to produce this dataset.
     instrumentation: __DESCRIPTION__          # [interoperability_if_applicable] Instruments, sensors, detectors, or equipment used.
@@ -835,34 +837,32 @@ interoperability:                             # [interoperability_required]
     datasets: []
     # - name: __NAME__
     #   identifier:
-    #     type: __TYPE__                      # doi | ark | handle | url | local | other
+    #     type: __TYPE__                      # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
     #     value: __VALUE__
     #   relationship: __REL__                 # see vocabulary above
 
     publications: []
-    # - type: __TYPE__                        # doi | ark | arxiv | url | report | other
+    # - type: __TYPE__                        # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
     #   value: __VALUE__
     #   relationship: __REL__                 # see vocabulary above
 
     software: []
     # - name: __NAME__
-    #   version: __VERSION__
-    #   identifier:
-    #     type: __TYPE__                      # doi | ark | handle | url | local | other
+    #   version: __VERSION__                # numeric only, MAJOR.MINOR or MAJOR.MINOR.PATCH, e.g., "1.2.3"
+    #   identifier:                         # required per entry
+    #     type: __TYPE__                      # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
     #     value: __VALUE__
-    #   role: 
-    #     - __ROLE__                           # [interoperability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+    #   role: []                            # [interoperability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
     #   relationship: __REL__                 # see vocabulary above
 
     ai_models: []
     # - name: __NAME__
-    #   version: __VERSION__
-    #   accessed_date: __YYYY-MM-DD__
-    #   identifier:
-    #     type: __TYPE__                      # doi | ark | handle | url | local | other
+    #   version: __VERSION__                # numeric only, MAJOR.MINOR or MAJOR.MINOR.PATCH, e.g., "0.9"
+    #   accessed_date: __YYYY-MM-DD__       # required per entry
+    #   identifier:                         # required per entry
+    #     type: __TYPE__                      # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
     #     value: __VALUE__
-    #   role: 
-    #     - __ROLE__                           # [interoperability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
+    #   role: []                            # [interoperability_if_applicable] list from roles extending the CRediT taxonomy: Conceptualization | Data_Curation | Formal_Analysis | Funding_Acquisition | Investigation | Methodology | Project_Administration | Resources | Software | Supervision | Validation | Visualization | Writing_Original_Draft | Writing_Review_Editing | Data_Collection | Other
     #   relationship: __REL__                 # see vocabulary above
 
   # --- Domain Metadata ------------------------------------------
@@ -870,22 +870,23 @@ interoperability:                             # [interoperability_required]
   # allows multiple entries to support multiple domains or schemas within a single dataset.
   # Domain-specific metadata fields supplement the Discoverable card 
   # and should not replace the common metadata expected by the data card.
-  domain_metadata:                        # [interoperability_if_applicable] e.g., "Accelerator Operations Metadata" | "Climate Data Variables"
-    - name: __NAME__
-      description: __DESCRIPTION__        # [interoperability_if_applicable] Free-text description of the domain-specific metadata, its purpose, and any important details.
-      science_domain: __DOMAIN__          # [interoperability_if_applicable] 
+  # domain_metadata:                      # [interoperability_if_applicable] one block (not a list), e.g., "Accelerator Operations Metadata" | "Climate Data Variables"
+                                          # Uncomment and fill name, or leave commented.
+  #   name: __NAME__
+  #   description: __DESCRIPTION__        # [interoperability_if_applicable] Free-text description of the domain-specific metadata, its purpose, and any important details.
+  #   science_domain: __DOMAIN__          # [interoperability_if_applicable]
                                           # Extends OSTI's supported Subject Areas: "Biology and Medicine" | "Chemistry" | "Energy Storage, Conversion, and Utilization" | "Engineering" | "Environmental Sciences" | "Fission and Nuclear Technologies" | "Fossil Fuels" | "Geosciences" | "Materials" | "Mathematics and Computing" | "National Defense" | "Physics" | "Power Generation and Distribution" | "Renewable Energy" | "Other"
-      schema_reference:                   # [interoperability_if_applicable]
-        type: __TYPE__       # doi | url | ark | handle | local | other
-        value: __VALUE__
-      version: __VERSION__
-      fields:                             # [interoperability_if_applicable] Key-value pairs of domain-specific metadata fields. The specific fields will depend on the domain and schema referenced above.
-        FIELD_NAME:                       # ${FIELD_NAME} [interoperability_if_applicable] The name of the domain-specific metadata field.
-          field_value: __VALUE__          # [interoperability_if_applicable] The value for this domain-specific metadata field. The specific value will depend on the field and schema referenced above.
-          data_type: __DATATYPE__         # [interoperability_if_applicable] The data type of the value (e.g., string, integer, float, boolean).
-          unit: __UNIT__                  # [interoperability_if_applicable] The unit of measurement for the value, if applicable.
-          description: __DESCRIPTION__    # [interoperability_if_applicable] A description of the field and its significance.
-# ============================================================
+  #   schema_reference:                   # [interoperability_if_applicable] type is required once this block is present
+  #     type: __TYPE__                    # ark | doi | handle | local | purl | url | urn | uuid | other | unregistered
+  #     value: __VALUE__
+  #     version: __VERSION__
+  #   fields:                             # [interoperability_if_applicable] Key-value pairs of domain-specific metadata fields. The specific fields will depend on the domain and schema referenced above.
+  #     FIELD_NAME:                       # ${FIELD_NAME} [interoperability_if_applicable] The key of the domain-specific metadata field.
+  #       name: __NAME__                  # required: the field name, repeated
+  #       field_value: __VALUE__          # [interoperability_if_applicable] The value for this domain-specific metadata field. The specific value will depend on the field and schema referenced above.
+  #       data_type: __DATATYPE__         # [interoperability_if_applicable] The data type of the value (e.g., string, integer, float, boolean).
+  #       unit: __UNIT__                  # [interoperability_if_applicable] The unit of measurement for the value, if applicable.
+  #       description: __DESCRIPTION__    # [interoperability_if_applicable] A description of the field and its significance.
 # REUSABILITY                   [reusability_required]
 # ============================================================
 # Metadata elements that describe the reusability of this dataset, 
@@ -927,20 +928,21 @@ reusability:                              # [reusability_required] Information a
   #   stewardship.versioning_strategy — how versioning is managed over time
   stewardship:                                # [reusability_if_applicable] Information about the stewardship of this dataset, including who is responsible for maintaining it and how versioning is managed over time.
     level: __LEVEL__                          # [reusability_if_applicable] Select one: Project_Managed | Repository_Managed | Externally_Managed | not_applicable
-    maintainer:                               # [reusability_if_applicable] Person or organization responsible for ongoing maintenance.
-      type: __TYPE__                          # person | organization
-      person:
-        given_name: __GIVEN_NAME__           # [reusability_if_applicable]
-        family_name: __FAMILY_NAME__         # [reusability_if_applicable]
-        orcid: __ORCID__                     # [reusability_if_applicable]
+    # maintainer:                             # [reusability_if_applicable] Person or organization responsible for ongoing maintenance.
+                                              # Exactly one of person | organization; the block name is the type.
+                                              # Uncomment one block and fill it, or leave both commented.
+    #   person:
+    #     given_name: __GIVEN_NAME__         # [reusability_if_applicable]
+    #     family_name: __FAMILY_NAME__       # [reusability_if_applicable]
+    #     orcid: __ORCID__                   # [reusability_if_applicable]
                                              # Required where DOE employee/contractor author policy applies, if locally applicable
-        email: __EMAIL__                     # [reusability_if_applicable]
-        affiliation:
-          name: __ORG_NAME__                 # [reusability_if_applicable]
-          ror_id: __ROR_ID__                 # [reusability_if_applicable]
-      organization:
-        name: __ORG_NAME__                    # [reusability_if_applicable]
-        ror_id: __ROR_ID__                    # [reusability_if_applicable]
+    #     email: __EMAIL__                   # [reusability_if_applicable]
+    #     affiliation:
+    #       name: __ORG_NAME__               # [reusability_if_applicable]
+    #       ror_id: __ROR_ID__               # [reusability_if_applicable]
+    #   organization:
+    #     name: __ORG_NAME__                  # [reusability_if_applicable]
+    #     ror_id: __ROR_ID__                  # [reusability_if_applicable]
     update_frequency: __FREQ__                # [reusability_if_applicable] None | Ad_Hoc | Monthly | Quarterly | Annually | Continuously | Other
     retention_policy: __POLICY__              # [reusability_if_applicable] e.g., "Retained for 10 years per DOE data management policy"
     versioning_strategy: __STRATEGY__         # [reusability_if_applicable] e.g., "Semantic versioning; all versions retained in Zenodo"
@@ -955,31 +957,28 @@ reusability:                              # [reusability_required] Information a
     validation_methods: ${DESC}             # [reusability_required] e.g., "Cross-validated against NIST SRM 640f"
     noise_characteristics: __DESC__          # [reusability_if_applicable]
     uncertainty_notes: __NOTES__             # [reusability_if_applicable] e.g., "Measurement uncertainty ±0.5% (k=2) per ISO/IEC Guide 98-3"
-    missing_data_codes: []                   # [reusability_if_applicable]
-    # - code: __CODE__                       # e.g., -999 | NaN | NULL
-    #   description: __DESC__                # e.g., "Sensor malfunction" | "Below detection limit"
+    # missing_data_codes:                  # [reusability_if_applicable] one block (not a list). Uncomment and fill code, or leave commented.
+    #   code: __CODE__                     # e.g., -999 | NaN | NULL
+    #   description: __DESC__              # e.g., "Sensor malfunction" | "Below detection limit"
 
   # --- Dataset Citation ---------------------------------------------------
   # [reusability_if_applicable] Important:Populate when dataset release_status = Approved | Published.
   # Replace ALL ${...} placeholders in the BibTeX block below before publishing.
   citation:                           # [reusability_if_applicable]
     report_number: __NUMBER__         # [reusability_if_applicable] e.g., SAND2024-XXXXX | LAUR-XX-XXXXX | ORNL/TM-2024/XXXXX
-    preferred_citation:               # [reusability_if_applicable]
-      author: __AUTHOR__               # [reusability_if_applicable, required if preferred_citation is included] e.g., "Smith, John A.; Doe, Jane B."
-      title: __DATASET_NAME__          # [reusability_if_applicable, required if preferred_citation is included] e.g., "Neutron Scattering Data from SNS Beamline 1B, April 2023"
-      year: __YEAR__                   # [reusability_if_applicable, required if preferred_citation is included] e.g., 2024
-      publisher: __PUBLISHER__         # [reusability_if_applicable, either preferred_citation or howpublished is required] e.g., "Oak Ridge National Laboratory" | "DOE NNSA" | "University of X"
-      howpublished: __HOWPUBLISHED__  # [reusability_if_applicable, either preferred_citation or howpublished is required] e.g., "(Version v1) [Data set]. Zenodo" | "Available at https://doi.org/10.1234/zenodo.1234567"
-      doi: __DOI__                     # [reusability_if_applicable, either doi or url is required] e.g., "10.1234/zenodo.1234567"
-      url: __URL__                     # [reusability_if_applicable, either doi or url is required] e.g., "https://doi.org/10.1234/zenodo.1234567" 
-      eprinttype: __EPRINT_TYPE__      # [reusability_if_applicable] e.g., arxiv | biorxiv | report_number | other
-      eprint: __EPRINT__               # [reusability_if_applicable] e.g., "1234.56789" | "SAND2024-XXXXX
-      note: __NOTE__                   # [reusability_if_applicable] e.g., "Available at \url{ark:/12345/abcde}""
+    # preferred_citation:             # [reusability_if_applicable] Uncomment and fill author, title, and year, or leave commented.
+    #   author: __AUTHOR__            # [required if preferred_citation is included] e.g., "Smith, John A.; Doe, Jane B."
+    #   title: __DATASET_NAME__       # [required if preferred_citation is included] e.g., "Neutron Scattering Data from SNS Beamline 1B, April 2023"
+    #   year: __YEAR__                # [required if preferred_citation is included] a quoted string, e.g., "2024"
+    #   publisher: __PUBLISHER__      # [reusability_if_applicable, either preferred_citation or howpublished is required] e.g., "Oak Ridge National Laboratory" | "DOE NNSA" | "University of X"
+    #   howpublished: __HOWPUBLISHED__ # [reusability_if_applicable, either preferred_citation or howpublished is required] e.g., "(Version v1) [Data set]. Zenodo" | "Available at https://doi.org/10.1234/zenodo.1234567"
+    #   doi: __DOI__                  # [reusability_if_applicable, either doi or url is required] e.g., "10.1234/zenodo.1234567"
+    #   url: __URL__                  # [reusability_if_applicable, either doi or url is required] e.g., "https://doi.org/10.1234/zenodo.1234567"
+    #   eprinttype: __EPRINT_TYPE__   # [reusability_if_applicable] e.g., arxiv | biorxiv | report_number | other
+    #   eprint: __EPRINT__            # [reusability_if_applicable] e.g., "1234.56789" | "SAND2024-XXXXX
+    #   note: __NOTE__                # [reusability_if_applicable] e.g., "Available at \url{ark:/12345/abcde}"
                                       # For legacy bibtex entries (that don't accept eprinttype and eprint) and that need to support an ark or other identifiers that don't fit cleanly into the existing fields, the note field can be used to capture this information in a free-text format.
                                       # include a note: field use this format for the note field: note: Available at \url{ark:/12345/abcde}
-  # --- Integrity & Fixity -----------------------------------------
-  # [reusability_if_applicable] Checksums enable automated validation of data
-  # integrity after transfer or storage.
   integrity:                                # [reusability_if_applicable]
     checksum_available: "__Yes|No__"        # [reusability_if_applicable] "Yes" | "No"
     checksum_type: __TYPE__                 # [required if checksum_available="Yes"] sha256 | sha512 | md5 | other
@@ -1013,9 +1012,6 @@ governed_use:
                                             # e.g., clinical decision-making | real-time control systems
     prohibited_use: __PROHIBITED_USE__             # [governed_use_if_applicable] Uses that are explicitly prohibited for this dataset.
                                             # e.g., any use involving human subjects | commercial applications | use in high-risk domains  
-    need_to_know_basis: []                  # [governed_use_if_applicable] If access is restricted based on a need-to-know basis, list the specific basis for the restriction.
-                                            # select one from list: "Mission_Need" | "Job_Duty" | "Project_Program_Association" | "Agreement_Defined" | "DGB_Exception_Waiver"
-                                              
 
   # --- Non-Sensitivity Governance Metadata -------------------------------------------------
   # [governed_use_required] Governance-relevant metadata that may affect sharing/use decisions but is not
@@ -1034,7 +1030,7 @@ governed_use:
     # Privacy & Human Subjects -----------------------------------------
     privacy:                                             # [governed_use_required]
       privacy_status: ${PRIVACY_STATUS}                 # [governed_use_required] select one from list: "Yes" | "No" | "Pending_Review" | "Unknown"
-      pii_status: __PII_STATUS__                         # [governed_use_required] select one from list: "Yes" | "No" | "Pending_Review" | "Unknown"
+      pii_status: ${PII_STATUS}                          # [governed_use_required] select one from list: "Yes" | "No" | "Pending_Review" | "Unknown"
       phi_status: __PHI_STATUS__                         # [governed_use_required] select one from list: "Yes" | "No" | "Pending_Review" | "Unknown"
       privacy_control_basis: []                            # [governed_use_if_applicable] select all that apply: HIPPA | Privacy_Act | Human_Subjects | Other_Regulated_Privacy | Site_Specific | not_applicable
       privacy_regime_notes: __PRIVACY_NOTES__            # [governed_use_if_applicable] Optional notes for privacy regimes or handling nuances not captured by controlled values.
@@ -1043,7 +1039,7 @@ governed_use:
     rights_release_records:                              # [governed_use_required]
       ip_restriction_type: __IP_RESTRICTION_TYPE__       # [governed_use_if_applicable] select one from list: Proprietary | Limited_Rights | Restricted_Rights | Government_Purpose_Rights | Unlimited_Rights | Third_Party_Licensed | None
       agreement_required: ${AGREEMENT_REQUIRED}          # [governed_use_required] select one from list: "Yes" | "No" — Is a rights release agreement required for use of this dataset?
-      agreement_type: []                                 # [governed_use_if_applicable, required if agreement_required = "Yes"] list all that apply: DUA | CRADA | MOU | NDA | LICENSE | WFO | OTHER
+      agreement_type: __AGREEMENT_TYPE__                 # [governed_use_if_applicable, required if agreement_required = "Yes"] select one from list: DUA | CRADA | MOU | NDA | LICENSE | WFO | OTHER
       public_release_status: ${PUBLIC_RELEASE_STATUS}   # [governed_use_required] select one from list: "Approved" | "Pending" | "Not_Approved" | "Requires_STI_Review"
       record_status: ${RECORD_STATUS}                   # [governed_use_required] select one from list: "Federal_Record" | "Contractor_Record" | "Non_Record" | "Mixed" | "Unknown"
 
@@ -1060,25 +1056,24 @@ governed_use:
   #  should exist somewhere in the broader card/model.
   # This block extends the Genesis Sensitivity V2 review_provenance_companion (which only accepts a single review) by allowing multiple review records to be captured in a structured format, 
   # which is especially useful for datasets that have undergone multiple reviews or have complex provenance histories.
-  review_provenance_companion:                      # [governed_use_if_applicable] This is especially useful to track the provenance of the review.
-    - source_review_reference: __REVIEW_REFERENCE__ # [governed_use_if_applicable] e.g., internal_qa | security | export_control | irb | partner | publication | other
-      review_purpose: __PURPOSE__                   # [governed_use_if_applicable] e.g., "Export control review prior to public release"
-      source_review_authority: __AUTHORITY__        # [governed_use_if_applicable] e.g., "DOE Export Control Officer" | "ORNL IRB"
-      review_contact_name: __CONTACT_NAME__         # [governed_use_if_applicable] Name of the primary contact for this review, if applicable.
-      review_contact_email: __CONTACT_EMAIL__       # [governed_use_if_applicable] Email of the primary contact for this review, if applicable.
-      reviewed_by:                                  # [governed_use_if_applicable] Delete the block that does not apply.
-        type: __TYPE__                              # person | organization
-        person:
-          given_name: __GIVEN_NAME__                # [governed_use_if_applicable]
-          family_name: __FAMILY_NAME__              # [governed_use_if_applicable]
-          email: __EMAIL__                          # [governed_use_if_applicable]
-          ror_id: __ROR_ID__                        # [governed_use_if_applicable]
-        organization:
-          name: __ORG_NAME__                        # [governed_use_if_applicable]
-          ror_id: __ROR_ID__                        # [governed_use_if_applicable]
-      decontrol_or_declassify_on: "__YYYY-MM-DD__"  # [governed_use_if_applicable] If provided, use "YYYY-MM-DD" format or "not_applicable", for export-controlled or classified datasets, the date when the dataset will be decontrolled or declassified, if known.
-      review_date: "__YYYY-MM-DD__"                 # [governed_use_if_applicable] If provided, use "YYYY-MM-DD" format or "not_applicable"
-      comments: __COMMENTS__                        # [governed_use_if_applicable]
+  # review_provenance_companion:                  # [governed_use_if_applicable] This is especially useful to track the provenance of the review.
+                                                  # Uncomment and fill source_review_reference per entry, or leave commented.
+  #   - source_review_reference: __REVIEW_REFERENCE__ # [required per entry] e.g., internal_qa | security | export_control | irb | partner | publication | other
+  #     review_purpose: __PURPOSE__               # [governed_use_if_applicable] e.g., "Export control review prior to public release"
+  #     source_review_authority: __AUTHORITY__    # [governed_use_if_applicable] e.g., "DOE Export Control Officer" | "ORNL IRB"
+  #     review_contact_name: __CONTACT_NAME__     # [governed_use_if_applicable] Name of the primary contact for this review, if applicable.
+  #     review_contact_email: __CONTACT_EMAIL__   # [governed_use_if_applicable] Email of the primary contact for this review, if applicable.
+  #     reviewed_by:                              # [governed_use_if_applicable] exactly one of person | organization; the block name is the type.
+  #       person:
+  #         given_name: __GIVEN_NAME__            # [governed_use_if_applicable]
+  #         family_name: __FAMILY_NAME__          # [governed_use_if_applicable]
+  #         email: __EMAIL__                      # [governed_use_if_applicable]
+  #       organization:
+  #         name: __ORG_NAME__                    # [governed_use_if_applicable]
+  #         ror_id: __ROR_ID__                    # [governed_use_if_applicable]
+  #     decontrol_or_declassify_on: "__YYYY-MM-DD__"  # [governed_use_if_applicable] If provided, use "YYYY-MM-DD" format or "not_applicable", for export-controlled or classified datasets, the date when the dataset will be decontrolled or declassified, if known.
+  #     review_date: "__YYYY-MM-DD__"             # [governed_use_if_applicable] If provided, use "YYYY-MM-DD" format or "not_applicable"
+  #     comments: __COMMENTS__                    # [governed_use_if_applicable]
 
 # ============================================================
 # AI USABILITY    [ai_usability_required]
@@ -1107,7 +1102,8 @@ ai_usability:
 
 # ------------------------------------------------------------
 # REPOSITORY-MANAGED
-# ONLY HERE FOR REFERENCE - DO NOT INCLUDE THIS BLOCK IN THE FINAL DATA CARD
+# REFERENCE ONLY. The block below is commented out and is not part of a data card;
+# the schema rejects a card that contains it.
 # Populated by the managing repository or catalog system at
 # ingest. Do not edit manually. The managing system may be
 # institutional, project-owned, community, or national
@@ -1115,31 +1111,31 @@ ai_usability:
 # or a project data store). Fields here are authoritative
 # as assigned by that system.
 # ------------------------------------------------------------
-_repository:                               # [reference_only_do_not_include] Repository-managed metadata fields. Do not edit manually, nor include in completed data card.
-  populated_by_repository: true            # [reference_only_do_not_include] Always true; signals to parsers this block is system-owned
-  ingest_date: null                        # [reference_only_do_not_include] ISO 8601 date this data card was ingested by the managing system
-  repository_catalog_id: null              # [reference_only_do_not_include] Identifier assigned to this data card by the managing catalog
-  completeness_score: null                 # [reference_only_do_not_include] Catalog-computed completeness score against completeness of fields in declared inteded_capabilities
-  datacard_checksum:                        # [reference_only_do_not_include] Integrity record for this data card document file
-    type: null                              # [reference_only_do_not_include] sha256 | sha512 — checksum algorithm used
-    value: null                             # [reference_only_do_not_include] Checksum of the raw data card .md file as ingested.
-                                            # Recomputed on each ingest to detect post-ingest modifications.
-  repositories:                             # [reference_only_do_not_include] Resolved repository records keyed to access.intended_repositories
-    - name: ""                              # [reference_only_do_not_include] Echoed from access.intended_repositories.name
-      identifier:
-        type: null                          # [reference_only_do_not_include] ror | url | local | other
-        value: null                         # [reference_only_do_not_include] Authoritative repository identifier; ROR ID preferred
-      dataset_landing_page: null            # [reference_only_do_not_include] Human-readable dataset page assigned by the repository
-      dataset_download_url: null            # [reference_only_do_not_include] Direct download URL assigned by the repository
-      dataset_id_in_repo: null              # [reference_only_do_not_include] Accession number or ID assigned by this repository
-      access_protocol: null                 # [reference_only_do_not_include] https | ftp | s3 | globus | nfs | lustre | other
-  usage_metrics:                            # [reference_only_do_not_include] Populated by the managing repository; do not edit
-    download_count: null
-    view_count: null
-    citation_count: null
-    last_accessed: null
-  distributions: []                         # [reference_only_do_not_include] Distribution records populated at ingest
-  data_services: []                         # [reference_only_do_not_include] Data service endpoints populated at ingest
+# _repository:                               # [reference_only_do_not_include] Repository-managed metadata fields. Do not edit manually, nor include in completed data card.
+#   populated_by_repository: true            # [reference_only_do_not_include] Always true; signals to parsers this block is system-owned
+#   ingest_date: null                        # [reference_only_do_not_include] ISO 8601 date this data card was ingested by the managing system
+#   repository_catalog_id: null              # [reference_only_do_not_include] Identifier assigned to this data card by the managing catalog
+#   completeness_score: null                 # [reference_only_do_not_include] Catalog-computed completeness score against completeness of fields in declared inteded_capabilities
+#   datacard_checksum:                        # [reference_only_do_not_include] Integrity record for this data card document file
+#     type: null                              # [reference_only_do_not_include] sha256 | sha512 — checksum algorithm used
+#     value: null                             # [reference_only_do_not_include] Checksum of the raw data card .md file as ingested.
+#                                             # Recomputed on each ingest to detect post-ingest modifications.
+#   repositories:                             # [reference_only_do_not_include] Resolved repository records keyed to access.intended_repositories
+#     - name: ""                              # [reference_only_do_not_include] Echoed from access.intended_repositories.name
+#       identifier:
+#         type: null                          # [reference_only_do_not_include] ror | url | local | other
+#         value: null                         # [reference_only_do_not_include] Authoritative repository identifier; ROR ID preferred
+#       dataset_landing_page: null            # [reference_only_do_not_include] Human-readable dataset page assigned by the repository
+#       dataset_download_url: null            # [reference_only_do_not_include] Direct download URL assigned by the repository
+#       dataset_id_in_repo: null              # [reference_only_do_not_include] Accession number or ID assigned by this repository
+#       access_protocol: null                 # [reference_only_do_not_include] https | ftp | s3 | globus | nfs | lustre | other
+#   usage_metrics:                            # [reference_only_do_not_include] Populated by the managing repository; do not edit
+#     download_count: null
+#     view_count: null
+#     citation_count: null
+#     last_accessed: null
+#   distributions: []                         # [reference_only_do_not_include] Distribution records populated at ingest
+#   data_services: []                         # [reference_only_do_not_include] Data service endpoints populated at ingest
 ---
 
 ### Instructions  
