@@ -33,7 +33,7 @@ Progress:
 - [ ] 7. Cross-check every ORCID/ROR/DOI/OSTI identifier via live APIs
 - [ ] 8. Compute filename and write the datacard (YAML + markdown body)
 - [ ] 9. Run scripts/validate_datacard.py
-- [ ] 10. Address findings; re-validate
+- [ ] 10. Fix each finding at its field path; re-validate until the output starts with OK
 - [ ] 11. Present review summary
 ```
 
@@ -267,25 +267,55 @@ Run:
 python3 scripts/validate_datacard.py <written_file>
 ```
 
-The validator emits structured codes:
+Each finding is one line, `[severity] CODE field.path: message`. The field
+path is the YAML path of the offending value, with list indexes in
+brackets (`discoverability.authors[0].person.role[1]`). Fix by code:
 
-- `MISSING_REQUIRED:<field>` — re-prompt
-- `BAD_ENUM:<field>` — show enum from `references/lookup-tables.md`; re-prompt
-- `BAD_FORMAT:<field>` — show format hint; re-prompt
-- `INCONSISTENT:<field>` — show conflicting values; ask user
-- `SCHEMA_VIOLATION:<field>` — unexpected; investigate
+- `MISSING_REQUIRED <path>` — the field is absent: add it. Auto-fill it if
+  the table in step 4 can, else prompt.
+- `BAD_ENUM <path>` — the value is not in the enum; the message lists the
+  members. Replace the value with a member (`references/lookup-tables.md`).
+- `BAD_FORMAT <path>` — the value fails a pattern (date, ORCID, ROR,
+  version); the message names the format. Rewrite the value.
+- `INCONSISTENT <path>` — two values disagree (filename vs name,
+  `workflow.state` vs `release_status`). Ask the user which is right.
+- `SCHEMA_VIOLATION <path>: Extra inputs are not permitted` — the key is
+  not in the model. Delete the key (and its sub-block). The usual causes:
+  `agent_type`, `type` beside `person`, `_repository`, a field the template
+  shows commented out but typed differently.
+- `SCHEMA_VIOLATION <path>: Input should be a valid string` on a blank
+  value, or `Field required` inside an optional block — an optional block
+  was left with blank sub-fields. Fill the block in full or delete the
+  whole block.
+- `SCHEMA_VIOLATION <path>: List should have at least 1 item` — the list
+  rejects `[]`. Fill it or delete the line.
+- `SCHEMA_VIOLATION <path>: Value error, Invalid version format` —
+  `version` must be numeric `MAJOR.MINOR[.PATCH]` (Gotcha 11).
+- `SCHEMA_VIOLATION <path>: Input should be a valid dictionary` on a list
+  — the field is a single block (`domain_metadata`, `missing_data_codes`).
+  Rewrite the list as one mapping.
 
 Use `--json` to get machine-readable output for parsing the findings list.
 
-### 10. Address findings
+### 10. Address findings and re-validate
 
-Loop steps 6 → 7 → 8 → 9 until `--json` output has `"ok": true`. **Do not
-claim done with un-addressed errors.** `warn` severity findings can stand
-in the review summary but errors must be resolved.
+The validator is the acceptance check. A card with an `error` finding is
+not delivered.
 
-On loop-back to step 7, re-enrich ONLY identifiers the user added or
-changed in this iteration — do NOT re-check every identifier from scratch
-(see `references/live-enrichment.md` § Re-check-only-changed).
+1. Take the validator output from step 9. For each `[error]` line, open the
+   card at the named field path and apply the fix for its code (step 9).
+   Every error finding is fixable by editing the card; none is a reason to
+   stop. If a fix needs a value only the user has (`MISSING_REQUIRED` on a
+   field the step 4 table cannot fill, or `INCONSISTENT`), prompt for it
+   as in step 6.
+2. Re-run `python3 scripts/validate_datacard.py <written_file>`.
+3. Repeat 1 and 2 until the output starts with `OK:` (`--json`:
+   `"ok": true`). `[warn]` findings may remain and are listed in the
+   review summary.
+
+If an edit added or changed an ORCID, ROR, DOI or OSTI identifier,
+re-enrich ONLY that identifier (step 7); do NOT re-check every identifier
+from scratch (see `references/live-enrichment.md` § Re-check-only-changed).
 
 ### 11. Review summary
 
@@ -320,7 +350,8 @@ When the user asks to convert an existing MODCON v1 datacard:
 5. **Cross-check every identifier via live APIs** (step 7 of the Generate path).
 6. **Compute the filename and write the datacard** (step 8 of the Generate path).
 7. Run the validator (step 9 of the Generate path).
-8. Present the review summary (step 11 of the Generate path).
+8. Fix each finding and re-validate until the output starts with `OK:` (step 10 of the Generate path).
+9. Present the review summary (step 11 of the Generate path).
 
 ---
 
