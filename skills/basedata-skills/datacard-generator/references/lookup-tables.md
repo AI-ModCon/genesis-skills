@@ -26,8 +26,8 @@ How this datacard was most recently created or updated.
 |---|---|
 | `person` | A named human contributor — fill `given_name`, `family_name`, `email`, `orcid`, `affiliation` |
 | `organization` | A team or org without a named individual — fill `name` and `ror_id` |
-| `ai_model` | An AI/LLM model (e.g., Claude, GPT-4) — fill `name`, `version`, `relationship` |
-| `software` | An automated pipeline or script — fill `name`, `version`, `relationship` |
+| `ai_model` | An AI/LLM model — fill `name` (provider identifier, e.g., `claude-sonnet-4-5`), `accessed_date`, `identifier`, `relationship`; `version` is optional and numeric (`"4.5"`) |
+| `software` | An automated pipeline or script — fill `name`, `identifier`, `relationship`; `version` is optional and numeric (`"1.2.3"`) |
 
 The `role[]` field on each agent uses the CRediT taxonomy (see People & Organizations section).
 

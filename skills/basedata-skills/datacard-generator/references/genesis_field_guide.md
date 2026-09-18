@@ -185,9 +185,9 @@ This sub-block describes the **data card document itself** — not the dataset.
 - Distinct from `interoperability.data_structure.language`, which describes the language of the *dataset content* (e.g., text corpora).
 
 #### `datacard.id`
-- **Annotation:** `[discoverability_if_applicable]`
+- **Annotation:** `[discoverability_required]` (the schema requires the block and its `type`).
 - **Single entry** (sub-fields `type`, `value`).
-- A persistent identifier (PID) for the data card document itself, distinct from the dataset identifier. Most data cards will not have this initially. Populate only if the data card has been registered in a catalog or repository as an independent citable object. Unregistered data cards should leave this block blank, delete it, or use the unregistered type/value pair without the value field (e.g., `type: unregistered`, `value: ""`).
+- An identifier for the data card document itself, distinct from the dataset identifier. Before the data card is registered in a catalog or repository as an independent citable object, use `type: local` with the filename stem as the value (e.g., `value: genesis_datacard_my_dataset`).
 - `type` controlled vocabulary (`IdentifierTypeEnum`): `ark` \| `doi` \| `handle` \| `local` \| `purl` \| `url` \| `urn` \| `uuid` \| `other` \| `unregistered`
 - `value`: the identifier value.
 
@@ -256,14 +256,14 @@ Each entry:
 |---|---|---|
 | `contribution_date` | `[discoverability_required]` | ISO 8601 date of this specific contribution |
 | `description` | `[discoverability_if_applicable]` | What this contributor did, e.g. "Automated generation of data card from dataset metadata" |
-| `creator.agent_type` | `[discoverability_required]` | One of `person` \| `organization` \| `ai_model` \| `software` |
+| `creator` | `[discoverability_required]` | Exactly one sub-block: `person` \| `organization` \| `ai_model` \| `software`. There is no `agent_type` key; the sub-block name is the type. |
 
-The `creator` block contains four optional sub-blocks (`person`, `organization`, `ai_model`, `software`) — **populate only the one matching `agent_type` and delete the other three.**
+The `creator` block contains four optional sub-blocks (`person`, `organization`, `ai_model`, `software`) — **populate exactly one and delete the other three.** A `type` or `agent_type` sibling is rejected by the schema.
 
 - **`person`** — for a human contributor: `given_name`, `family_name`, `orcid` *(if_applicable — format `https://orcid.org/0000-0000-0000-0000`; required where DOE employee/contractor author policy applies)*, `email`, `affiliation.name`, `affiliation.ror_id` *(if_applicable — format `https://ror.org/XXXXXXX`)*, `role` (**list**, see CRediT-extended `RoleEnum` below).
 - **`organization`** — for a team/office/lab/site without a named individual: `name`, `ror_id`, `role` (**list**).
-- **`ai_model`** — for an AI model that generated or substantially contributed content: `name` (e.g., "Chat GPT 5.5"), `version`, `accessed_date`, `identifier.type`/`identifier.value`, `role` (**list**), and `relationship` *(required for ai_model)* — see relationship vocabulary below.
-- **`software`** — for an pipeline/script (not an LLM): `name`, `version`, `identifier.type`/`identifier.value`, `role` (**list**), and `relationship` *(required for software)*.
+- **`ai_model`** — for an AI model that generated or substantially contributed content: `name` (the provider's model identifier, e.g., `claude-sonnet-4-5`), `version` *(if_applicable; numeric `MAJOR.MINOR[.PATCH]` only, e.g., `"4.5"`; the schema pattern is `^\d+\.\d+(\.\d+)?$`)*, `accessed_date` *(required)*, `identifier.type`/`identifier.value` *(required)*, `role` (**list**), and `relationship` *(required)* — see relationship vocabulary below.
+- **`software`** — for an pipeline/script (not an LLM): `name`, `version` *(if_applicable; the same numeric pattern)*, `identifier.type`/`identifier.value` *(required)*, `role` (**list**), and `relationship` *(required)*.
 
 **`role` controlled vocabulary** (`RoleEnum`, extends CRediT taxonomy): `Conceptualization` \| `Data_Curation` \| `Formal_Analysis` \| `Funding_Acquisition` \| `Investigation` \| `Methodology` \| `Project_Administration` \| `Resources` \| `Software` \| `Supervision` \| `Validation` \| `Visualization` \| `Writing_Original_Draft` \| `Writing_Review_Editing` \| `Data_Collection` \| `Other`. (Full enum confirmed in schema; the truncated middle portion contains additional standard CRediT roles — Resources, Software, Supervision, Validation, Visualization, Writing roles — matching the template's listed set with no conflicts found.)
 
@@ -446,7 +446,7 @@ Key metadata fields that uniquely identify this dataset.
 - **Single entry.**
 - The primary point of contact for questions about this **dataset**. Required for all data cards — every dataset must have a reachable contact. This is who users will reach out to with questions, problems, or collaboration interest. If the dataset is part of a larger collection, the contact may be for the collection as a whole.
 Contacts may only be valid until a certain date (e.g., for students, postdocs, or term staff), which can be provided in the `valid_until` field. If the contact is temporary, provide a `succession_note` with instructions for who to contact (role or person) if the primary contact is no longer reachable.
-- `agent_type`: only `person` is allowed as the primary contact (to ensure accountability and a clear point of contact), or `organization` (e.g., a data management office, if no single named contact is appropriate).
+- The schema's `ContactClass` has one agent slot, `person`, and it is required (accountability and a clear point of contact). There is no `agent_type` key. A data management office goes in `additional_contacts` as a person with a `succession_note`.
 - `person` sub-fields: `given_name`, `family_name`, `orcid` *(if_applicable — format `https://orcid.org/0000-0000-0000-0000`; required where DOE employee/contractor author policy applies)*, `email`, `affiliation.name`, `affiliation.ror_id` *(if_applicable)*.
 - `valid_until` *(if_applicable)*: date after which this contact may no longer be valid — use for project-bound contacts (students, postdocs, term staff).
 - `succession_note` *(if_applicable)*: who to contact if this contact is no longer reachable, e.g., "Contact the ORNL data management office at data@ornl.gov."
@@ -455,7 +455,7 @@ Contacts may only be valid until a certain date (e.g., for students, postdocs, o
 ### `discoverability.additional_contacts`
 - **Annotation:** `[discoverability_if_applicable]`
 - **List (0 or more).**
-- Additional contacts (e.g., instrument PI, data steward). Same structure as `contact` above, with `type: person | organization` per entry.
+- Additional contacts (e.g., instrument PI, data steward). Same structure as `contact` above: `person` per entry, no `type` key.
 
 ---
 
@@ -463,7 +463,7 @@ Contacts may only be valid until a certain date (e.g., for students, postdocs, o
 - **Annotation:** `[discoverability_required]` — at least one author required. For draft or in-workflow datasets, populate with known contributors as early as possible.
 - **List (1 or more required).**
 - Authors are individuals or organizations with primary intellectual responsibility for the dataset — typically the PI, lead scientist, or data creator. For supporting roles (technicians, annotators, submitters), use `contributors` instead.
-- Each entry: `type: person | organization`.
+- Each entry is an `AgentClass`: exactly one of `person` \| `organization`, with no `type` key (the sub-block name is the type).
   - `person`: `given_name`, `family_name`, `orcid` *(if_applicable — strongly recommended; enables disambiguation and credit tracking; required where DOE employee/contractor author policy applies)*, `email` *(if_applicable)*, `affiliation.name`, `affiliation.ror_id` *(if_applicable)*, `role` (**list**, CRediT-extended `RoleEnum`, see above).
   - `organization`: `name`, `ror_id`, `role` (**list**).
 
@@ -743,10 +743,10 @@ Metadata elements that describe the interoperability of this dataset — context
 | Sub-field | Notes |
 |---|---|
 | `description` | Freetext, e.g. "Continental United States" \| "SNS Beamline 1B, ORNL" |
-| `geo_location_box.westBoundLongitude` | WGS84 decimal degrees; aligns with `datacite:geoLocationBox` / `datacite:westBoundLongitude` |
-| `geo_location_box.eastBoundLongitude` | aligns with `datacite:eastBoundLongitude` |
-| `geo_location_box.southBoundLatitude` | aligns with `datacite:southBoundLatitude` |
-| `geo_location_box.northBoundLatitude` | aligns with `datacite:northBoundLatitude` |
+| `geo_location_box.west_bound_longitude` | WGS84 decimal degrees; aligns with `datacite:geoLocationBox` / `datacite:westBoundLongitude` |
+| `geo_location_box.east_bound_longitude` | aligns with `datacite:eastBoundLongitude` |
+| `geo_location_box.south_bound_latitude` | aligns with `datacite:southBoundLatitude` |
+| `geo_location_box.north_bound_latitude` | aligns with `datacite:northBoundLatitude` |
 
 Use `geo_location_box` for genuine area coverage; `description` alone is sufficient for most facility-based experimental data.
 
@@ -883,8 +883,8 @@ related_resources:
     - type: "doi"
       value: "10.5678/example.publication"
       relationship: "references"
-    - type: "arxiv"
-      value: "arXiv:2101.12345"
+    - type: "url"
+      value: "https://arxiv.org/abs/2101.12345"
       relationship: "is_based_on"
 ```
 
@@ -903,7 +903,7 @@ related_resources:
         value: "10.9876/example.software.x"
       role: 
         - "Software"
-        - "Data Curation"
+        - "Data_Curation"
       relationship: "used_to_process"
 ```
 
@@ -916,14 +916,14 @@ Example:
 related_resources:
   ai_models:
     - name: "Example AI Model Y"
-      version: "v0.9"
+      version: "0.9"
       accessed_date: "2024-01-15"
       identifier:
         type: "doi"
         value: "10.5432/example.ai.model.y"
       role:
         - "Software"
-        - "Data Curation"
+        - "Data_Curation"
       relationship: "trained_on"
 ```
 
@@ -931,26 +931,27 @@ related_resources:
 
 ### `interoperability.domain_metadata`
 - **Annotation:** `[interoperability_if_applicable]`
-- **List (0 or more).**
-- Any additional domain-specific metadata not otherwise captured in the data card. Supports multiple entries so a single dataset can carry metadata for more than one domain or schema. Domain-specific metadata supplements the discoverability-level metadata and should not replace the common metadata expected elsewhere in the data card.
+- **Single block** (`DomainMetadataClass`; the schema does not accept a list here).
+- Any additional domain-specific metadata not otherwise captured in the data card. Domain-specific metadata supplements the discoverability-level metadata and should not replace the common metadata expected elsewhere in the data card.
 
-Each entry:
+Sub-fields:
 
 | Sub-field | Annotation | Notes |
 |---|---|---|
-| `name` | `[interoperability_if_applicable]` | e.g., "Accelerator Operations Metadata" \| "Climate Data Variables" |
+| `name` | required once the block is present | e.g., "Accelerator Operations Metadata" \| "Climate Data Variables" |
 | `description` | `[interoperability_if_applicable]` | Freetext description of the domain-specific metadata, its purpose, and any important details |
 | `science_domain` | `[interoperability_if_applicable]` | `ScienceDomainEnum` — same controlled vocabulary as `discoverability.dataset_description.science_domain` (see prior installment) |
-| `schema_reference.type` | `[interoperability_if_applicable]` | `doi` \| `url` \| `ark` \| `handle` \| `local` \| `other` |
+| `schema_reference.type` | required once `schema_reference` is present | `IdentifierTypeEnum`: `ark` \| `doi` \| `handle` \| `local` \| `purl` \| `url` \| `urn` \| `uuid` \| `other` \| `unregistered` |
 | `schema_reference.value` | `[interoperability_if_applicable]` | Identifier value for the referenced schema |
-| `version` | `[interoperability_if_applicable]` | Version of the domain-specific schema or metadata convention used |
+| `schema_reference.version` | `[interoperability_if_applicable]` | Version of the domain-specific schema or metadata convention used |
 | `fields` | `[interoperability_if_applicable]` | **Map** of key-value pairs — see below |
 
-`domain_metadata[].fields` is a map keyed by field name (not a list). For each named field, populate:
+`domain_metadata.fields` is a map keyed by field name (not a list). For each named field, populate:
 
 | Sub-field | Notes |
 |---|---|
-| `field_value` | The value for this domain-specific metadata field; the specific value depends on the field and schema referenced above |
+| `name` | Required: the field name, repeated |
+| `field_value` | The value as a quoted string; the schema types it as a string, so `"120"` validates and `120` does not |
 | `data_type` | The data type of the value (e.g., `string`, `integer`, `float`, `boolean`) |
 | `unit` | Unit of measurement for the value, if applicable |
 | `description` | Description of the field and its significance |
@@ -958,42 +959,26 @@ Each entry:
 Example:
 ```yaml
 domain_metadata:
-  - name: "Accelerator Operations Metadata"
-    description: "Metadata specific to accelerator operations, including beam parameters and machine settings."
-    science_domain: "Physics"
-    schema_reference:
-      type: "doi"
-      value: "10.1234/accelerator.metadata.schema"
+  name: "Accelerator Operations Metadata"
+  description: "Metadata specific to accelerator operations, including beam parameters and machine settings."
+  science_domain: "Physics"
+  schema_reference:
+    type: "doi"
+    value: "10.1234/accelerator.metadata.schema"
     version: "1.0"
-    fields:
-      beam_energy:
-        field_value: 120
-        data_type: "float"
-        unit: "GeV"
-        description: "The energy of the particle beam."
-      beam_current:
-        field_value: 0.5
-        data_type: "float"
-        unit: "mA"
-        description: "The current of the particle beam."
-  - name: "Climate Data Variables"
-    description: "Metadata for climate datasets, including temperature and precipitation variables."
-    science_domain: "Environmental Sciences"
-    schema_reference:
-      type: "url"
-      value: "https://example.org/climate-data-schema"
-    version: "2.1"
-    fields:
-      avg_temperature:
-        field_value: 15.5
-        data_type: "float"
-        unit: "Celsius"
-        description: "Average temperature over the specified period."
-      total_precipitation:
-        field_value: 120
-        data_type: "float"
-        unit: "mm"
-        description: "Total precipitation over the specified period."
+  fields:
+    beam_energy:
+      name: "beam_energy"
+      field_value: "120"
+      data_type: "float"
+      unit: "GeV"
+      description: "The energy of the particle beam."
+    beam_current:
+      name: "beam_current"
+      field_value: "0.5"
+      data_type: "float"
+      unit: "mA"
+      description: "The current of the particle beam."
 ```
 ---
 
@@ -1056,7 +1041,7 @@ reusability:
 - **Annotation:** `[reusability_if_applicable]`
 - **Single entry.**
 - The specific person or organization responsible for ongoing maintenance. May differ from the dataset contact or authors.
-- `type`: `person` \| `organization` — populate only the matching sub-block and delete the other.
+- `AgentClass`: exactly one of `person` \| `organization`; there is no `type` key. Populate the matching sub-block and delete the other.
   - `person`: `given_name`, `family_name`, `orcid` *(if_applicable)*, `email`, `affiliation.name`, `affiliation.ror_id` *(if_applicable)*.
   - `organization`: `name`, `ror_id` *(if_applicable)*.
 
@@ -1110,9 +1095,9 @@ reusability:
 
 #### `data_quality.missing_data_codes`
 - **Annotation:** `[reusability_if_applicable]`
-- **List (0 or more).**
+- **Single block** (`MissingDataCodesClass`; the schema does not accept a list here).
 - Codes used to represent missing or invalid data in the dataset files. Documenting these is critical for downstream analysis pipelines and AI/ML workflows that need to handle missing values correctly.
-- Each entry: `code` (e.g., `-999` \| `NaN` \| `NULL`), `description` (e.g., "Sensor malfunction — value not collected" \| "Below detection limit").
+- Sub-fields: `code` (required once the block is present, e.g., `"-999"` \| `"NaN"` \| `"NULL"`; several codes go in one string), `description` (e.g., "Sensor malfunction — value not collected" \| "Below detection limit").
 
 ---
 
@@ -1218,20 +1203,6 @@ Metadata elements that describe the governance of this dataset — how it may be
 - **Single entry.**
 - Uses that are explicitly prohibited for this dataset. Examples: "Any use involving human subjects" \| "Commercial applications" \| "Use in high-risk domains without prior approval."
 
-#### `use_governance.need_to_know_basis`
-- **Annotation:** `[governed_use_if_applicable]`
-- **List (0 or more).**
-- If access to this dataset is restricted based on a need-to-know requirement, list the specific basis or bases for that restriction.
-- Controlled vocabulary (`NeedToKnowBasisEnum`):
-
-| Value | Meaning |
-|---|---|
-| `Mission_Need` | Access restricted based on mission needs or operational requirements |
-| `Job_Duty` | Access restricted based on job duties or role-based access controls |
-| `Project_Program_Association` | Access restricted based on association with a specific project or program |
-| `Agreement_Defined` | Access restricted based on terms defined in a user agreement, DUA, or other formal agreement |
-| `DGB_Exception_Waiver` | Access granted via an exception or waiver from the Data Governance Board or equivalent governing body |
-
 Example `use_governance:` block:
 ```yaml
 use_governance:
@@ -1240,9 +1211,6 @@ use_governance:
   permitted_use: "Exploratory analysis and educational use"
   out_of_scope_use: "Not suitable for real-time accelerator control — data latency precludes safety-critical use"
   prohibited_use: "Any use involving human subjects or clinical decision-making"
-  need_to_know_basis:
-    - "Mission_Need"
-    - "Project_Program_Association"
 ```
 
 ---
@@ -1341,8 +1309,8 @@ use_governance:
 
 ##### `rights_release_records.agreement_type`
 - **Annotation:** `[governed_use_if_applicable]`, required if `agreement_required = "Yes"`.
-- **List (0 or more).** Select all that apply.
-- The type(s) of agreement required for use or access.
+- **Single value** (the schema types it as one `AgreementTypeEnum`, not a list).
+- The type of agreement required for use or access.
 - Controlled vocabulary (`AgreementTypeEnum`): `DUA` \| `CRADA` \| `MOU` \| `NDA` \| `LICENSE` \| `WFO` \| `OTHER`.
 
 ##### `rights_release_records.public_release_status`
@@ -1402,7 +1370,7 @@ Each entry:
 | `source_review_authority` | `[governed_use_if_applicable]` | The authority conducting or overseeing the review, e.g., "DOE Export Control Officer" \| "ORNL IRB" |
 | `review_contact_name` | `[governed_use_if_applicable]` | Name of the primary contact for this review, if applicable |
 | `review_contact_email` | `[governed_use_if_applicable]` | Email of the primary contact for this review, if applicable |
-| `reviewed_by` | `[governed_use_if_applicable]` | Person or organization that conducted the review — `type: person \| organization`. Populate only the matching sub-block (`person`: `given_name`, `family_name`, `email`, `ror_id`; `organization`: `name`, `ror_id`) and delete the other. |
+| `reviewed_by` | `[governed_use_if_applicable]` | `AgentClass`: exactly one of `person` (`given_name`, `family_name`, `email`) or `organization` (`name`, `ror_id`); there is no `type` key. Delete the sub-block that does not apply. |
 | `decontrol_or_declassify_on` | `[governed_use_if_applicable]` | ISO 8601 date (`"YYYY-MM-DD"`) when this dataset will be decontrolled or declassified, if known. Use `"not_applicable"` for datasets that are not export-controlled or classified. |
 | `review_date` | `[governed_use_if_applicable]` | ISO 8601 date (`"YYYY-MM-DD"`) the review was completed or last updated. Use `"not_applicable"` if not yet completed. |
 | `comments` | `[governed_use_if_applicable]` | Reviewer notes, conditions, or required follow-up actions |
@@ -1416,12 +1384,10 @@ review_provenance_companion:
     review_contact_name: "Jane Doe"
     review_contact_email: "jane.doe@example.com"
     reviewed_by:
-      type: "person"
       person:
         given_name: "Jane"
         family_name: "Doe"
         email: "jane.doe@example.com"
-        ror_id: "https://ror.org/012345678"
     decontrol_or_declassify_on: "2025-12-31"
     review_date: "2024-06-15"
     comments: "Dataset approved for public release with no restrictions."
@@ -1431,12 +1397,10 @@ review_provenance_companion:
     review_contact_name: "Dr. John Smith"
     review_contact_email: "john.smith@example.com"
     reviewed_by:
-      type: "person"
       person:
         given_name: "John"
         family_name: "Smith"
         email: "john.smith@example.com"
-        ror_id: "https://ror.org/987654321"
     decontrol_or_declassify_on: "not_applicable"
     review_date: "2024-06-15"
     comments: "IRB review completed with no restrictions."
@@ -1701,7 +1665,6 @@ The table below shows which fields are required (`✅`), optional/if-applicable 
 | `use_governance.permitted_use` | — | — | — | — | ○ | — |
 | `use_governance.out_of_scope_use` | — | — | — | — | ○ | — |
 | `use_governance.prohibited_use` | — | — | — | — | ○ | — |
-| `use_governance.need_to_know_basis` | — | — | — | — | ○ | — |
 | `export_control.export_control_status` | — | — | — | — | ✅ | — |
 | `export_control.export_control_basis` | — | — | — | — | ○ | — |
 | `export_control.foreign_national_access_status` | — | — | — | — | ○ | — |

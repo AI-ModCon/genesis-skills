@@ -114,11 +114,11 @@ using this decision table (paths use v2 capability-container structure):
 | `discoverability.datacard.change_log[0]` | always (`change_date`, `datacard_version: "1.2"`, "Initial creation" or "Converted from MODCON v1") | — |
 | `discoverability.datacard.filename` | computed from `discoverability.identification.name` (see Filename rule below) | — |
 | `discoverability.datacard.language` | always → `en` (override if README is non-English) | — |
-| `discoverability.datacard.created_by[]` | always (AI model first if Hybrid; see `references/gotchas.md`) | — |
+| `discoverability.datacard.created_by[]` | always (AI model first if Hybrid; see `references/gotchas.md`). The `ai_model` entry: `name` is the provider's model identifier (`claude-sonnet-4-5`); `version` is numeric `MAJOR.MINOR[.PATCH]` (`"4.5"`) or omitted; `accessed_date`, `identifier` (`{type: url, value: <model documentation URL>}`) and `relationship` (`used_to_create`) are required. See Gotcha 11 for a validating entry. | — |
 | `discoverability.identification.name` | from README / CITATION.cff title | prompt |
 | `discoverability.identification.version` | from CITATION.cff or default `"1.0"` | prompt |
 | `discoverability.product_type` | never — `ProductTypeEnum` (see `references/lookup-tables.md`) | always prompt |
-| `discoverability.datacard.id` | never — `IdentifierClass` (`{type: local, value: <slug>}` for pre-publication is a sensible default) | prompt |
+| `discoverability.datacard.id` | required by the model; `{type: local, value: <filename stem>}` before the card is registered in a catalog | prompt only if the user has a registered identifier |
 | `discoverability.dataset_description.dataset_summary` | from README first paragraph | prompt |
 | `discoverability.dataset_description.keywords` | from README / CITATION.cff | prompt |
 | `interoperability.data_structure.formats` | introspect.py `formats` | prompt (requires `supports_interoperability=Yes`) |
@@ -242,10 +242,22 @@ prefers elsewhere.
   [references/body-fill-guide.md](references/body-fill-guide.md) for the
   section-by-section mapping.
 
+**Placeholder rules** (the template header states them; the validator enforces them):
+
+- `${VALUE}` is required: fill it.
+- `__VALUE__` on a scalar is optional: fill it, leave the value blank, or delete the line.
+- A commented-out block (`# tags:`, `# affiliation:`, `# source_data:`, ...) has
+  sub-fields that are required once the block is present. Uncomment and fill it
+  in full, or leave it commented. A block whose sub-fields are blank fails.
+- A list marked `omit if empty` rejects `[]`: leave it blank or delete the line.
+- Under `created_by[].creator`, `authors[]`, `contributors[]`, `maintainer` and
+  `reviewed_by`, keep exactly one of `person` / `organization` / `ai_model` /
+  `software` and delete the others; there is no `type` or `agent_type` key.
+
 **Strip all placeholder markup before saving.** No `[!TODO]`, `<REPLACE:>`,
 `<INSTRUCTIONS:>`, `<metadata_key:>`, `${VARIABLE}`, or `__VALUE__` tokens
 should remain. Verify with:
-`grep -E '\[!TODO\]|<REPLACE:|<INSTRUCTIONS:|<metadata_key:|\$\{|__VALUE__' <output_file>`
+`grep -E '\[!TODO\]|<REPLACE:|<INSTRUCTIONS:|<metadata_key:|\$\{|__[A-Z_|-]+__' <output_file>`
 
 ### 9. Validate
 
@@ -342,21 +354,25 @@ relationship requirement, etc.), see
    name inside each entry is `datacard_version` (patched locally from an
    upstream typo).
 
-6. **`_repository` block is system-owned.** Do not populate. Leave it
-   as-is in the template (the underscore prefix is the parser signal).
+6. **`_repository` block is system-owned.** The template carries it as a
+   commented-out reference. Do not uncomment it: the model forbids the key
+   and the validator reports it as `SCHEMA_VIOLATION _repository`. The
+   managing catalog populates it at ingest.
 
 7. **`supports_discoverability` is always `"Yes"`.** The schema (via
    Pydantic) enforces this — every Genesis datacard has at least the
    discoverability block.
 
 8. **`role[]` lives INSIDE the agent sub-block, not on the agent entry
-   itself.** `AgentClass` (used by `created_by`, `contact`,
-   `additional_contacts`, `authors`, `contributors`, `facilities`,
-   `related_resources.software|ai_models`) has no top-level `role` slot —
+   itself, and there is no type key.** `AgentClass` (used by
+   `created_by[].creator`, `authors`, `contributors`, `maintainer`,
+   `reviewed_by`) has no top-level `role`, `type` or `agent_type` slot —
    it is a tagged union of `person` / `organization` / `ai_model` /
-   `software`, and each of those four sub-classes carries its own `role[]`
-   (CRediT taxonomy). Do **not** write `role:` as a sibling of `person:`.
-   Correct shape:
+   `software`, exactly one filled, and each of those four sub-classes
+   carries its own `role[]` (CRediT taxonomy). The sub-block name is the
+   type. A `type:` or `agent_type:` sibling fails as
+   `SCHEMA_VIOLATION ...: Extra inputs are not permitted`. `contact` is a
+   `ContactClass` and takes `person` only. Correct shape:
    ```yaml
    - contribution_date: "2026-07-01"
      creator:
@@ -378,6 +394,28 @@ relationship requirement, etc.), see
     never been updated has nothing to report). Only set it when performing
     a genuine update to an existing datacard, alongside a new `change_log`
     entry (see Gotcha #5).
+
+11. **`ai_model.version` is numeric.** The model's pattern is
+    `^\d+\.\d+(\.\d+)?$`: `"4.5"` and `"4.5.0"` validate; `claude-sonnet-4-5`
+    fails as `SCHEMA_VIOLATION ...ai_model.version: Invalid version format`.
+    The provider's model identifier goes in `name`. `identifier`,
+    `accessed_date` and `relationship` are required whenever the `ai_model`
+    block is present. This entry validates:
+    ```yaml
+    - contribution_date: "2026-09-18"
+      description: "Generated the initial draft from dataset introspection"
+      creator:
+        ai_model:
+          name: claude-sonnet-4-5
+          version: "4.5"
+          accessed_date: "2026-09-18"
+          identifier:
+            type: url
+            value: https://www.anthropic.com/claude
+          role: [Writing_Original_Draft]
+          relationship: used_to_create
+    ```
+    `software.version` follows the same pattern.
 
 ---
 

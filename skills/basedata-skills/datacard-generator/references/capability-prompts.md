@@ -187,8 +187,6 @@ prompts:
           ask: "What is this dataset intended for?"
         - path: governed_use.use_governance.out_of_scope_use
           ask: "Uses this dataset should NOT be applied to."
-        - path: governed_use.use_governance.need_to_know_basis
-          ask: "Need-to-know basis (multi-valued): Mission_Need | Job_Duty | Project_Program_Association | Agreement_Defined | DGB_Exception_Waiver."
     - title: "Export control"
       fields:
         - path: governed_use.non_sensitivity_governance_metadata.export_control.export_control_status
