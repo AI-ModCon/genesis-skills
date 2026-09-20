@@ -86,8 +86,8 @@ context**:
 
 ```bash
 # Use the ABSOLUTE path to the template (works regardless of your cwd).
-# If the skill is installed under ~/.claude/skills/, the path is
-# ~/.claude/skills/datacard-generator/references/genesis_v1.0_template.md.
+# Resolve the template relative to the skill root:
+# `references/genesis_v1.0_template.md`.
 # In this repo, it's <repo_root>/skills/datacard-generator/references/genesis_v1.0_template.md.
 cp <template_absolute_path> <output_path>
 ```

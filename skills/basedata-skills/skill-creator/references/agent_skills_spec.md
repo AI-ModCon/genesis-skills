@@ -14,7 +14,7 @@ Antigravity all read — so one SKILL.md works across platforms.
 └── scripts/          # optional — runnable helpers
 ```
 
-- The **directory name is the invocable name** (e.g. `.claude/skills/deploy/` → `/deploy`). Keep it lowercase, hyphenated.
+- The **directory name is the invocable name** (e.g. `deploy/` → `/deploy`). Keep it lowercase, hyphenated.
 
 ## Frontmatter
 
@@ -40,7 +40,7 @@ Unknown/extra frontmatter fields are **silently ignored** by Claude Code, so dsa
 
 - Lead with a copyable progress checklist for multi-step workflows.
 - Keep long material in `references/` (loaded on demand) rather than inline, to save context tokens.
-- Reference bundled files by relative path, or run scripts via `${CLAUDE_SKILL_DIR}/scripts/...` so paths resolve regardless of working directory.
+- Reference bundled files by relative path, or run scripts from the skill root so paths resolve regardless of working directory.
 
 ## Two tiers in dsagt
 

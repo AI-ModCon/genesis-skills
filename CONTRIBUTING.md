@@ -18,7 +18,7 @@ Skills are organized by domain in the `skills/` directory:
 
 - **Genesis Core (3):** `skills/academy/`, `skills/literature-search/`, and
   `skills/multi-agent-systems/`
-- **BaseSAFE (5):** `skills/basesafe-skills/` for AI-safety analysis workflows
+- **BaseSAFE (6):** `skills/basesafe-skills/` for AI-safety analysis workflows
 - **BaseEval (8):** `skills/baseeval-skills/` for language-model evaluation
   workflows (lm-evaluation-harness configuration, running NeMo-Skills on
   Perlmutter, and distilling a run into a model card)
@@ -30,6 +30,10 @@ Skills are organized by domain in the `skills/` directory:
   Globus Compute, the i2 LLM API, the IRI API, and skill discovery
 
 Create your skill directory in the appropriate category, or start a new category if needed.
+
+### Skill Portability
+
+The compatibility workflow in [.github/workflows/validate-skills.yml](.github/workflows/validate-skills.yml) runs the validator across the supported client profiles. When writing skill docs, prefer skill-root-relative paths and plain-language references to bundled files. Avoid hard-coding `.claude/skills/` in portable instructions unless the step is truly Claude-only, and keep any client-specific syntax isolated and clearly labeled.
 
 ---
 
@@ -133,7 +137,7 @@ allowed-tools: Read, Bash(python *), Bash(pytest *)
 
 ### Variable Substitutions
 
-Use these placeholders in skill content:
+The placeholders below are Claude Code-specific. Use them only when authoring for that client.
 
 | Variable | Description |
 |----------|-------------|
@@ -189,7 +193,7 @@ Reference supporting files from SKILL.md:
 
 To validate retrieved data, run:
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/validate.py <dataset_path>
+python scripts/validate.py <dataset_path>
 ```
 ```
 
@@ -339,7 +343,7 @@ Analyze NetCDF files and provide structured summaries.
 Run the bundled inspection script:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/inspect_nc.py $ARGUMENTS
+python scripts/inspect_nc.py <dataset_path>
 ```
 
 ## Testing Your Skill
@@ -427,7 +431,7 @@ By participating, you are expected to uphold this code.
 
 Contributors are recognized through:
 - Author credits in skill metadata
-- Acknowledgment in release notes
-- Invitation to Genesis community events
+- Acknowledgment in the [Contributors](README.md#contributors) section of the README and in release notes
+- Invitation to Genesis Mission Platform community events
 
-We value all contributions—new skills, improvements, documentation, and feedback.
+We value all contributions, including new skills, improvements, documentation, and feedback.

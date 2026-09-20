@@ -1,9 +1,9 @@
 ---
 name: ai-fingerprint
 description: Generate comprehensive AI system fingerprint with architecture analysis and Strand generation. Use when analyzing AI/LLM systems for security assessment or system profiling.
-disable-model-invocation: true
-user-invocable: true
-allowed-tools: Bash(python *), Bash(python3 *), Bash(cd *), Bash(cat *), Read, Write
+# disable-model-invocation: true
+# user-invocable: true
+allowed-tools: Bash(python *) Bash(python3 *) Bash(cd *) Bash(cat *) Read Write
 ---
 
 # AI Fingerprint - System Analysis and Strand Generation
@@ -22,14 +22,14 @@ Execute a 2-stage fingerprinting process that produces:
 
 ## Arguments
 
-User provides: `$ARGUMENTS`
+The user provides a target directory path and optional flags.
 
 Expected format: `<target_dir> [--output-dir <path>] [--ai-system-type <type>]`
 
 Examples:
-- `/ai-fingerprint ./my-app` — analyze my-app with defaults
-- `/ai-fingerprint ./my-app --output-dir ./custom` — use custom output directory
-- `/ai-fingerprint ./codebase --ai-system-type RAG` — focus on RAG system analysis
+- `./my-app` — analyze my-app with defaults
+- `./my-app --output-dir ./custom` — use custom output directory
+- `./codebase --ai-system-type RAG` — focus on RAG system analysis
 
 ## Execution Steps
 
@@ -49,10 +49,6 @@ Examples:
  - Take your time. Generate Python to output JSON. Generate Python to Validate JSON. 
 
 ### Phase 0: Argument Parsing & Setup
-
-```
-User provided: $ARGUMENTS
-```
 
 **Parse these arguments:**
 - `target_dir` (required): Path to AI system codebase to analyze
@@ -77,7 +73,6 @@ All subsequent references to `<output_dir>` refer to `$OUTPUT_DIR`.
 
 **Scan codebase:**
 ```bash
-cd ${CLAUDE_SKILL_DIR}
 python3 scripts/ai_fingerprint.py scan "$TARGET_DIR" --output "$OUTPUT_DIR/file_scan.json"
 ```
 
@@ -114,7 +109,7 @@ cat "$OUTPUT_DIR/file_scan.json"
 
 4. **Apply the system analysis prompt to yourself:**
 
-Read the prompt at: `${CLAUDE_SKILL_DIR}/prompts/system_analysis.md`
+Read the prompt at: `prompts/system_analysis.md`
 
 Follow its instructions to analyze what you've learned about the codebase.
 
@@ -146,7 +141,6 @@ If validation fails, fix the JSON and retry.
 
 1. **Generate and embed strand in one step:**
 ```bash
-cd ${CLAUDE_SKILL_DIR}
 python3 scripts/ai_fingerprint.py embed "$OUTPUT_DIR/system_analysis.json"
 ```
 
@@ -166,7 +160,6 @@ Example result:
 
 2. **Display strand cheatsheet for user reference:**
 ```bash
-cd ${CLAUDE_SKILL_DIR}
 python3 scripts/ai_fingerprint.py cheatsheet
 ```
 

@@ -22,12 +22,12 @@ This skill is intentionally taxonomy-first and routing-light. It preserves the f
 | Action                                     | Command / File                                                       |
 |--------------------------------------------|----------------------------------------------------------------------|
 | Scan repository for likely evidence        | `python scripts/fingerprint_scan.py /path/to/repo --format markdown` |
-| Normalize terms                            | `${CLAUDE_SKILL_DIR}/references/taxonomy.md`                         |
-| Review evidence expectations               | `${CLAUDE_SKILL_DIR}/references/evidence_rules.md`                   |
-| Decide which runbooks to load next         | `${CLAUDE_SKILL_DIR}/references/deepening_guide.md`                  |
-| Surface attack / UQ / explainability hooks | `${CLAUDE_SKILL_DIR}/references/cross_cutting_concerns.md`           |
-| Start final report                         | `${CLAUDE_SKILL_DIR}/assets/fingerprint_report_template.md`          |
-| Check collection completeness              | `${CLAUDE_SKILL_DIR}/assets/evidence_checklist.md`                   |
+| Normalize terms                            | `references/taxonomy.md`                                             |
+| Review evidence expectations               | `references/evidence_rules.md`                                       |
+| Decide which runbooks to load next         | `references/deepening_guide.md`                                      |
+| Surface attack / UQ / explainability hooks | `references/cross_cutting_concerns.md`                               |
+| Start final report                         | `assets/fingerprint_report_template.md`                              |
+| Check collection completeness              | `assets/evidence_checklist.md`                                       |
 
 ## Core Workflow
 
@@ -42,7 +42,7 @@ Use filesystem tools and, when helpful, `scripts/fingerprint_scan.py` to identif
 
 ### 2. Produce a level-1 fingerprint
 
-Using `${CLAUDE_SKILL_DIR}/references/taxonomy.md`, classify the repository along these dimensions:
+Using `references/taxonomy.md`, classify the repository along these dimensions:
 - repository type
 - task type
 - input modality
@@ -54,26 +54,26 @@ Using `${CLAUDE_SKILL_DIR}/references/taxonomy.md`, classify the repository alon
 - serving pattern
 - notable signals such as `multimodal`, `rag`, `safety-critical`, or `inference-only`
 
-Every claim should include confidence and evidence, per `${CLAUDE_SKILL_DIR}/references/evidence_rules.md`.
+Every claim should include confidence and evidence, per `references/evidence_rules.md`.
 
 ### 3. Deepen selectively
 
-Read `${CLAUDE_SKILL_DIR}/references/deepening_guide.md` and load only the runbooks that match the observed system. Common examples:
-- `${CLAUDE_SKILL_DIR}/references/runbooks/vision.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/nlp_rag.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/tabular.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/timeseries.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/audio.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/retrieval_recsys.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/rl_control.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/multimodal.md`
-- `${CLAUDE_SKILL_DIR}/references/runbooks/serving_security.md`
+Read `references/deepening_guide.md` and load only the runbooks that match the observed system. Common examples:
+- `references/runbooks/vision.md`
+- `references/runbooks/nlp_rag.md`
+- `references/runbooks/tabular.md`
+- `references/runbooks/timeseries.md`
+- `references/runbooks/audio.md`
+- `references/runbooks/retrieval_recsys.md`
+- `references/runbooks/rl_control.md`
+- `references/runbooks/multimodal.md`
+- `references/runbooks/serving_security.md`
 
 Do not force every repository through every runbook.
 
 ### 4. Annotate cross-cutting hooks
 
-Use `${CLAUDE_SKILL_DIR}/references/cross_cutting_concerns.md` to note:
+Use `references/cross_cutting_concerns.md` to note:
 - likely attack surfaces
 - likely uncertainty hooks
 - likely explainability hooks
@@ -83,7 +83,7 @@ This step should annotate future work, not replace the dedicated skills.
 
 ### 5. Produce the fingerprint report
 
-Use `${CLAUDE_SKILL_DIR}/assets/fingerprint_report_template.md`. A good report should include:
+Use `assets/fingerprint_report_template.md`. A good report should include:
 - repository summary
 - normalized fingerprint
 - relevant runbooks applied

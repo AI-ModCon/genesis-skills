@@ -41,12 +41,12 @@ Start from [references/SKILL_template.md](references/SKILL_template.md). Fill th
 
 ### 3. Write the Body
 
-After the frontmatter, write the instructions the agent will follow. Prefer a copyable checklist (like this one) for multi-step workflows. Reference bundled files by relative path, e.g. `[reference](references/notes.md)`, or run a bundled script with `${CLAUDE_SKILL_DIR}/scripts/foo.py` so paths resolve regardless of cwd.
+After the frontmatter, write the instructions the agent will follow. Prefer a copyable checklist (like this one) for multi-step workflows. Reference bundled files by relative path, e.g. `[template](references/SKILL_template.md)`.
 
 ### 4. Add Supporting Files (optional)
 
 - `scripts/` — runnable helpers the body invokes.
-- `references/` — long docs/templates loaded on demand (keep them OUT of SKILL.md so they cost no tokens until used).
+- `references/` — long reference material loaded on demand (keep it OUT of SKILL.md so it costs no tokens until used).
 
 ### 5. Validate
 
@@ -54,11 +54,11 @@ Confirm before saving:
 - Frontmatter is valid YAML between `---` fences.
 - `name` is present, lowercase-hyphenated, and equals the intended directory name.
 - `description` is present and ≤ 1536 characters.
-- Any `[link](references/...)` and `${CLAUDE_SKILL_DIR}/scripts/...` paths exist.
+- Any `[link](references/...)` path exists.
 
 ### 6. Save
 
-If the **`save_skill`** MCP tool is available (DSAgt), call it with the `spec` (frontmatter dict: `name`, `description`, optional `tags`), the `body` markdown, and any `reference_files` (a `{relative_path: contents}` map). It writes `<project>/skills/<name>/` and mirrors it into the platform's native skill directory (e.g. `.claude/skills/`) immediately. Without that tool, write the directory under the agent's skills directory yourself (`.claude/skills/<name>/` for Claude Code, `.agents/skills/<name>/` for Codex, Goose, and opencode).
+If the **`save_skill`** MCP tool is available (DSAgt), call it with the `spec` (frontmatter dict: `name`, `description`, optional `tags`), the `body` markdown, and any `reference_files` (a `{relative_path: contents}` map). It writes `<project>/skills/<name>/` and mirrors it into the platform's native skill directory immediately. Without that tool, write the directory under the agent's native skills directory for the active platform.
 
 ### 7. Confirm
 

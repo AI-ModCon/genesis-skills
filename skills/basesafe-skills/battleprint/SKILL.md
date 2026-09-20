@@ -1,10 +1,10 @@
 ---
 name: battleprint
 description: Perform red and blue team adversarial analysis on AI systems. Use after ai-fingerprint to identify attack vectors and defense strategies for LLM/RAG/Agentic systems.
-disable-model-invocation: true
-user-invocable: true
-allowed-tools: Bash(python *), Bash(cat *), Bash(cd *), Bash(python3 *), Read, Write, Agent
-requires: ai-fingerprint
+# disable-model-invocation: true
+# user-invocable: true
+allowed-tools: Bash(python *) Bash(cat *) Bash(cd *) Bash(python3 *) Read Write Agent
+# requires: ai-fingerprint
 ---
 
 # Battleprint - Agentic Execution of Red and Blue Team Security Analysis
@@ -25,18 +25,17 @@ Execute a 4-stage analysis process that produces:
 
 ## Arguments
 
-User provides: `$ARGUMENTS`
+The user provides a target directory path.
 
 Expected format: `<target_dir>`
 
 Examples:
-- `/battleprint ./my-app` — analyze my-app directory
-- `/battleprint /bob/fish` — analyze absolute path
+- `./my-app` — analyze my-app directory
+- `/bob/fish` — analyze absolute path
 
 ## Required Skills                                        
-  - `ai-fingerprint`: Generates file_scan.json and system_analysis.json                                                         
-    - Invoke as: `/ai-fingerprint <target_dir>`
-    - Or via Skill tool: `skill="ai-fingerprint", args="<target_dir>"`                                                          
+  - `ai-fingerprint`: Generates file_scan.json and system_analysis.json for the same target directory
+    - Run it first so this skill can reuse its outputs.
     - Output location: `<parent>/ai_fingerprint_results/<target_name>/`  
 
 ## Execution Steps
@@ -58,14 +57,10 @@ Examples:
 
 ### Phase 0: Setup and Check for AI-FingerPrint
 
-```
-User provided: $ARGUMENTS
-```
-
 **Parse and set paths:**
 ```bash
 # Get absolute path of target
-TARGET_DIR=$(cd "$ARGUMENTS" && pwd)
+TARGET_DIR=$(cd "$target_dir" && pwd)
 TARGET_BASE=$(dirname "$TARGET_DIR")
 TARGET_NAME=$(basename "$TARGET_DIR")
 
@@ -106,8 +101,8 @@ cat "$FINGERPRINT_DIR/system_analysis.json"
    
    Use the Agent tool to spawn two agents in parallel. Each Agent invocation is automatically in fresh context.
    
-   a. Red Team Agent - use `${CLAUDE_SKILL_DIR}/prompts/red_team_stage1.md` with the fingerprint data
-   b. Blue Team Agent - use `${CLAUDE_SKILL_DIR}/prompts/blue_team_stage1.md` with the fingerprint data
+   a. Red Team Agent - use `prompts/red_team_stage1.md` with the fingerprint data
+   b. Blue Team Agent - use `prompts/blue_team_stage1.md` with the fingerprint data
    
    Each agent should write its output to:
    - Red: `$OUTPUT_DIR/red_stage_1.json`
@@ -147,7 +142,7 @@ cat "$OUTPUT_DIR/blue_stage_1.json"
 
 4. **Execute Red Team Stage 2**
    
-   Use Agent tool with `${CLAUDE_SKILL_DIR}/prompts/red_team_stage2.md` and the above context.
+   Use Agent tool with `prompts/red_team_stage2.md` and the above context.
    
    Write output to: `$OUTPUT_DIR/red_stage_2.json`
 
@@ -174,7 +169,7 @@ cat "$OUTPUT_DIR/red_stage_1.json"
 
 4. **Execute Blue Team Stage 2**
    
-   Use Agent tool with `${CLAUDE_SKILL_DIR}/prompts/blue_team_stage2.md` and the above context.
+   Use Agent tool with `prompts/blue_team_stage2.md` and the above context.
    
    Write output to: `$OUTPUT_DIR/blue_stage_2.json`
 

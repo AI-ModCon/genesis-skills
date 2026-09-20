@@ -34,6 +34,8 @@ git clone https://gitlab.osti.gov/genesis/genesis-skills.git
 cd genesis-skills
 ```
 
+> Mirror repository: The repository `https://gitlab.osti.gov/genesis/genesis-skills.git` mirrors the upstream development repository `https://github.com/AI-ModCon/genesis-skills`.
+
 ### Method 1 — Flatten skills into place (`unpack.sh`)
 
 Choose the skills directory documented by your client, then let `unpack.sh`
@@ -88,14 +90,14 @@ genesis-skills/
 │   └── scripts/skill_search.py
 ├── skills/
 │   ├── academy/SKILL.md
+│   ├── amsc-skills/            # amsc-python-client, iri-api, i2-api, globus-compute, ... (6)
+│   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator (5)
+│   ├── baseeval-skills/        # evaluation workflow skills (8)
+│   ├── basesafe-skills/        # AI safety analysis workflows (6)
+│   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
 │   ├── literature-search/SKILL.md
 │   ├── multi-agent-systems/SKILL.md
-│   ├── basesafe-skills/        # AI safety analysis workflows (5)
-│   ├── baseeval-skills/        # evaluation workflow skills (8)
-│   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
-│   ├── plasma-sim-skills/      # gs2, gkeyll (2)
-│   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator (5)
-│   └── amsc-skills/            # amsc-python-client, iri-api, i2-api, globus-compute, ... (6)
+│   └── plasma-sim-skills/      # gs2, gkeyll (2)
 ├── CONTRIBUTING.md
 ├── LICENSE
 ├── NOTICE                     # third-party licensing and attribution inventory
@@ -126,6 +128,34 @@ We welcome contributions from the scientific community. See the [Contributing Gu
 - Skill specification format
 - Testing guidelines
 - Review process
+
+## Contributors
+
+Individual skills and their directories contain specific attribution details. The catalog-level and skill contributors include the following:
+
+- Matt Baughman
+- Jean Luca Bez
+- Eric Chagnon
+- Shreyas Cholia
+- Robin Cosbey
+- David Florey
+- Steven Goldenberg
+- Nathan Hodas
+- Natalie Isenberg
+- Olivera Kotevska
+- Fernando Llorente
+- Kyle Parfrey
+- Reilly Raab
+- Emily Saldanha
+- Malachi Schram
+- Andrew Tritt
+- Aaron Tuor
+- Rohith Varikoti
+- Stefan Wild
+- American Science Cloud Intelligent Interfaces Team
+- ModCon Base Data Team
+- ModCon Base Eval Team
+- ModCon Base Safe Team
 
 ---
 
