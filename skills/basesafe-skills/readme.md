@@ -32,12 +32,11 @@ Reusable AI / agentic "**skills**" for the safe development of frontier AI/ML mo
 The ModCon BaseSafe Team:
 | Name              | Institution   |
 |-------------------|---------------|
-| Nathan Hodas      | PNNL          |
 | Robin Cosbey      | PNNL          |
 | David Florey      | PNNL          |
 | Steven Goldenberg | JLab          |
+| Nathan Hodas      | PNNL          |
 | Natalie Isenberg  | PNNL          |
 | Olivera Kotevska  | ORNL          |
 | Reilly Raab       | PNNL          |
 | Malachi Schram    | PNNL          |
-

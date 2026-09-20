@@ -90,14 +90,14 @@ genesis-skills/
 │   └── scripts/skill_search.py
 ├── skills/
 │   ├── academy/SKILL.md
-│   ├── amsc-skills/            # amsc-python-client, iri-api, i2-api, globus-compute, ... (6)
-│   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator (5)
-│   ├── baseeval-skills/        # evaluation workflow skills (8)
-│   ├── basesafe-skills/        # AI safety analysis workflows (6)
-│   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
+│   ├── amsc-skills/  # amsc-data-movement-api, amsc-python-client, globus-compute, i2-api, iri-api, skill-explorer (6)
+│   ├── basedata-skills/  # croissant-validator, datacard-generator, hdmf-schema-builder, skill-creator, well-convert (5)
+│   ├── baseeval-skills/  # card-eval-updater, configuration-creator, configuration-implementor, configuration-planner, configuration-tester, data-exploration, perlmutter-nemo-eval, perlmutter-nemo-generate (8)
+│   ├── basesafe-skills/  # agentic-vulnerabilities-scan, ai-fingerprint, battleprint, fingerprinting, uncertainty-quantification, uq-metrics-evaluator (6)
+│   ├── hpc-skills/  # aurora, frontier, pbs, perlmutter, slurm (5)
 │   ├── literature-search/SKILL.md
 │   ├── multi-agent-systems/SKILL.md
-│   └── plasma-sim-skills/      # gs2, gkeyll (2)
+│   └── plasma-sim-skills/  # gkeyll, gs2 (2)
 ├── CONTRIBUTING.md
 ├── LICENSE
 ├── NOTICE                     # third-party licensing and attribution inventory
@@ -129,6 +129,8 @@ We welcome contributions from the scientific community. See the [Contributing Gu
 - Testing guidelines
 - Review process
 
+If you are adding a new skill, use the checklist in [CONTRIBUTING.md](CONTRIBUTING.md) and the pull request template in [.github/pull_request_template.md](.github/pull_request_template.md) before opening the PR.
+
 ## Contributors
 
 Individual skills and their directories contain specific attribution details. The catalog-level and skill contributors include the following:
@@ -136,6 +138,7 @@ Individual skills and their directories contain specific attribution details. Th
 - Matt Baughman
 - Jean Luca Bez
 - Eric Chagnon
+- Jong Choi
 - Shreyas Cholia
 - Robin Cosbey
 - David Florey
@@ -165,7 +168,9 @@ this repository.
 Some skills under `skills/` are sourced from third parties. Where a `LICENSE`
 (or `LICENSE.txt`) file is present in a subdirectory, that license governs the
 contents of that subdirectory and supersedes the root license for that subtree.
-The `skills/baseeval-skills/` subtree has its own Apache-2.0 `LICENSE`, which
-governs that subtree and its descendants.
-See [NOTICE](NOTICE) and the attribution file in each identified subtree for the
-licensing information supplied with that content.
+The repository-level summary of individual skill and third-party licensing
+details is in [NOTICE](NOTICE); see the attribution file in each identified
+subtree for the licensing information supplied with that content.
+
+## Acknowledgment
+This work was supported by the U.S. Department of Energy (DOE), Office of Science, Office of Advanced Scientific Computing Research in alignment with DOE's Genesis Mission.

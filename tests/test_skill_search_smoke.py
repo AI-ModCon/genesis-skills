@@ -13,6 +13,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.skill_fixtures import write_skill
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skill-search" / "scripts" / "skill_search.py"
@@ -25,12 +27,7 @@ class SkillSearchSmokeTests(unittest.TestCase):
             skills_dir = root / "skills"
             skills_dir.mkdir()
 
-            skill_dir = skills_dir / "demo-skill"
-            skill_dir.mkdir()
-            (skill_dir / "SKILL.md").write_text(
-                "---\nname: demo-skill\ndescription: Demo skill for smoke testing\n---\nBody\n",
-                encoding="utf-8",
-            )
+            write_skill(skills_dir / "demo-skill", description="Demo skill for smoke testing")
 
             completed = subprocess.run(
                 [
@@ -57,12 +54,7 @@ class SkillSearchSmokeTests(unittest.TestCase):
             skills_dir = root / "skills"
             skills_dir.mkdir()
 
-            skill_dir = skills_dir / "slurm-submit"
-            skill_dir.mkdir()
-            (skill_dir / "SKILL.md").write_text(
-                "---\nname: slurm-submit\ndescription: Submit a Slurm batch job\n---\nBody\n",
-                encoding="utf-8",
-            )
+            write_skill(skills_dir / "slurm-submit", description="Submit a Slurm batch job")
 
             completed = subprocess.run(
                 [

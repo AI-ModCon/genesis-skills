@@ -9,8 +9,8 @@ Thank you for your interest in contributing to Genesis Skills. This guide covers
 1. **Fork** the repository and clone locally
 2. **Create a branch** for your skill: `git checkout -b skill/your-skill-name`
 3. **Develop** your skill following the specification below
-4. **Test** your skill in Claude Code
-5. **Submit** a merge request for review
+4. **Validate** your skill in the client(s) you intend to support
+5. **Submit** a pull request for review
 
 ### Where to Add Your Skill
 
@@ -31,9 +31,32 @@ Skills are organized by domain in the `skills/` directory:
 
 Create your skill directory in the appropriate category, or start a new category if needed.
 
+### New Skill Pull Request Checklist
+
+Use this checklist when your PR adds or changes a skill:
+
+1. Create or update the skill subtree under `skills/<domain>/<skill>/`.
+2. Keep the skill instructions in `SKILL.md` and any supporting files in the same subtree.
+3. Add or update the relevant attribution file in that subtree when the skill has authors, upstream sources, or provenance notes.
+4. Put new author names in the attribution source file first, not directly in the root README.
+5. Add a subtree `LICENSE` or `LICENSE.txt` when imported content requires its own license; summarize third-party provenance in `NOTICE`.
+6. Update the root `README.md` repository structure block if the visible tree changed.
+7. If you introduce a new top-level skill family or a new attribution pattern, update `tools/repo_inventory.py` and its tests so the repository-policy check still understands the layout.
+8. Run `make verify-new-skill` before opening the PR. This wraps skill validation, repo policy, tests, and lint in one command.
+
 ### Skill Portability
 
 The compatibility workflow in [.github/workflows/validate-skills.yml](.github/workflows/validate-skills.yml) runs the validator across the supported client profiles. When writing skill docs, prefer skill-root-relative paths and plain-language references to bundled files. Avoid hard-coding `.claude/skills/` in portable instructions unless the step is truly Claude-only, and keep any client-specific syntax isolated and clearly labeled.
+For guidance on AI/LLM-assisted contributions, refer to the section below, [Guidelines for AI/LLM-Assisted Contributions](#guidelines-for-ai-llm-assisted-contributions).
+For a PR-oriented checklist, see [.github/pull_request_template.md](.github/pull_request_template.md).
+
+### Upstream Provenance and Submodules
+
+When a skill is derived from, mirrors, or is maintained alongside an upstream repository, please identify that repository in the relevant attribution or documentation file so the provenance is clear. Contributions delivered through `git submodule` are also acceptable when the relationship is documented clearly, including the upstream source, the reason for using a submodule, and any license or attribution obligations that apply.
+
+### Local Hygiene
+
+The repository includes [.pre-commit-config.yaml](.pre-commit-config.yaml) for workflow YAML, `unpack.sh`, and the main Markdown docs. If you have those tools installed locally, run `pre-commit run --all-files` before opening a pull request.
 
 ---
 
@@ -389,7 +412,7 @@ python scripts/inspect_nc.py <dataset_path>
 - Be specific: `cmip6-search` rather than `data-search`
 - Include domain when helpful: `mpi-debug`, `slurm-submit`
 - Choose the appropriate skills category (see "Where to Add Your Skill" above)
-- If your skill spans multiple domains, discuss placement in your merge request
+- If your skill spans multiple domains, discuss placement in your pull request
 
 ---
 

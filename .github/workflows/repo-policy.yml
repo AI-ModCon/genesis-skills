@@ -1,0 +1,68 @@
+name: Repo policy
+
+on:
+  pull_request:
+    paths:
+      - 'README.md'
+      - 'NOTICE'
+      - 'LICENSE'
+      - 'CONTRIBUTING.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'docs/getting_started.md'
+      - 'skill-search/**'
+      - 'skills/**'
+      - 'skill_spec.md'
+      - 'unpack.sh'
+      - 'tools/**'
+      - 'tests/**'
+      - 'Makefile'
+      - '.github/workflows/repo-policy.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'README.md'
+      - 'NOTICE'
+      - 'LICENSE'
+      - 'CONTRIBUTING.md'
+      - 'CODE_OF_CONDUCT.md'
+      - 'docs/getting_started.md'
+      - 'skill-search/**'
+      - 'skills/**'
+      - 'skill_spec.md'
+      - 'unpack.sh'
+      - 'tools/**'
+      - 'tests/**'
+      - 'Makefile'
+      - '.github/workflows/repo-policy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  policy:
+    name: repo policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Validate repo policy
+        run: make policy
