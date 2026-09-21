@@ -418,7 +418,7 @@ python scripts/inspect_nc.py <dataset_path>
 
 ## Community Guidelines
 
-This project and everyone participating in it is governed by our [Code of Conduct](./CODE_OF_CONDUCT.md). 
+This project and everyone participating in it is governed by our [Code of Conduct](./CODE_OF_CONDUCT.md).
 By participating, you are expected to uphold this code.
 
 ### Communication
@@ -440,7 +440,7 @@ By participating, you are expected to uphold this code.
 - **Understand your work.**
    Regardless of how code or PR was produced, this project requires that authors illustrate a thorough understanding of any proposed changes. You must review such code line-by-line; it is your responsibility to ensure that it is correct, and that it does not breach copyright. Always critically engage with AI outputs, do not trust them implicitly. AI-assisted code, analysis, and artifacts must be tested and validated at a level appropriate to their impact. Authors are responsible for ensuring that generated code is correct, secure, maintainable, non-obfuscated, appropriately scoped, documented, and reproducible where relevant.
 - **Disclose AI-generated or AI-assisted work.**
-   If AI/LLM tools were primarily used to generate code or artifacts, this should be clearly indicated in the PR. 
+   If AI/LLM tools were primarily used to generate code or artifacts, this should be clearly indicated in the PR.
 - **Use of AI to review PRs.**
    All PRs must be reviewed by a human reviewer. An LLM review may be used in addition to a human reviewer since this can help spot issues that a human may have missed, but this should not be the sole reviewer. The human reviewer should be fully accountable and responsible for the review feedback or comments (see 1).
 - **Proprietary or personal information.**
