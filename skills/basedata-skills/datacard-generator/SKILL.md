@@ -85,11 +85,8 @@ Copy the template to the output filename **without reading it into
 context**:
 
 ```bash
-# Use the ABSOLUTE path to the template (works regardless of your cwd).
-# Resolve the template relative to the skill root:
-# `references/genesis_v1.0_template.md`.
-# In this repo, it's <repo_root>/skills/datacard-generator/references/genesis_v1.0_template.md.
-cp <template_absolute_path> <output_path>
+# Absolute path, resolved from the skill root (works regardless of your cwd).
+cp <skill_root>/references/genesis_v1.0_template.md <output_path>
 ```
 
 Then edit the copied file with targeted `sed`/patch operations to fill YAML
@@ -167,36 +164,27 @@ required fields. Ask **3-5 at a time** following the batches in
 
 **Key vocabulary changes in v2** (full list in `references/lookup-tables.md`):
 
-- **CRediT taxonomy** for `authors[].person.role` / `.organization.role` and
-  `contributors[].person.role` / `.organization.role` (role[] lives **inside**
-  the agent sub-block — see Gotcha below) —
-  `Conceptualization`, `Data_Curation`, `Data_Collection`, `Formal_Analysis`,
-  `Funding_Acquisition`, `Investigation`, `Methodology`, `Project_Administration`,
-  `Resources`, `Software`, `Supervision`, `Validation`, `Visualization`,
-  `Writing_Original_Draft`, `Writing_Review_Editing`, `Other` (16 values). **Multi-valued
-  per author.** Replaces our previous `creator | contributor | data_collector | curator | publisher | sponsor | other` list.
-- **Title_Case for all enums** — `Published` not `published`, `Draft` not `draft`, `Hybrid` not `hybrid`, etc.
-- **Sensitivity** is no longer a tier ladder. Use `OverallSensitivityEnum`:
-  `Public | Unclassified_Uncontrolled | CUI | UCNI | Classified | Legacy_Controlled | Mixed | Other_Controlled`.
-- **Yes/No/Conditional** strings (not Python booleans) for
-  `ai_usability.ai_usage.training_use_status` / `.inference_use_status` /
-  `.evaluation_use_status` (renamed from `*_use_allowed`) and governance
-  Yes/No fields. If any `*_use_status = "Conditional"`, the matching
-  `*_use_conditions` free-text field is required.
-- **`science_domain` is a closed enum** (`ScienceDomainEnum`, 15 values) —
-  see `references/lookup-tables.md`. No longer free text.
+- **CRediT taxonomy** for `authors[]` / `contributors[]` `role[]` — 16 values
+  (`Conceptualization`, `Data_Curation`, … `Other`), **multi-valued per
+  author**, and the `role[]` lives **inside** the `person` / `organization`
+  sub-block (Gotcha #8). Replaces the old `creator | contributor | …` list.
+- **Title_Case for all enums** — `Published` not `published`, `Hybrid` not `hybrid`.
+- **Sensitivity** uses `OverallSensitivityEnum`, not a tier ladder (Gotcha #2).
+- **Yes/No/Conditional** strings (not booleans) for
+  `ai_usability.ai_usage.*_use_status` (renamed from `*_use_allowed`) and
+  governance Yes/No fields; `Conditional` requires the matching
+  `*_use_conditions` free-text field.
+- **`science_domain` is a closed enum** (Gotcha #9).
 
 ### 7. Cross-check identifiers via live APIs
 
-**Step 7 is not optional. Do not proceed to step 8 (write) without
-completing it.** Datacards with unverified identifiers can silently
-misattribute authorship, funding, or DOIs — worse than a
-slightly-incomplete card.
+**Step 7 is not optional; do not proceed to step 8 (write) without
+completing it.** Unverified identifiers can silently misattribute
+authorship, funding, or DOIs — worse than a slightly-incomplete card.
 
 For EVERY ORCID, ROR, DOI, and OSTI award number in the datacard —
-whether the user provided it or introspection inferred it — resolve it
-against the public API per `references/live-enrichment.md`. **Do not
-skip this step.** Run it even when the field is already populated.
+user-provided or inferred, already populated or not — resolve it with
+`WebFetch` against the public API per `references/live-enrichment.md`.
 
 Enrich every path listed under "Identifier paths to check" in
 `references/live-enrichment.md`. The list is grouped by capability so you
@@ -220,16 +208,11 @@ consolidated table (see `references/live-enrichment.md` § Batching
 guidance). Do NOT prompt after each individual lookup — batch the
 WebFetch calls, then present one summary.
 
-Use `WebFetch`. Endpoints in [references/live-enrichment.md](references/live-enrichment.md).
-
 ### 8. Filename + write
 
 **Filename rule:** `genesis_datacard_<snake_case(discoverability.identification.name)>.md`,
 where `snake_case` lowercases the name and replaces any non-alphanumeric
 run with a single `_`.
-
-**Where to save:** inside `<dataset_dir>/` by default; ask if the user
-prefers elsewhere.
 
 **What to write:** the canonical template
 (`references/genesis_v1.0_template.md`) with **both halves filled**:
