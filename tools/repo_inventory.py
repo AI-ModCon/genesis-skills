@@ -158,6 +158,24 @@ def _basesafe_contributors(root: Path) -> tuple[str | None, list[str]]:
     return "ModCon Base Safe Team", names
 
 
+def _basesim_contributors(root: Path) -> tuple[str | None, list[str]]:
+    path = root / "skills" / "basesim-skills" / "ATTRIBUTION.md"
+    if not path.is_file():
+        return None, []
+    names: list[str] = []
+    in_authors = False
+    for line in _read(path).splitlines():
+        if line.startswith("**Authors:**"):
+            in_authors = True
+            continue
+        if in_authors:
+            if line.startswith("- "):
+                names.append(_extract_name(line[2:].split(",", 1)[0]))
+            elif line.strip():
+                break
+    return "ModCon BaseSim Team", names
+
+
 def build_readme_tree_lines(root: Path) -> list[str]:
     """Return the canonical README repository-structure tree as lines."""
 
@@ -216,6 +234,11 @@ def build_readme_contributor_names(root: Path) -> list[str]:
         teams.add(baseeval_team)
 
     team, names = _basesafe_contributors(root)
+    if team:
+        teams.add(team)
+    individuals.update(names)
+
+    team, names = _basesim_contributors(root)
     if team:
         teams.add(team)
     individuals.update(names)

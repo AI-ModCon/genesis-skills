@@ -42,6 +42,7 @@ def _write_valid_fixture(root: Path) -> None:
                 "  skills/amsc-skills/ATTRIBUTION.md",
                 "  skills/basedata-skills/ATTRIBUTION.md",
                 "  skills/baseeval-skills/LICENSE",
+                "  skills/basesim-skills/LICENSE",
                 "",
             ]
         ),
@@ -157,6 +158,45 @@ def _write_valid_fixture(root: Path) -> None:
     )
     write_skill(root / "skills" / "basesafe-skills" / "ai-fingerprint", description="AI fingerprinting skill")
     write_skill(root / "skills" / "basesafe-skills" / "uq-metrics-evaluator", description="UQ metrics evaluator")
+    write_text(root / "skills" / "basesim-skills" / "LICENSE", "Apache-2.0 license placeholder\n")
+    write_text(
+        root / "skills" / "basesim-skills" / "README.md",
+        "\n".join(
+            [
+                "# BaseSim Skills",
+                "",
+                "Agent skills for the apeiron continual-learning framework. The `skills/basesim-skills/` subtree is licensed Apache-2.0; see [`LICENSE`](LICENSE).",
+                "See [`ATTRIBUTION.md`](ATTRIBUTION.md).",
+                "",
+            ]
+        ),
+    )
+    write_text(
+        root / "skills" / "basesim-skills" / "ATTRIBUTION.md",
+        "\n".join(
+            [
+                "# Attribution",
+                "",
+                "The skills in this directory were sourced from the **BaseSim Framework (APEIRON)** project.",
+                "",
+                "**Original repository:** https://github.com/AI-ModCon/BaseSIM_APEIRON",
+                "",
+                "**Authors:**",
+                "- Andrew Ayres, Oak Ridge National Laboratory (ORNL)",
+                "- Ana Gainaru, Los Alamos National Laboratory (LANL)",
+                "- Anna Quach, Idaho National Laboratory (INL)",
+                "- Krishnan Raghavan, Argonne National Laboratory (ANL)",
+                "- Alvaro Sanchez-Villar, Princeton Plasma Physics Laboratory (PPPL)",
+                "- Rafael Zamora-Resendiz, Lawrence Berkeley National Laboratory (LBNL)",
+                "",
+            ]
+        ),
+    )
+    write_skill(root / "skills" / "basesim-skills" / "install-apeiron", description="Install apeiron into a project")
+    write_skill(
+        root / "skills" / "basesim-skills" / "apeiron-choose-detector",
+        description="Recommend and configure an apeiron drift detector",
+    )
     write_skill(root / "skills" / "hpc-skills" / "aurora", description="Aurora HPC skill")
     write_skill(root / "skills" / "hpc-skills" / "slurm", description="Slurm HPC skill")
     write_skill(root / "skills" / "literature-search", description="Literature search skill")

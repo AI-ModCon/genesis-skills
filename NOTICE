@@ -38,6 +38,14 @@ Known third-party subtrees at the time of this writing:
                                     and its descendants. See
                                     skills/baseeval-skills/README.md.
 
+  skills/basesim-skills/            Sourced from the ModCon BaseSim Framework
+                                    (APEIRON) project. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/basesim-skills/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/basesim-skills/ATTRIBUTION.md.
+
 
 This list is informational and may not be exhaustive. Always check for
 a LICENSE file in any subdirectory before assuming the root license

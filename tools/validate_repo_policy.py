@@ -34,6 +34,9 @@ REQUIRED_FILES = (
     "skills/baseeval-skills/README.md",
     "skills/baseeval-skills/lm-eval-harness-skills/ATTRIBUTION.md",
     "skills/baseeval-skills/perlmutter-ns-skills/ATTRIBUTION.md",
+    "skills/basesim-skills/ATTRIBUTION.md",
+    "skills/basesim-skills/LICENSE",
+    "skills/basesim-skills/README.md",
 )
 
 CONTENT_CHECKS = (

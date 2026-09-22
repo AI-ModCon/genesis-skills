@@ -94,6 +94,7 @@ genesis-skills/
 │   ├── basedata-skills/  # croissant-validator, datacard-generator, hdmf-schema-builder, skill-creator, well-convert (5)
 │   ├── baseeval-skills/  # card-eval-updater, configuration-creator, configuration-implementor, configuration-planner, configuration-tester, data-exploration, perlmutter-nemo-eval, perlmutter-nemo-generate (8)
 │   ├── basesafe-skills/  # agentic-vulnerabilities-scan, ai-fingerprint, battleprint, fingerprinting, uncertainty-quantification, uq-metrics-evaluator (6)
+│   ├── basesim-skills/  # apeiron-choose-detector, apeiron-custom-experiment, apeiron-explore-examples, install-apeiron, integrate-apeiron (5)
 │   ├── hpc-skills/  # aurora, frontier, pbs, perlmutter, slurm (5)
 │   ├── literature-search/SKILL.md
 │   ├── multi-agent-systems/SKILL.md
@@ -135,6 +136,7 @@ If you are adding a new skill, use the checklist in [CONTRIBUTING.md](CONTRIBUTI
 
 Individual skills and their directories contain specific attribution details. The catalog-level and skill contributors include the following:
 
+- Andrew Ayres
 - Matt Baughman
 - Jean Luca Bez
 - Eric Chagnon
@@ -142,23 +144,29 @@ Individual skills and their directories contain specific attribution details. Th
 - Shreyas Cholia
 - Robin Cosbey
 - David Florey
+- Ana Gainaru
 - Steven Goldenberg
 - Nathan Hodas
 - Natalie Isenberg
 - Olivera Kotevska
 - Fernando Llorente
 - Kyle Parfrey
+- Anna Quach
 - Reilly Raab
+- Krishnan Raghavan
 - Emily Saldanha
+- Alvaro Sanchez-Villar
 - Malachi Schram
 - Andrew Tritt
 - Aaron Tuor
 - Rohith Varikoti
 - Stefan Wild
+- Rafael Zamora-Resendiz
 - American Science Cloud Intelligent Interfaces Team
 - ModCon Base Data Team
 - ModCon Base Eval Team
 - ModCon Base Safe Team
+- ModCon BaseSim Team
 
 ---
 
