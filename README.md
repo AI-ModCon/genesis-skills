@@ -142,6 +142,7 @@ Individual skills and their directories contain specific attribution details. Th
 - Shreyas Cholia
 - Robin Cosbey
 - David Florey
+- Ian Foster
 - Steven Goldenberg
 - Nathan Hodas
 - Natalie Isenberg
@@ -156,6 +157,7 @@ Individual skills and their directories contain specific attribution details. Th
 - Rohith Varikoti
 - Stefan Wild
 - American Science Cloud Intelligent Interfaces Team
+- ModCon Base CAF Team
 - ModCon Base Data Team
 - ModCon Base Eval Team
 - ModCon Base Safe Team

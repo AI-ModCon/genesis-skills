@@ -48,9 +48,12 @@ def _people_sort_key(name: str) -> tuple[str, str]:
 
 ROOT_README_EXTRA_CONTRIBUTORS = (
     "Matt Baughman",
+    "Ian Foster",
     "Nathan Hodas",
     "Stefan Wild",
 )
+
+ROOT_README_EXTRA_TEAMS = ("ModCon Base CAF Team",)
 
 
 def _extract_name(fragment: str) -> str:
@@ -210,6 +213,7 @@ def build_readme_contributor_names(root: Path) -> list[str]:
     individuals.update(_lm_eval_contributors(root))
     individuals.update(_perlmutter_ns_contributors(root))
     individuals.update(ROOT_README_EXTRA_CONTRIBUTORS)
+    teams.update(ROOT_README_EXTRA_TEAMS)
 
     baseeval_team = _baseeval_team(root)
     if baseeval_team:
