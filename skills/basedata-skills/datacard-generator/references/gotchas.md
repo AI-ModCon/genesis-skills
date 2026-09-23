@@ -24,3 +24,12 @@ entries.
    `.ai_models[].relationship`. The validator catches a missing
    `relationship` cleanly as `MISSING_REQUIRED`, so this is easy to fix
    once flagged.
+
+3. **Take `ai_model.version` from the model ID; never invent one.**
+   `gpt-5.5` → `5.5`, `llama-3.3-70b` → `3.3`. The pattern is
+   `^\d+\.\d+(\.\d+)?$`, so an ID carrying only a major version
+   (`claude-opus-5` → `5`) has no legal form: omit the key, which is
+   optional, rather than pad to `5.0` and assert a minor version the model
+   does not have. The full ID belongs in `identifier`
+   (`{type: local, value: claude-opus-5}`), the product name in `name`.
+   `linkml-validate` reports this as `does not match '^\\d+\\.\\d+(\\.\\d+)?$'`.

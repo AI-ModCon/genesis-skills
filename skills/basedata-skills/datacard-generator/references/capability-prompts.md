@@ -9,6 +9,11 @@ loads ONLY the sections for capabilities the user opted into via the
 `supports_*` flags in step 1. `discoverability` is always loaded (it is
 schema-forced to Yes).
 
+**Skip any field already filled.** These are the questions available to
+ask, not a script to read start to finish. When step 2b resolved a DOI, the
+name, version, summary, keywords, authors, publisher and citation fields
+are already populated — confirm them in one table instead of re-asking.
+
 For comprehensive enum values, see `references/lookup-tables.md`.
 
 ## Prompts
