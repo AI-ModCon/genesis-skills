@@ -1,11 +1,11 @@
 # Validate skills
 #
 # Static checks for every skill in this catalog (skills/<domain>/<skill>/SKILL.md
-# and skill-search/SKILL.md). Nothing in this workflow installs an agent CLI
-# (claude, codex, agy, cursor-agent) and nothing calls a model: every job only
-# reads SKILL.md files and compares them with rules that were verified against
-# the harness binaries, sources and docs. Rules are implemented in
-# tools/validate_skills.py.
+# and skill-search/SKILL.md), plus the unit tests for the tools that check and
+# install those skills. Nothing in this workflow installs an agent CLI (claude,
+# codex, agy, cursor-agent) and nothing calls a model. The compat and spec
+# reference jobs only read SKILL.md files and compare them with the rules
+# implemented in tools/validate_skills.py.
 #
 # The five checks, one matrix job each, named "skill compat (<profile>)":
 #   spec         the Agent Skills specification (skill_spec.md) as enforced by
@@ -32,10 +32,16 @@
 #                    0.1.1, whose console script is `agentskills`) on each
 #                    skill directory the validator discovers
 #
-# Pull requests validate only the skills whose files changed relative to the
-# base branch and fail on errors. Pushes to main and manual runs validate the
-# whole catalog and never turn the workflow red (continue-on-error), so
-# pre-existing catalog debt shows up as annotations without blocking anyone.
+# and one job runs the unit tests:
+#   tools tests      pytest on tools/tests: the validator's rules and unpack.sh,
+#                    against temporary fixtures and against the whole catalog
+#
+# On pull requests the compat and spec reference jobs validate only the skills
+# whose files changed relative to the base branch, and fail on errors. On pushes
+# to main and manual runs they validate the whole catalog and never turn the
+# workflow red (continue-on-error), so pre-existing catalog debt shows up as
+# annotations without blocking anyone. The tools tests job runs the whole suite
+# on every event and fails on any test failure, pushes to main included.
 #
 # Claude Code's own `claude plugin validate` was evaluated as an oracle and
 # rejected: it only warns when the frontmatter block is missing entirely, and
@@ -48,6 +54,7 @@
 #   python3 tools/validate_skills.py --changed-since main     # what a pull request checks
 #   python3 tools/validate_skills.py --profile codex --strict # one profile, warnings fail too
 #   python3 -m pip install skills-ref==0.1.1 && agentskills validate skills/<domain>/<skill>
+#   python3 -m pip install pytest==9.1.1 && python3 -m pytest -q tools/tests
 
 name: Validate skills
 
@@ -219,3 +226,26 @@ jobs:
           if [ "$failed" -ne 0 ]; then
             exit 1
           fi
+
+  # pytest on tools/tests: the validator's unit tests and the unpack.sh
+  # black-box tests. Some of them read the live catalog (skills/ and
+  # skill-search/), which is why this job lives under this workflow's skills/**
+  # trigger. Unlike the steps above, it also fails on pushes to main.
+  tools-tests:
+    name: tools tests (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML and pytest
+        run: python3 -m pip install pyyaml==6.0.2 pytest==9.1.1
+
+      - name: Run tools/tests
+        run: python3 -m pytest -q tools/tests

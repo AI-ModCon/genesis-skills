@@ -12,14 +12,12 @@ validator skills-ref 0.1.1), ``claude-code`` (Claude Code CLI 2.1.259),
 ``codex`` (OpenAI Codex CLI 0.147.0 / 0.153.0), ``antigravity`` (Google
 Antigravity CLI agy 1.1.25) and ``cursor`` (Cursor 3.18.25).
 
-Provenance of the rules
------------------------
-Every finding names the rule it implements.  The rule ids, their severities,
-what is checked and the source citation (docs text, harness source or binary
-offsets, and local reproductions dated 2026-09-03) live in the human-readable
-contract ``tools/skill_compat_rules.md`` next to this file.  Rules that are not
-statically checkable (runtime state, user settings, install location outside
-the skill directory) are listed there too, with the reason they are skipped.
+Rules
+-----
+Every finding names the rule it implements.  Each rule id, its profile, the
+severities it can emit and what it checks are registered in ``RULES`` below.
+Rules that cannot be checked statically (runtime state, user settings, install
+location outside the skill directory) are not checked.
 
 Install-layout assumption: ``unpack.sh`` installs each catalog skill as
 ``<root>/.claude/skills/<dirname>/`` or ``<root>/.agents/skills/<dirname>/``
@@ -69,7 +67,6 @@ __all__ = [
     "main",
 ]
 
-RULES_DOC = "tools/skill_compat_rules.md"
 PROFILES: tuple[str, ...] = ("spec", "claude-code", "codex", "antigravity", "cursor")
 SEVERITIES: tuple[str, ...] = ("error", "warning", "info")
 _SEVERITY_RANK = {"error": 0, "warning": 1, "info": 2}
@@ -3549,7 +3546,7 @@ def _default_paths(repo_root: Path) -> list[Path]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="validate_skills.py",
-        description="Static SKILL.md validator: spec, claude-code, codex, antigravity and cursor profiles (rules in tools/skill_compat_rules.md).",
+        description="Static SKILL.md validator: spec, claude-code, codex, antigravity and cursor profiles.",
     )
     parser.add_argument("paths", nargs="*", help="skill directories, SKILL.md files or collection directories (default: skills/ and skill-search/)")
     parser.add_argument("--profile", action="append", choices=("all", *PROFILES), help="profile to run (repeatable; default all)")

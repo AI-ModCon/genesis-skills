@@ -2,3 +2,22 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*.cover
+
+# Skill installs (unpack.sh without --target writes into $PWD)
+.claude/
+.agents/
+
+# Credentials written or copied by skills
+tokens.json
+login.tmp
+.env
+*env_vars
+.agentic-vulnerabilities-scan/
+
+# Venvs and run output created by skill setup and run steps
+.venv*/
+.perlmutter-nemo-*-runs/
+skills/baseeval-skills/perlmutter-ns-skills/*/runs/
+/results/
+skills/baseeval-skills/lm-eval-harness-skills/*/results/

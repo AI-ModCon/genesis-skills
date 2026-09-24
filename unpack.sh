@@ -31,8 +31,9 @@
 #   -h, --help           Show this help.
 #
 set -euo pipefail
+unset CDPATH
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 SOURCE_ROOT="$SCRIPT_DIR/skills"
 
 MODE="symlink"
@@ -41,6 +42,10 @@ ROOT=""
 TARGET=""
 LIST_ONLY=0
 DOMAINS=()
+
+require_value() {
+  [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || die "$1 requires a value"
+}
 
 die() { printf 'unpack.sh: %s\n' "$1" >&2; exit 1; }
 usage() {
@@ -53,17 +58,17 @@ usage() {
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --root)      ROOT="${2:-}"; shift 2 ;;
-    --root=*)    ROOT="${1#*=}"; shift ;;
-    --target)    TARGET="${2:-}"; shift 2 ;;
-    --target=*)  TARGET="${1#*=}"; shift ;;
-    --mode)      MODE="${2:-}"; shift 2 ;;
-    --mode=*)    MODE="${1#*=}"; shift ;;
-    --harness)   HARNESS="${2:-}"; shift 2 ;;
-    --harness=*) HARNESS="${1#*=}"; shift ;;
+    --root) require_value "$@"; ROOT="$2"; shift 2 ;;
+    --root=*) ROOT="${1#*=}"; [[ -n "$ROOT" ]] || die "--root requires a value"; shift ;;
+    --target) require_value "$@"; TARGET="$2"; shift 2 ;;
+    --target=*) TARGET="${1#*=}"; [[ -n "$TARGET" ]] || die "--target requires a value"; shift ;;
+    --mode) require_value "$@"; MODE="$2"; shift 2 ;;
+    --mode=*) MODE="${1#*=}"; [[ -n "$MODE" ]] || die "--mode requires a value"; shift ;;
+    --harness) require_value "$@"; HARNESS="$2"; shift 2 ;;
+    --harness=*) HARNESS="${1#*=}"; [[ -n "$HARNESS" ]] || die "--harness requires a value"; shift ;;
     --list)      LIST_ONLY=1; shift ;;
     -h|--help)   usage; exit 0 ;;
-    --*)         die "unknown option: $1" ;;
+    -*)          die "unknown option: $1" ;;
     *)           DOMAINS+=("$1"); shift ;;
   esac
 done
@@ -71,6 +76,14 @@ done
 [[ "$MODE" == "symlink" || "$MODE" == "copy" ]] || die "--mode must be symlink or copy"
 case "$HARNESS" in claude|agents|all) ;; *) die "--harness must be claude, agents, or all" ;; esac
 [[ -d "$SOURCE_ROOT" ]] || die "skills/ not found next to unpack.sh ($SOURCE_ROOT)"
+
+# Reject a misspelled selection even when another requested domain is valid.
+if [[ ${#DOMAINS[@]} -gt 0 ]]; then
+  for domain in "${DOMAINS[@]}"; do
+    [[ "$domain" != .* && "$domain" != */* && -d "$SOURCE_ROOT/$domain" ]] || \
+      die "unknown domain or flat skill: $domain (check --list)"
+  done
+fi
 
 _wanted() {
   local d="$1" want
@@ -83,6 +96,9 @@ _walk_leaves() {
   local domain="$1" dir="$2" child name
   for child in "$dir"/*/; do
     [[ -d "$child" ]] || continue
+    # Catalog directories are real directories. Following arbitrary links here
+    # could recurse forever or install files outside the clone.
+    [[ ! -L "${child%/}" ]] || die "symlinked catalog directory: ${child%/}"
     name="$(basename "$child")"
     [[ "$name" == .* ]] && continue
     if [[ -f "$child/SKILL.md" ]]; then
@@ -100,6 +116,7 @@ discover() {
   local entry domain
   for entry in "$SOURCE_ROOT"/*/; do
     [[ -d "$entry" ]] || continue
+    [[ ! -L "${entry%/}" ]] || die "symlinked catalog directory: ${entry%/}"
     domain="$(basename "$entry")"
     [[ "$domain" == .* ]] && continue
     if [[ -f "$entry/SKILL.md" ]]; then
@@ -124,6 +141,24 @@ default_root() {
     d="$(dirname "$d")"
   done
   printf '%s\n' "$PWD"
+}
+
+# Resolve existing ancestor symlinks without requiring GNU realpath or Python.
+# Also normalize . and .. before comparing destination/source paths.
+canonical_dir() {
+  local path="$1" parent base
+  if [[ -d "$path" ]]; then
+    (cd -P -- "$path" && pwd -P)
+  else
+    [[ ! -e "$path" && ! -L "$path" ]] || die "not a directory: $path"
+    parent="$(canonical_dir "$(dirname -- "$path")")" || exit 1
+    base="$(basename -- "$path")"
+    case "$base" in
+      .) printf '%s\n' "$parent" ;;
+      ..) dirname -- "$parent" ;;
+      *) printf '%s/%s\n' "${parent%/}" "$base" ;;
+    esac
+  fi
 }
 
 main() {
@@ -156,8 +191,23 @@ main() {
     esac
   fi
 
-  local dest name dir
+  local dest name dir source_path
+  source_path="$(cd -- "$SOURCE_ROOT" && pwd -P)"
+  # Validate every destination before replacing any existing entry. In
+  # particular --target skills/<domain> must never delete the catalog itself.
+  local -a resolved_dests=()
   for dest in "${dests[@]}"; do
+    dest="$(canonical_dir "$dest")"
+    [[ "$dest" != "$source_path" && "$dest" != "$source_path/"* ]] || \
+      die "destination overlaps source catalog: $dest"
+    while IFS=$'\t' read -r _domain name dir; do
+      [[ "$source_path" != "$dest/$name" && "$source_path" != "$dest/$name/"* ]] || \
+        die "destination entry would replace the source catalog: $dest/$name"
+    done <<< "$rows"
+    resolved_dests+=("$dest")
+  done
+
+  for dest in "${resolved_dests[@]}"; do
     mkdir -p "$dest"
     while IFS=$'\t' read -r _domain name dir; do
       [[ -n "$name" ]] || continue
