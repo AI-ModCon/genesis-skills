@@ -11,4 +11,5 @@ Skills included:
 - `croissant-validator` — Validate and generate Croissant metadata for ML datasets (MLCommons Croissant 1.0 spec)
 - `datacard-generator` — Generate Genesis Mission data cards
 - `hdmf-schema-builder` — Create HDMF schemas for organizing HDF5 data files
+- `skill-creator` — Author a new agent Skill (SKILL.md) from the Anthropic template
 - `well-convert` — Convert a simulation dataset to the Well HDF5 format (preprocess, inspect, plan, generate scripts, run, monitor)
