@@ -1,7 +1,7 @@
 ---
 name: croissant-validator
 description: Validates and generates Croissant metadata for ML datasets. Use when checking dataset metadata compliance, creating new croissant.json files, validating existing metadata, or ensuring ML dataset descriptions follow the MLCommons Croissant format specification.
-allowed-tools: Read, Bash, Write, Glob, Grep
+allowed-tools: Read Bash Write Glob Grep
 ---
 
 # Croissant Metadata Validator & Generator

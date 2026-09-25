@@ -34,6 +34,11 @@ git clone https://gitlab.osti.gov/genesis/genesis-skills.git
 cd genesis-skills
 ```
 
+> Mirror repository: The repository `https://gitlab.osti.gov/genesis/genesis-skills.git`
+> is a read-only mirror of the upstream development repository
+> `https://github.com/AI-ModCon/genesis-skills`. Please use GitHub for development,
+> forks, issues, and pull requests.
+
 ### Method 1 — Flatten skills into place (`unpack.sh`)
 
 Choose the skills directory documented by your client, then let `unpack.sh`
@@ -88,13 +93,14 @@ genesis-skills/
 │   └── scripts/skill_search.py
 ├── skills/
 │   ├── academy/SKILL.md
+│   ├── amsc-skills/  # amsc-data-movement-api, amsc-python-client, globus-compute, i2-api, iri-api, skill-explorer (6)
+│   ├── basedata-skills/  # croissant-validator, datacard-generator, hdmf-schema-builder, skill-creator, well-convert (5)
+│   ├── baseeval-skills/  # card-eval-updater, configuration-creator, configuration-implementor, configuration-planner, configuration-tester, data-exploration, perlmutter-nemo-eval, perlmutter-nemo-generate (8)
+│   ├── basesafe-skills/  # agentic-vulnerabilities-scan, ai-fingerprint, battleprint, fingerprinting, uncertainty-quantification, uq-metrics-evaluator (6)
+│   ├── hpc-skills/  # aurora, frontier, pbs, perlmutter, slurm (5)
 │   ├── literature-search/SKILL.md
 │   ├── multi-agent-systems/SKILL.md
-│   ├── basesafe-skills/        # AI safety analysis workflows (5)
-│   ├── hpc-skills/             # slurm, pbs, frontier, perlmutter, aurora (5)
-│   ├── plasma-sim-skills/      # gs2, gkeyll (2)
-│   ├── basedata-skills/        # croissant-validator, datacard-generator, hdmf-schema-builder, well-convert, skill-creator (5)
-│   └── amsc-skills/            # amsc-python-client, iri-api, i2-api, globus-compute, ... (6)
+│   └── plasma-sim-skills/  # gkeyll, gs2 (2)
 ├── CONTRIBUTING.md
 ├── LICENSE
 ├── NOTICE                     # third-party licensing and attribution inventory
@@ -126,12 +132,50 @@ We welcome contributions from the scientific community. See the [Contributing Gu
 - Testing guidelines
 - Review process
 
+If you are adding a new skill, use the checklist in [CONTRIBUTING.md](CONTRIBUTING.md) and the pull request template in [.github/pull_request_template.md](.github/pull_request_template.md) before opening the PR.
+
+## Contributors
+
+Individual skills and their directories contain specific attribution details. The catalog-level and skill contributors include the following:
+
+- Matt Baughman
+- Jean Luca Bez
+- Eric Chagnon
+- Jong Choi
+- Shreyas Cholia
+- Robin Cosbey
+- David Florey
+- Ian Foster
+- Steven Goldenberg
+- Nathan Hodas
+- Natalie Isenberg
+- Olivera Kotevska
+- Fernando Llorente
+- Kyle Parfrey
+- Reilly Raab
+- Emily Saldanha
+- Malachi Schram
+- Andrew Tritt
+- Aaron Tuor
+- Rohith Varikoti
+- Stefan Wild
+- American Science Cloud Intelligent Interfaces Team
+- ModCon Base CAF Team
+- ModCon Base Data Team
+- ModCon Base Eval Team
+- ModCon Base Safe Team
+
 ---
 
 ## License
-
+This product is licensed under the root [LICENSE](LICENSE) found at the root of
+this repository.
 Some skills under `skills/` are sourced from third parties. Where a `LICENSE`
 (or `LICENSE.txt`) file is present in a subdirectory, that license governs the
 contents of that subdirectory and supersedes the root license for that subtree.
-See [NOTICE](NOTICE) and the attribution file in each identified subtree for the
-licensing information supplied with that content.
+The repository-level summary of individual skill and third-party licensing
+details is in [NOTICE](NOTICE); see the attribution file in each identified
+subtree for the licensing information supplied with that content.
+
+## Acknowledgment
+This work was supported by the U.S. Department of Energy (DOE), Office of Science, Office of Advanced Scientific Computing Research in alignment with DOE's Genesis Mission.

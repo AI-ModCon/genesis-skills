@@ -2,14 +2,15 @@
 
 The skills in this directory were sourced from the **eval-agents** project.
 
-**Original repository:** https://gitlab.osti.gov/modcon-base/base-eval/eval-agents
+**Original repository:** https://github.com/AI-ModCon/BaseEval_lm-eval-harness_skills_DEV
 
 **Author:** Emily Saldanha, Pacific Northwest National Laboratory (PNNL)
 
 These skills were retrieved from the `lm-eval-harness-skills/` directory of the
 upstream repository and are included here as retrieved, unmodified. Please refer
 to the original repository for the most current licensing information and terms
-of use.
+of use. In this catalog, they are also covered by the Apache-2.0 LICENSE at
+`../LICENSE`.
 
 Skills included:
 - `configuration-creator` — Orchestrates the end-to-end workflow for developing

@@ -1,16 +1,16 @@
 ---
 name: uq-metrics-evaluator
 description: 'Use when the user asks for model evaluation, accuracy, calibration, or uncertainty quantification (UQ) analysis from CSV data. Handles both regression (MAE, RMSE, R², calibration) and classification (accuracy, F1, ROC-AUC, ECE, confusion matrix). Discovers the right CSV files and columns from prompt intent, then runs evaluation with artifact outputs.'
-user-invocable: true
-disable-model-invocation: false
-allowed-tools: Bash(uv *), Read, Glob, Grep
+# user-invocable: true
+# disable-model-invocation: false
+allowed-tools: Bash(uv *) Read Glob Grep
 ---
 
 # Model Accuracy and Calibration Analysis
 
 ## Arguments
 
-User provides: `$ARGUMENTS`
+The user provides a dataset or folder path and optional flags.
 
 Expected format: `<dataset_or_folder> [--task {regression|classification}] [--pred <file>] [--truth <file>]`
 
@@ -20,9 +20,9 @@ What to specify:
 - Specific prediction/truth/probability column names or files if needed
 
 Examples:
-- `/uq-metrics-evaluator ./data` — auto-discover files in directory
-- `/uq-metrics-evaluator predictions.csv ground_truth.csv` — explicit files
-- `/uq-metrics-evaluator ./results --task classification` — force classification mode
+- `./data` — auto-discover files in directory
+- `predictions.csv ground_truth.csv` — explicit files
+- `./results --task classification` — force classification mode
 
 ## Overview
 
@@ -44,13 +44,13 @@ Use ephemeral `uv run --with` execution to avoid creating dependency files in th
 Schema inspection (both task types):
 ```bash
 uv run --with pandas --with pydantic \
-    ${CLAUDE_SKILL_DIR}/scripts/csv_reader_tool.py <file.csv>
+    scripts/csv_reader_tool.py <file.csv>
 ```
 
 Regression evaluation:
 ```bash
 uv run --with pandas --with pydantic --with numpy --with uncertainty-toolbox --with matplotlib --with seaborn \
-    ${CLAUDE_SKILL_DIR}/scripts/evaluate_metrics_tool.py <predictions.csv> <ground_truth.csv> \
+    scripts/evaluate_metrics_tool.py <predictions.csv> <ground_truth.csv> \
     --pred-col <prediction_column> \
     --truth-col <truth_column> \
     [--uncertainty-col <uncertainty_column>]
@@ -59,7 +59,7 @@ uv run --with pandas --with pydantic --with numpy --with uncertainty-toolbox --w
 Classification evaluation:
 ```bash
 uv run --with pandas --with pydantic --with numpy --with scikit-learn --with matplotlib --with seaborn \
-    ${CLAUDE_SKILL_DIR}/scripts/evaluate_classification_tool.py <predictions.csv> <ground_truth.csv> \
+    scripts/evaluate_classification_tool.py <predictions.csv> <ground_truth.csv> \
     --pred-col <predicted_class_column> \
     --truth-col <true_label_column> \
     [--prob-col <positive_class_prob_column>]        # binary only
@@ -149,7 +149,7 @@ If checks fail, explain what failed, propose 2–3 alternative columns, and ask 
 
 ## Procedure
 
-1. Parse `$ARGUMENTS` for explicit files, directory, column hints, and task type.
+1. Parse the user-provided files, directory, column hints, and task type.
 2. Determine task type (regression vs. classification) from prompt and schema inspection.
 3. Discover and inspect candidate CSV files with csv_reader_tool.
 4. Select file pair and column mapping.

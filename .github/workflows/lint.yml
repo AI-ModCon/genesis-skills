@@ -1,0 +1,82 @@
+name: Lint
+
+on:
+  pull_request:
+    paths:
+      - 'Makefile'
+      - '.github/workflows/**'
+      - '.pre-commit-config.yaml'
+      - '.markdownlint.json'
+      - 'CONTRIBUTING.md'
+      - 'README.md'
+      - 'docs/getting_started.md'
+      - 'skill-search/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'unpack.sh'
+  push:
+    branches:
+      - main
+    paths:
+      - 'Makefile'
+      - '.github/workflows/**'
+      - '.pre-commit-config.yaml'
+      - '.markdownlint.json'
+      - 'CONTRIBUTING.md'
+      - 'README.md'
+      - 'docs/getting_started.md'
+      - 'skill-search/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'unpack.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: repo hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install pre-commit
+        run: python3 -m pip install pre-commit
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Install actionlint
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          GOBIN="$HOME/.local/bin" go install github.com/rhysd/actionlint/cmd/actionlint@latest
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install markdownlint
+        run: npm install -g markdownlint-cli
+
+      - name: Run lint
+        run: make lint

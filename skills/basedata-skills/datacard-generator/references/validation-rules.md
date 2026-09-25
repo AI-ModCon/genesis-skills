@@ -1,12 +1,11 @@
 # Validation extras
 
-The bulk of Genesis Datacard validation lives in the upstream Pydantic model
-(`scripts/genesis_models.py`) and is applied automatically by
-`scripts/validate_datacard.py`.
+Schema validation is upstream's `linkml-validate` against
+`scripts/genesis_datacard.yaml` (see SKILL.md step 9). This skill ships no
+validator of its own.
 
-This file documents the **handful of rules the Pydantic model cannot
-express** — they live in the validator's `check_extras()` function
-(`scripts/validate_datacard.py`).
+The rules below are the ones the schema cannot express. Nothing checks them
+for you — confirm each by eye before you call a card done.
 
 ## Filename rule (warn)
 
@@ -34,25 +33,36 @@ are not errors but should be flagged.
 - Paths checked (v2): `discoverability.workflow.state` ↔ `discoverability.release_status`
 - Legacy paths checked: `workflow.state` ↔ `release_status`
 
-## Why these aren't in the Pydantic model
+## Why the schema cannot express these
 
-The Pydantic model at `scripts/genesis_models.py` is auto-generated from
-the upstream LinkML source and covers required fields, enums, and format
-patterns. It doesn't natively express:
+`scripts/genesis_datacard.yaml` covers required fields, enums, and format
+patterns. It does not express:
 
-- **Severity levels.** Pydantic validators are binary pass/fail; the
-  filename mismatch and workflow/release_status misalignment are best
-  surfaced as warnings, not errors that block validation.
-- **Cross-field slug computation.** The filename rule requires computing
-  `snake_case(identification.name)` and comparing against `filename` —
-  possible via a `@model_validator`, but keeping this in the extras layer
-  avoids re-vendoring the Pydantic model every time the rule changes.
-- **Recommendation vs constraint.** The workflow/release alignment
-  describes typical (not required) pairings — datacards in transitional
-  states (`archived` but recently `published`) are valid.
+- **Severity.** A LinkML result is pass/fail. The filename mismatch and the
+  workflow/release misalignment are advisory — a card can be correct and
+  still trip them — so they are not schema rules.
+- **Cross-field slug computation.** The filename rule needs
+  `snake_case(identification.name)` computed and compared against
+  `filename`; the schema can only check the filename's own pattern.
+- **Recommendation vs constraint.** The workflow/release pairings are
+  typical, not required. Cards in transitional states are valid.
 
-## Adding new extras
+## The upstream publisher bug
 
-When upstream adds rules the Pydantic model can enforce (as required
-fields, enums, or patterns), no change is needed here. For new warn-level
-rules: add a check in `check_extras()` and document it above.
+`linkml-validate` reports `'dataset_publisher' is a required property` on
+**every** card. The schema's rule says the publisher is required only when
+`release_status` is `Approved` or `Published`, but its precondition is
+written `in_subset: [Approved, Published]`, and in LinkML `in_subset`
+declares subset membership of a schema element rather than testing a value.
+The precondition is therefore vacuous and the postcondition always applies.
+The fix upstream is `equals_string_in`.
+
+Until that lands: treat the error as real only when `release_status` is
+`Approved` or `Published`, and ignore it otherwise. Every other error is
+genuine.
+
+## Quote your dates
+
+`created_date: 2026-09-21` unquoted is a YAML date, not a string, and the
+schema declares these slots as strings — `linkml-validate` rejects it with
+`is not of type 'string'`. Quote every date, as the template does.

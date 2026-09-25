@@ -1,6 +1,6 @@
 # Contributing to Genesis Skills
 
-Thank you for your interest in contributing to Genesis Skills. This guide covers the [Claude Code skills format](https://code.claude.com/docs/en/skills) and our conventions for scientific applications.
+Thank you for your interest in contributing to Genesis Skills. This guide covers the [Claude Code skills format](https://code.claude.com/docs/en/skills) as a baseline, plus our conventions for portable multi-client skills. The active [development repository](https://github.com/AI-ModCon/genesis-skills) is hosted on GitHub and is where development, forks, issues, and pull requests occur.
 
 ---
 
@@ -9,8 +9,8 @@ Thank you for your interest in contributing to Genesis Skills. This guide covers
 1. **Fork** the repository and clone locally
 2. **Create a branch** for your skill: `git checkout -b skill/your-skill-name`
 3. **Develop** your skill following the specification below
-4. **Test** your skill in Claude Code
-5. **Submit** a merge request for review
+4. **Validate** your skill in the client(s) you intend to support
+5. **Submit** a pull request for review
 
 ### Where to Add Your Skill
 
@@ -18,7 +18,7 @@ Skills are organized by domain in the `skills/` directory:
 
 - **Genesis Core (3):** `skills/academy/`, `skills/literature-search/`, and
   `skills/multi-agent-systems/`
-- **BaseSAFE (5):** `skills/basesafe-skills/` for AI-safety analysis workflows
+- **BaseSAFE (6):** `skills/basesafe-skills/` for AI-safety analysis workflows
 - **BaseEval (8):** `skills/baseeval-skills/` for language-model evaluation
   workflows (lm-evaluation-harness configuration, running NeMo-Skills on
   Perlmutter, and distilling a run into a model card)
@@ -30,6 +30,33 @@ Skills are organized by domain in the `skills/` directory:
   Globus Compute, the i2 LLM API, the IRI API, and skill discovery
 
 Create your skill directory in the appropriate category, or start a new category if needed.
+
+### New Skill Pull Request Checklist
+
+Use this checklist when your PR adds or changes a skill:
+
+1. Create or update the skill subtree under `skills/<domain>/<skill>/`.
+2. Keep the skill instructions in `SKILL.md` and any supporting files in the same subtree.
+3. Add or update the relevant attribution file in that subtree when the skill has authors, upstream sources, or provenance notes.
+4. Put new author names in the attribution source file first, not directly in the root README.
+5. Add a subtree `LICENSE` or `LICENSE.txt` when imported content requires its own license; summarize third-party provenance in `NOTICE`.
+6. Update the root `README.md` repository structure block if the visible tree changed.
+7. If you introduce a new top-level skill family or a new attribution pattern, update `tools/repo_inventory.py` and its tests so the repository-policy check still understands the layout.
+8. Run `make verify-new-skill` before opening the PR. This wraps skill validation, repo policy, tests, and lint in one command.
+
+### Skill Portability
+
+The compatibility workflow in [.github/workflows/validate-skills.yml](.github/workflows/validate-skills.yml) runs the validator across the supported client profiles. When writing skill docs, prefer skill-root-relative paths and plain-language references to bundled files. Avoid hard-coding `.claude/skills/` in portable instructions unless the step is truly Claude-only, and keep any client-specific syntax isolated and clearly labeled.
+For guidance on AI/LLM-assisted contributions, refer to the section below: [Guidelines for AI/LLM-Assisted Contributions](#guidelines-for-ai-llm-assisted-contributions).
+For a PR-oriented checklist, see [.github/pull_request_template.md](.github/pull_request_template.md).
+
+### Upstream Provenance and Submodules
+
+When a skill is derived from, mirrors, or is maintained alongside an upstream repository, please identify that repository in the relevant attribution or documentation file so the provenance is clear. Contributions delivered through `git submodule` are also acceptable when the relationship is documented clearly, including the upstream source, the reason for using a submodule, and any license or attribution obligations that apply.
+
+### Local Hygiene
+
+The repository includes [.pre-commit-config.yaml](.pre-commit-config.yaml) for workflow YAML, `unpack.sh`, and the main Markdown docs. If you have those tools installed locally, run `pre-commit run --all-files` before opening a pull request.
 
 ---
 
@@ -133,7 +160,7 @@ allowed-tools: Read, Bash(python *), Bash(pytest *)
 
 ### Variable Substitutions
 
-Use these placeholders in skill content:
+The placeholders below are Claude Code-specific. Use them only when authoring for that client.
 
 | Variable | Description |
 |----------|-------------|
@@ -189,7 +216,7 @@ Reference supporting files from SKILL.md:
 
 To validate retrieved data, run:
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/validate.py <dataset_path>
+python scripts/validate.py <dataset_path>
 ```
 ```
 
@@ -339,19 +366,8 @@ Analyze NetCDF files and provide structured summaries.
 Run the bundled inspection script:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/inspect_nc.py $ARGUMENTS
+python scripts/inspect_nc.py <dataset_path>
 ```
-
-## Manual Analysis
-
-For detailed analysis, I can:
-- List dimensions, variables, and attributes
-- Check CF convention compliance
-- Identify coordinate systems
-- Report data ranges and missing values
-```
-
----
 
 ## Testing Your Skill
 
@@ -372,7 +388,7 @@ For detailed analysis, I can:
 
 ---
 
-## Merge Request Process
+## Pull Request Process
 
 ### Before Submitting
 
@@ -396,15 +412,18 @@ For detailed analysis, I can:
 - Be specific: `cmip6-search` rather than `data-search`
 - Include domain when helpful: `mpi-debug`, `slurm-submit`
 - Choose the appropriate skills category (see "Where to Add Your Skill" above)
-- If your skill spans multiple domains, discuss placement in your merge request
+- If your skill spans multiple domains, discuss placement in your pull request
 
 ---
 
 ## Community Guidelines
 
+This project and everyone participating in it is governed by our [Code of Conduct](./CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold this code.
+
 ### Communication
 
-- Use GitLab issues for bugs and feature requests
+- Use GitHub issues for bugs and feature requests
 - Tag issues appropriately: `new-skill`, `bug`, `enhancement`
 - Be respectful and constructive
 
@@ -414,13 +433,28 @@ For detailed analysis, I can:
 - Build on existing skills rather than duplicating
 - Share learnings with the community
 
+### Guidelines for AI/LLM-Assisted Contributions
+
+- **Remain accountable for all your outputs and decisions.**
+   Individuals remain fully responsible and accountable for the accuracy, quality, appropriateness, and consequences of their work. Use of AI does not transfer this responsibility to the AI model, agent, or other tool.
+- **Understand your work.**
+   Regardless of how code or PR was produced, this project requires that authors illustrate a thorough understanding of any proposed changes. You must review such code line-by-line; it is your responsibility to ensure that it is correct, and that it does not breach copyright. Always critically engage with AI outputs, do not trust them implicitly. AI-assisted code, analysis, and artifacts must be tested and validated at a level appropriate to their impact. Authors are responsible for ensuring that generated code is correct, secure, maintainable, non-obfuscated, appropriately scoped, documented, and reproducible where relevant.
+- **Disclose AI-generated or AI-assisted work.**
+   If AI/LLM tools were primarily used to generate code or artifacts, this should be clearly indicated in the PR.
+- **Use of AI to review PRs.**
+   All PRs must be reviewed by a human reviewer. An LLM review may be used in addition to a human reviewer since this can help spot issues that a human may have missed, but this should not be the sole reviewer. The human reviewer should be fully accountable and responsible for the review feedback or comments (see 1).
+- **Proprietary or personal information.**
+   For this project, proprietary or personal information should never be sent to code generators or AI tools.
+- **Be transparent, assume goodwill, and share what you learn.**
+   Contributors should be open about relevant AI use, disclose details of AI use as appropriate to the project, engage constructively with colleagues, and share experiences and lessons learned with the project.
+
 ---
 
 ## Recognition
 
 Contributors are recognized through:
 - Author credits in skill metadata
-- Acknowledgment in release notes
-- Invitation to Genesis community events
+- Acknowledgment in the [Contributors](README.md#contributors) section of the README and in release notes
+- Invitation to Genesis Mission Platform community events
 
-We value all contributions—new skills, improvements, documentation, and feedback.
+We value all contributions, including new skills, improvements, documentation, and feedback.

@@ -1,0 +1,251 @@
+# Validate skills
+#
+# Static checks for every skill in this catalog (skills/<domain>/<skill>/SKILL.md
+# and skill-search/SKILL.md), plus the unit tests for the tools that check and
+# install those skills. Nothing in this workflow installs an agent CLI (claude,
+# codex, agy, cursor-agent) and nothing calls a model. The compat and spec
+# reference jobs only read SKILL.md files and compare them with the rules
+# implemented in tools/validate_skills.py.
+#
+# The five checks, one matrix job each, named "skill compat (<profile>)":
+#   spec         the Agent Skills specification (skill_spec.md) as enforced by
+#                the reference validator skills-ref 0.1.1: only the six spec keys,
+#                name format and name == directory name, description <= 1024 and
+#                compatibility <= 500 characters, strictyaml-safe frontmatter
+#                (no flow style, tabs, duplicate keys or anchors)
+#   claude-code  Claude Code: <root>/.claude/skills/<dir>/SKILL.md, the directory
+#                name is the skill name, exact SKILL.md filename, 1,000,000-byte
+#                cap, lenient YAML with a repair pass (a broken block still loads,
+#                with empty frontmatter), Claude-only keys honoured
+#   codex        Codex CLI: <root>/.agents/skills, exact SKILL.md filename,
+#                description required, metadata must be a mapping, symlinked
+#                SKILL.md files ignored, Claude-only keys and constructs ignored
+#   antigravity  Google Antigravity: <root>/.agents/skills one level deep, strict
+#                go-yaml (a type error, duplicate key, tab or unquoted ": " drops
+#                the skill silently), a missing name collapses to "SKILL"
+#   cursor       Cursor: skills named after their parent folder (frontmatter name
+#                ignored), description required, js-yaml booleans (true/false
+#                only), a parse error leaves a path-only entry
+#
+# A separate job cross-checks the validator:
+#   spec reference   runs the official agentskills.io validator (skills-ref
+#                    0.1.1, whose console script is `agentskills`) on each
+#                    skill directory the validator discovers
+#
+# and one job runs the unit tests:
+#   tools tests      pytest on tools/tests: the validator's rules and unpack.sh,
+#                    against temporary fixtures and against the whole catalog
+#
+# On pull requests the compat and spec reference jobs validate only the skills
+# whose files changed relative to the base branch, and fail on errors. On pushes
+# to main and manual runs they validate the whole catalog and never turn the
+# workflow red (continue-on-error), so pre-existing catalog debt shows up as
+# annotations without blocking anyone. The tools tests job runs the whole suite
+# on every event and fails on any test failure, pushes to main included.
+#
+# Claude Code's own `claude plugin validate` was evaluated as an oracle and
+# rejected: it only warns when the frontmatter block is missing entirely, and
+# it would require installing the Claude CLI on the runner.
+#
+# Run the same checks locally from the repository root:
+#   python3 -m pip install pyyaml==6.0.2
+#   python3 tools/validate_skills.py                          # whole catalog, all five profiles
+#   python3 tools/validate_skills.py skills/<domain>/<skill>  # one skill
+#   python3 tools/validate_skills.py --changed-since main     # what a pull request checks
+#   python3 tools/validate_skills.py --profile codex --strict # one profile, warnings fail too
+#   python3 -m pip install skills-ref==0.1.1 && agentskills validate skills/<domain>/<skill>
+#   python3 -m pip install pytest==9.1.1 && python3 -m pytest -q tools/tests
+
+name: Validate skills
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'skill-search/**'
+      - 'tools/**'
+      - 'unpack.sh'
+      - '.github/workflows/validate-skills.yml'
+      - 'skill_spec.md'
+  push:
+    branches:
+      - main
+    paths:
+      - 'skills/**'
+      - 'skill-search/**'
+      - 'tools/**'
+      - 'unpack.sh'
+      - '.github/workflows/validate-skills.yml'
+      - 'skill_spec.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PYTHONUNBUFFERED: '1'
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+
+jobs:
+  compat:
+    name: skill compat (${{ matrix.profile }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        profile:
+          - spec
+          - claude-code
+          - codex
+          - antigravity
+          - cursor
+    steps:
+      - name: Check out the repository with full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: python3 -m pip install pyyaml==6.0.2
+
+      # Pull requests: only the skills with added, modified or renamed files
+      # since the merge base with the base branch. Errors fail the job.
+      - name: Validate changed skills (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          PROFILE: ${{ matrix.profile }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 tools/validate_skills.py \
+            --profile "$PROFILE" \
+            --changed-since "$BASE_SHA" \
+            --format github \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      # Pushes to main and manual runs: the whole catalog, reported but never
+      # blocking, so existing debt is visible without turning main red.
+      - name: Validate the full catalog (push / manual run)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          python3 tools/validate_skills.py \
+            --profile "$PROFILE" \
+            --format github \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+  spec-reference:
+    name: spec reference (agentskills 0.1.1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository with full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML and the reference validator
+        run: python3 -m pip install pyyaml==6.0.2 skills-ref==0.1.1
+
+      # The skills-ref 0.1.1 distribution installs a single console script named
+      # `agentskills` (there is no `skills-ref` command). It validates one skill
+      # directory per call and performs no discovery, so the directory list comes
+      # from our validator's --list (one "name<TAB>path" per line). Never
+      # `agentskills validate .`.
+      - name: Run agentskills validate on each skill directory
+        continue-on-error: ${{ github.event_name != 'pull_request' }}
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          list="$RUNNER_TEMP/skill-dirs.tsv"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            python3 tools/validate_skills.py --list --changed-since "$BASE_SHA" > "$list"
+          else
+            python3 tools/validate_skills.py --list > "$list"
+          fi
+          dirs=()
+          while IFS= read -r dir; do
+            dirs+=("$dir")
+          done < <(awk -F '\t' 'NF == 2 { print $2 }' "$list")
+          if [ "${#dirs[@]}" -eq 0 ]; then
+            echo "no skills changed"
+            echo "agentskills validate: no skills changed" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## agentskills validate (skills-ref 0.1.1, ${#dirs[@]} skill directories)"
+            echo
+            echo "| skill directory | result |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          passed=0
+          failed=0
+          for dir in "${dirs[@]}"; do
+            rel="${dir#"$PWD"/}"
+            if output=$(agentskills validate "$dir" 2>&1); then
+              passed=$((passed + 1))
+              echo "PASS  $rel"
+              echo "| \`$rel\` | pass |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed=$((failed + 1))
+              one_line=$(printf '%s' "$output" | tr '\n' ' ' | cut -c 1-500)
+              echo "FAIL  $rel"
+              printf '%s\n' "$output" | sed 's/^/      /'
+              # Workflow-command messages escape % as %25; table cells escape |.
+              echo "::error file=$rel/SKILL.md,title=agentskills validate::${one_line//%/%25}"
+              echo "| \`$rel\` | FAIL: ${one_line//|/\\|} |" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+
+          echo
+          echo "agentskills validate: $passed passed, $failed failed"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "$passed passed, $failed failed" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
+
+  # pytest on tools/tests: the validator's unit tests and the unpack.sh
+  # black-box tests. Some of them read the live catalog (skills/ and
+  # skill-search/), which is why this job lives under this workflow's skills/**
+  # trigger. Unlike the steps above, it also fails on pushes to main.
+  tools-tests:
+    name: tools tests (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML and pytest
+        run: python3 -m pip install pyyaml==6.0.2 pytest==9.1.1
+
+      - name: Run tools/tests
+        run: python3 -m pytest -q tools/tests

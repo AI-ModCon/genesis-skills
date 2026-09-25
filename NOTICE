@@ -1,21 +1,29 @@
 Genesis Skills
 
-Skills curated by BASE CAF.
+Skills curated by ModCon.
 Contact: Matt Baughman <mbaughman@pppl.gov>
 
 
 ------------------------------------------------------------------------
-Third-party content with separate licensing
+Content with separate licensing
 ------------------------------------------------------------------------
 
-Portions of this repository are sourced from third-party projects and
-remain subject to any applicable upstream copyright, license, or other
-terms. Where a LICENSE or LICENSE.txt file is present in a subdirectory,
-that file is the authoritative license for the contents of that
-subdirectory and any of its descendants, and it supersedes the root
+Portions of this repository are separately licensed, either because they
+were sourced from upstream projects or because the subtree maintains its
+own license. Where a LICENSE or LICENSE.txt file is present in a
+subdirectory, that file is the authoritative license for the contents of
+that subdirectory and any of its descendants, and it supersedes the root
 LICENSE for that subtree.
 
-Known third-party subtrees at the time of this writing:
+Known subtrees with separate licensing at the time of this writing:
+
+  skills/academy/                   Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/academy/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/academy/ATTRIBUTION.md.
 
   skills/amsc-skills/               Contributed by the American Science Cloud
                                     Intelligent Interfaces Team. The
@@ -24,11 +32,52 @@ Known third-party subtrees at the time of this writing:
                                     information accompanied these skills.
                                     See skills/amsc-skills/ATTRIBUTION.md.
 
-  skills/basedata-skills/          Sourced from the ModCon Base Data project.
+  skills/basedata-skills/          Sourced from the ModCon Base Data project
                                     No explicit license was found in the
                                     upstream repository at the time of
                                     inclusion. See
                                     skills/basedata-skills/ATTRIBUTION.md.
+
+  skills/baseeval-skills/           Sourced from the ModCon Base Eval project
+                                    and related development repositories.
+                                    This subtree includes an Apache-2.0
+                                    LICENSE at skills/baseeval-skills/LICENSE,
+                                    which is authoritative for this subtree
+                                    and its descendants. See
+                                    skills/baseeval-skills/README.md.
+
+  skills/hpc-skills/                Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/hpc-skills/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/hpc-skills/ATTRIBUTION.md.
+
+  skills/literature-search/         Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/literature-search/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/literature-search/ATTRIBUTION.md.
+
+  skills/multi-agent-systems/       Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/multi-agent-systems/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/multi-agent-systems/ATTRIBUTION.md.
+
+  skills/plasma-sim-skills/         Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/plasma-sim-skills/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/plasma-sim-skills/ATTRIBUTION.md.
+
 
 This list is informational and may not be exhaustive. Always check for
 a LICENSE file in any subdirectory before assuming the root license
@@ -36,12 +85,4 @@ applies.
 
 This material was prepared as an account of work sponsored by an agency of the United States Government.  Neither the United States Government nor the United States Department of Energy, nor the Contractor, nor any or their employees, nor any jurisdiction or organization that has cooperated in the development of these materials, makes any warranty, express or implied, or assumes any legal liability or responsibility for the accuracy, completeness, or usefulness or any information, apparatus, product, software, or process disclosed, or represents that its use would not infringe privately owned rights.
 
-Reference herein to any specific commercial product, process, or service by trade name, trademark, manufacturer, or otherwise does not necessarily constitute or imply its endorsement, recommendation, or favoring by the United States Government or any agency thereof, or Battelle Memorial Institute. The views and opinions of authors expressed herein do not necessarily state or reflect those of the United States Government or any agency thereof.
-
-PACIFIC NORTHWEST NATIONAL LABORATORY
-operated by
-BATTELLE
-for the
-UNITED STATES DEPARTMENT OF ENERGY
-under Contract DE-AC05-76RL01830
- 
+Reference herein to any specific commercial product, process, or service by trade name, trademark, manufacturer, or otherwise does not necessarily constitute or imply its endorsement, recommendation, or favoring by the United States Government or any agency thereof. The views and opinions of authors expressed herein do not necessarily state or reflect those of the United States Government or any agency thereof.
