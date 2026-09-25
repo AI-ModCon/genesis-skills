@@ -263,8 +263,10 @@ discoverability:
                                                 # add one block per creator; 
                                                 # list the block that corresponds to the parent {ROLE} contributed to the creation of this data card
                                                 # Delete the three blocks below that do not apply.
-          agent_type: ${TYPE}                   # [discoverability_required] person | organization | ai_model | software
-                                                # TYPE: person — use for a human contributor
+                                                # [discoverability_required] pick exactly ONE of
+                                                # person | organization | ai_model | software as the key
+                                                # below. There is NO agent_type key (see Gotcha #8).
+                                                # person — use for a human contributor
           person:
             given_name: ${GIVEN_NAME}
             family_name: ${FAMILY_NAME}
@@ -422,7 +424,8 @@ discoverability:
 
   # --- Dataset Contacts ---------------------------------------------------
   contact:                                     # [discoverability_required] Primary point of contact for questions about this DATASET.
-    agent_type: ${TYPE}                        # person (only a person is allowed as the primary contact to ensure accountability and a clear point of contact) | organization (e.g., data management office if no single named contact)
+                                               # person (only a person is allowed as the primary contact to ensure accountability and a clear point of contact) | organization (e.g., data management office if no single named contact)
+                                               # No agent_type key — the sub-block name IS the type (Gotcha #8).
     person:
       given_name: ${GIVEN_NAME}
       family_name: ${FAMILY_NAME}
@@ -756,10 +759,10 @@ interoperability:                             # [interoperability_required]
       description: __DESC__                   # [interoperability_if_applicable] e.g., "Continental United States" | "SNS Beamline 1B, ORNL"
       geo_location_box:                       # [interoperability_if_applicable] WGS84 decimal degrees; use for area coverage
                                               # aligns with datacite:geoLocationBox
-        westBoundLongitude: __DECIMAL_DEG__   # aligns with datacite:westBoundLongitude
-        eastBoundLongitude: __DECIMAL_DEG__.  # aligns with datacite:eastBoundLongitude
-        southBoundLatitude: __DECIMAL_DEG__   # aligns with datacite:southBoundLatitude
-        northBoundLatitude: __DECIMAL_DEG__   # aligns with datacite:northBoundLatitude
+        west_bound_longitude: __DECIMAL_DEG__  # aligns with datacite:westBoundLongitude
+        east_bound_longitude: __DECIMAL_DEG__  # aligns with datacite:eastBoundLongitude
+        south_bound_latitude: __DECIMAL_DEG__  # aligns with datacite:southBoundLatitude
+        north_bound_latitude: __DECIMAL_DEG__  # aligns with datacite:northBoundLatitude
     temporal_coverage:                        # [interoperability_if_applicable] Time period the dataset content represents.
                                               # aligns with schema:temporalCoverage
                                               # NOTE: distinct from dates.data_collection_start/end, which describe
@@ -771,7 +774,8 @@ interoperability:                             # [interoperability_required]
                                               #   dates.data_collection_start = 2024-01-01
       start_date: __YYYY-MM-DD__              # [interoperability_if_applicable] aligns with dcterms:coverage
       end_date: __YYYY-MM-DD__                # [interoperability_if_applicable] aligns with dcterms:coverage
-      description: __DESC__                   # [interoperability_if_applicable]
+                                              # NOTE: no description field here; put prose in
+                                              # discoverability.dataset_description.dataset_summary
 
   # --- Provenance -------------------------------------------------
   # Describes how this dataset was created, what it was derived
@@ -955,9 +959,9 @@ reusability:                              # [reusability_required] Information a
     validation_methods: ${DESC}             # [reusability_required] e.g., "Cross-validated against NIST SRM 640f"
     noise_characteristics: __DESC__          # [reusability_if_applicable]
     uncertainty_notes: __NOTES__             # [reusability_if_applicable] e.g., "Measurement uncertainty ±0.5% (k=2) per ISO/IEC Guide 98-3"
-    missing_data_codes: []                   # [reusability_if_applicable]
-    # - code: __CODE__                       # e.g., -999 | NaN | NULL
-    #   description: __DESC__                # e.g., "Sensor malfunction" | "Below detection limit"
+    missing_data_codes:                      # [reusability_if_applicable] a single block, NOT a list
+    #  code: __CODE__                        # e.g., -999 | NaN | NULL
+    #  description: __DESC__                 # e.g., "Sensor malfunction" | "Below detection limit"
 
   # --- Dataset Citation ---------------------------------------------------
   # [reusability_if_applicable] Important:Populate when dataset release_status = Approved | Published.

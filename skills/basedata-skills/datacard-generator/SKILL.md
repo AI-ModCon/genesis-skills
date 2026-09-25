@@ -14,9 +14,9 @@ introspection can't infer.
 The skill also has a one-shot **Convert** path for migrating an existing
 MODCON v1 datacard to Genesis v1.2.
 
-**Validation is driven by the upstream Pydantic model** (`scripts/genesis_models.py`)
-applied via `scripts/validate_datacard.py`. The few warn-level rules the
-model cannot express live in `references/validation-rules.md`.
+**Validation is upstream's `linkml-validate`** against the vendored schema
+(`scripts/genesis_datacard.yaml`); this skill ships no validator. Rules
+the schema cannot express are eye checks (`references/validation-rules.md`).
 
 ## Workflow
 
@@ -32,7 +32,7 @@ Progress:
 - [ ] 6. Prompt for remaining required fields in batches
 - [ ] 7. Cross-check every ORCID/ROR/DOI/OSTI identifier via live APIs
 - [ ] 8. Compute filename and write the datacard (YAML + markdown body)
-- [ ] 9. Run scripts/validate_datacard.py
+- [ ] 9. Validate with linkml-validate
 - [ ] 10. Address findings; re-validate
 - [ ] 11. Present review summary
 ```
@@ -41,13 +41,11 @@ Progress:
 
 **Ask for the dataset path now.** Do not answer the capability questions
 below cold — first run step 2 (introspect), then come back and propose
-each `supports_*` answer with evidence from what introspection found,
-rather than interrogating the user blind before any evidence exists.
+each `supports_*` answer with evidence from what introspection found.
 
 - **Dataset path** — directory to document. Ask for this now.
-- **Which capabilities does this dataset support?** (ask this after step 2,
-  once introspection evidence is in hand — see the note at the end of
-  step 2). Genesis v1.2 organizes fields into six capability containers.
+- **Which capabilities does this dataset support?** (after step 2 — see
+  the note at its end). Genesis v1.2 has six capability containers.
   Propose a default for each, backed by an introspection finding, and ask
   the user to confirm Yes/No:
   - `supports_discoverability` — **always Yes** (schema enforces this). Identification, description, project, release status, contacts, authorship. Minimum core fields.
@@ -72,6 +70,16 @@ found a LICENSE file and CITATION.cff → I recommend
 `supports_ai_usability` optional." Confirm each with the user
 ([Yes/No]) before moving on to step 3.
 
+### 2b. Resolve the DOI first (fast path)
+
+**If introspection or the user surfaced a DOI, resolve it now** — one
+request yields title, abstract, authors with ORCIDs/affiliations,
+keywords, publisher, funding, often the OSTI ID. Follow § "Order of
+operations: DOI first" and § DOI (incl. the **provenance gate** — a README
+DOI is often a cited paper, not this dataset) in
+`references/live-enrichment.md`. Carry the result into step 4 and present
+it as one table. No DOI? Skip to step 3.
+
 ### 3. Load capability-specific guidance
 
 Read `references/capability-prompts.md` (the per-capability prompt sequence).
@@ -81,26 +89,24 @@ For deep field-by-field explanation, load the relevant section of
 
 ### 4. Auto-fill the data card
 
-Copy the template to the output filename **without reading it into
-context**:
+**The template is the field reference, not a skeleton to copy** — ~130KB
+/ ~35K tokens of commented guidance, none of which belongs in a finished
+card. Never read it whole. Read only the section you need:
 
 ```bash
-# Absolute path, resolved from the skill root (works regardless of your cwd).
-cp <skill_root>/references/genesis_v1.0_template.md <output_path>
+# Absolute path from the skill root; works from any cwd.
+sed -n 'START,ENDp' <skill_root>/references/genesis_v1.0_template.md
 ```
 
-Then edit the copied file with targeted `sed`/patch operations to fill YAML
-fields and markdown body regions — do NOT regenerate the entire file. Read
-only the sections you need to modify (typically the YAML frontmatter's ~1,140
-lines and specific markdown body sections via `sed -n 'START,ENDp'`). The
-template is over 130KB / ~35K tokens; a naive full read blows the context
-budget.
+Write the card directly, in template key order, with only the blocks the
+`supports_*` flags turn on. Step 9 proves nothing required is missing.
 
 **Where to save:** inside `<dataset_dir>/` by default; ask if the user
 prefers elsewhere. Compute the filename via the Filename rule (§8 below).
 
-Populate the YAML frontmatter
-using this decision table (paths use v2 capability-container structure):
+Populate the YAML frontmatter using this decision table. A DOI record
+from step 2b takes precedence over README/CITATION.cff for every field in
+`references/live-enrichment.md` § "What to extract".
 
 | Genesis field | Auto-fill if… | Otherwise |
 |---|---|---|
@@ -123,7 +129,7 @@ using this decision table (paths use v2 capability-container structure):
 | `interoperability.data_structure.splits` | introspect.py `splits_detected` | leave empty |
 | `accessibility.dataset_scale.record_count` / `.compressed_bytes` | introspect.py | prompt (requires `supports_accessibility=Yes`) |
 | `reusability.license.spdx_id` | introspect.py `license_hint` | prompt (requires `supports_reusability=Yes`) |
-| `reusability.license.name` | never | prompt whenever the `reusability.license` block is emitted (Pydantic requires it always, not just when `spdx_id=other`) |
+| `reusability.license.name` | never | prompt whenever the `reusability.license` block is emitted (required always, not just when `spdx_id=other`) |
 | `discoverability.authors[]` | from CITATION.cff (use **CRediT roles** — see `references/lookup-tables.md`) | prompt |
 | `reusability.citation.preferred_citation` | from CITATION.cff bibtex | prompt at `[pub]` |
 | `interoperability.provenance.was_generated_by` | always prompt (often forgotten) | — |
@@ -132,12 +138,10 @@ using this decision table (paths use v2 capability-container structure):
 | `_repository.*` | **NEVER** — system-owned | — |
 
 For each `supports_X=Yes`, also write `supports_X: "Yes"` at the top level
-of the YAML. The schema (via Pydantic) enforces that the matching `X:` block
-must exist when `supports_X=Yes`.
+of the YAML. The schema enforces that the matching `X:` block must exist
+when `supports_X=Yes`.
 
-ORCID, ROR, DOI, and OSTI award numbers gathered here will be
-**cross-checked against their public APIs in step 7** — not optional.
-Format validation is handled automatically by the validator.
+Identifiers gathered here are **cross-checked live in step 7** — not optional.
 
 ### 5. Confirm dataset readiness level (optional)
 
@@ -146,9 +150,7 @@ If the user wants to indicate dataset readiness, ask them to set a level
 `dataset_readiness` YAML field in Genesis v1.2 — readiness is expressed
 through the combination of `supports_*` flags that are set to `"Yes"`.
 
-As a heuristic to guide the user (also expressible as a rough count of
-`supports_*` flags set to Yes: 1 typically maps to level 1, 2-3 to level 2,
->= 4 to level 3):
+Heuristic (roughly: 1 `supports_*=Yes` → level 1, 2-3 → level 2, ≥4 → level 3):
 
 - 1 = Discoverable (metadata only; `supports_discoverability=Yes` + perhaps `accessibility`)
 - 2 = Interoperable & Reusable (also license, contacts, provenance; `supports_interoperability` and `supports_reusability`)
@@ -161,6 +163,10 @@ Confirm with the user.
 Present auto-discovered values for confirmation. Then ask for unfilled
 required fields. Ask **3-5 at a time** following the batches in
 `references/capability-prompts.md`. Stop and confirm after each batch.
+
+**Ask only for what is still empty.** Confirm step 2b values in one table;
+a DOI never supplies CRediT `role[]`, `product_type`, `science_domain`,
+access/governance decisions, or `provenance.was_generated_by` — still ask.
 
 **Key vocabulary changes in v2** (full list in `references/lookup-tables.md`):
 
@@ -178,35 +184,25 @@ required fields. Ask **3-5 at a time** following the batches in
 
 ### 7. Cross-check identifiers via live APIs
 
-**Step 7 is not optional; do not proceed to step 8 (write) without
-completing it.** Unverified identifiers can silently misattribute
-authorship, funding, or DOIs — worse than a slightly-incomplete card.
+**Not optional; do not write (step 8) without completing it** —
+unverified identifiers silently misattribute authorship, funding, or DOIs.
+Resolve EVERY ORCID, ROR, DOI, and OSTI award number — user-provided or
+inferred, already populated or not — per `references/live-enrichment.md`
+(plain HTTP, no API key; `WebFetch`, `curl`, or equivalent). If step 2b
+resolved the DOI, this step **verifies rather than discovers**: confirm
+seeded ORCIDs/affiliations, query OSTI by canonical OSTI ID (not a bare
+`?doi=` search), and reuse the 2b response instead of re-resolving.
 
-For EVERY ORCID, ROR, DOI, and OSTI award number in the datacard —
-user-provided or inferred, already populated or not — resolve it with
-`WebFetch` against the public API per `references/live-enrichment.md`.
+Enrich every path under § "Identifier paths to check" (grouped by
+capability, so skip opted-out ones) and classify each outcome as that
+section defines (clean match / mismatch / incomplete / does not resolve /
+rate-limited). **Widespread network failure** — more than 2-3 consecutive
+connection errors (not per-ID 404s) — means stop enrichment, tell the
+user, and **mark the datacard as unverified** in the step 11 summary; do
+not write with silently unverified identifiers.
 
-Enrich every path listed under "Identifier paths to check" in
-`references/live-enrichment.md`. The list is grouped by capability so you
-can skip capabilities the user opted out of.
-
-For each lookup:
-
-- **Clean match** — silent pass.
-- **Mismatch** — present both side-by-side, ask the user.
-- **Datacard incomplete** — API has fields the datacard doesn't; offer to add.
-- **Does not resolve** (404, error) — warn the user; likely typo.
-- **Rate-limited** — retry once; if still failing, log and move on.
-- **Widespread network failure** — if more than 2-3 lookups in a row fail
-  with connection/network errors (not per-ID 404s), stop enrichment, tell
-  the user that live enrichment could not run, and **mark the datacard as
-  unverified** in the review summary at step 11. Do not proceed to step 8
-  (write) with silently unverified identifiers.
-
-Present ALL findings from all identifiers to the user as a single
-consolidated table (see `references/live-enrichment.md` § Batching
-guidance). Do NOT prompt after each individual lookup — batch the
-WebFetch calls, then present one summary.
+Batch the fetches, then present ALL findings as one consolidated table
+(§ Batching guidance). Do NOT prompt after each individual lookup.
 
 ### 8. Filename + write
 
@@ -214,8 +210,8 @@ WebFetch calls, then present one summary.
 where `snake_case` lowercases the name and replaces any non-alphanumeric
 run with a single `_`.
 
-**What to write:** the canonical template
-(`references/genesis_v1.0_template.md`) with **both halves filled**:
+**What to write:** a card in the canonical template's structure
+(`references/genesis_v1.0_template.md`), with **both halves filled**:
 
 - **YAML frontmatter** — fully populated from the workflow above. Set
   `supports_discoverability: "Yes"` and any other `supports_X: "Yes"` the
@@ -232,31 +228,30 @@ should remain. Verify with:
 
 ### 9. Validate
 
-Run:
+`linkml-validate` takes YAML, so split the frontmatter off first (uv
+fetches linkml on demand):
 
 ```bash
-python3 scripts/validate_datacard.py <written_file>
+awk 'NR>1 && /^---$/{exit} NR>1' <written_file> > /tmp/card.yaml
+uv run --with linkml linkml-validate \
+  -s <skill_root>/scripts/genesis_datacard.yaml \
+  -C GenesisDatacardClass /tmp/card.yaml
 ```
 
-The validator emits structured codes:
-
-- `MISSING_REQUIRED:<field>` — re-prompt
-- `BAD_ENUM:<field>` — show enum from `references/lookup-tables.md`; re-prompt
-- `BAD_FORMAT:<field>` — show format hint; re-prompt
-- `INCONSISTENT:<field>` — show conflicting values; ask user
-- `SCHEMA_VIOLATION:<field>` — unexpected; investigate
-
-Use `--json` to get machine-readable output for parsing the findings list.
+Prints `No issues found`, or one `[ERROR]` per problem naming the JSON
+path; exit 1 on failure. Enums: `references/lookup-tables.md`.
+**`'dataset_publisher' is a required property` is a known upstream bug** —
+real only when `release_status` is `Approved` or `Published`.
 
 ### 10. Address findings
 
-Loop steps 6 → 7 → 8 → 9 until `--json` output has `"ok": true`. **Do not
-claim done with un-addressed errors.** `warn` severity findings can stand
+Loop steps 6 → 7 → 8 → 9 until the only output left is `No issues found`
+(or that publisher line, on an unpublished card). **Do not claim done
+with un-addressed errors.** `warn` severity findings can stand
 in the review summary but errors must be resolved.
 
-On loop-back to step 7, re-enrich ONLY identifiers the user added or
-changed in this iteration — do NOT re-check every identifier from scratch
-(see `references/live-enrichment.md` § Re-check-only-changed).
+On loop-back to step 7, re-enrich ONLY identifiers changed in this
+iteration (§ Re-check-only-changed).
 
 ### 11. Review summary
 
@@ -264,9 +259,8 @@ Present:
 - Auto-populated fields (count + brief list)
 - User-provided fields (count + brief list)
 - Empty / `not_applicable` fields (with reason)
-- Validator warnings (e.g., filename alignment, workflow↔release alignment)
-- Suggestions for improvement (e.g., add `reusability.data_quality.completeness` if
-  reusability is supported and the field is empty)
+- Validator warnings
+- Suggestions for improvement (empty optional fields worth filling)
 
 Ask if the user wants to revise any section before finishing.
 
@@ -297,9 +291,7 @@ When the user asks to convert an existing MODCON v1 datacard:
 
 ## Gotchas (read before generating)
 
-For additional gotchas (chronological ordering, `ai_model`/`software`
-relationship requirement, etc.), see
-[references/gotchas.md](references/gotchas.md).
+More in [references/gotchas.md](references/gotchas.md).
 
 1. **`workflow.state` ≠ `release_status`.** Both are needed (under
    `discoverability.workflow.state` and `discoverability.release_status`).
@@ -313,8 +305,8 @@ relationship requirement, etc.), see
    dataset). These are independent and often differ — never default them
    to match.
 
-3. **`primary_id.type`** should not be `doi` before a DOI is minted.
-   Use `ark`, `local`, or `unregistered` for pre-publication states.
+3. **`primary_id.type`** is not `doi` before a DOI is minted — use
+   `ark`, `local`, or `unregistered`.
 
 4. **`provenance.was_generated_by`** is required (when
    `supports_interoperability=Yes`) and often forgotten. Even a one-line
@@ -325,11 +317,10 @@ relationship requirement, etc.), see
    name inside each entry is `datacard_version` (patched locally from an
    upstream typo).
 
-6. **`_repository` block is system-owned.** Do not populate. Leave it
-   as-is in the template (the underscore prefix is the parser signal).
+6. **`_repository` is system-owned.** Never populate it.
 
 7. **`supports_discoverability` is always `"Yes"`.** The schema (via
-   Pydantic) enforces this — every Genesis datacard has at least the
+   the schema) enforces this — every Genesis datacard has at least the
    discoverability block.
 
 8. **`role[]` lives INSIDE the agent sub-block, not on the agent entry
@@ -362,20 +353,26 @@ relationship requirement, etc.), see
     a genuine update to an existing datacard, alongside a new `change_log`
     entry (see Gotcha #5).
 
+11. **Never resolve a dataset DOI via OSTI `?doi=`.** A DOE prefix
+    (`10.15485`, `10.11578`) tempts a jump straight to the OSTI API. Don't
+    — `?doi=` can return several records that disagree on the funder, and
+    OSTI carries fewer ORCIDs than DataCite. Always `doi.org` content
+    negotiation first (step 2b); OSTI comes later, by canonical ID.
+
 ---
 
 ## References
 
 - **Template (do not edit)**: [references/genesis_v1.0_template.md](references/genesis_v1.0_template.md)
 - **Upstream provenance**: https://gitlab.osti.gov/genesis/data-cards (vendored at commit `7226c2c`).
-- **Pydantic model** (validator source of truth): `scripts/genesis_models.py`
+- **LinkML schema** (validator source of truth): `scripts/genesis_datacard.yaml`
 - **Field-by-field guidance**: [references/genesis_field_guide.md](references/genesis_field_guide.md)
 - **Per-capability prompts**: [references/capability-prompts.md](references/capability-prompts.md)
 - **Body-fill guide**: [references/body-fill-guide.md](references/body-fill-guide.md)
 - **Lookup tables** (enums, vocabularies): [references/lookup-tables.md](references/lookup-tables.md)
 - **Validation extras** (warn-level rules): [references/validation-rules.md](references/validation-rules.md)
-- **Live ORCID/ROR/OSTI enrichment**: [references/live-enrichment.md](references/live-enrichment.md)
+- **Live DOI/ORCID/ROR/OSTI enrichment**: [references/live-enrichment.md](references/live-enrichment.md)
 - **Introspection commands**: [references/introspection-commands.md](references/introspection-commands.md)
-- **Validator**: `scripts/validate_datacard.py`
+- **Validation**: upstream `linkml-validate` (see step 9)
 - **Introspector**: `scripts/introspect.py`
 - **Converter**: `scripts/convert_v1_to_genesis.py`

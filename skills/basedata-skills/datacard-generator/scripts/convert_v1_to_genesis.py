@@ -1,3 +1,7 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["linkml>=1.9.3", "pyyaml>=6.0"]
+# ///
 """Convert a MODCON v1 datacard to a Genesis Mission Datacard v2 draft.
 
 Reads YAML frontmatter from the v1 .md file, applies a best-effort field
@@ -13,6 +17,7 @@ import argparse
 import json
 import re
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -21,9 +26,7 @@ from typing import Any
 import yaml
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(SKILL_ROOT / "scripts"))
-
-import validate_datacard as vd  # noqa: E402
+SCHEMA_PATH = SKILL_ROOT / "scripts" / "genesis_datacard.yaml"
 
 
 @dataclass
@@ -35,7 +38,49 @@ class ConversionReport:
 
 
 def load_v1(path: Path) -> dict:
-    return vd.load_datacard(path)
+    """Load YAML frontmatter from a .md datacard."""
+    text = Path(path).read_text(encoding="utf-8")
+    parts = re.split(r"^---\s*$", text, maxsplit=2, flags=re.MULTILINE)
+    if len(parts) < 2:
+        raise ValueError(f"{path}: file does not have YAML frontmatter delimited by `---` lines")
+    data = yaml.safe_load(parts[1])
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: frontmatter is not a YAML mapping")
+    return data
+
+
+def _missing_required(data: dict) -> set[str]:
+    """Ask upstream's validator which required properties are still absent.
+
+    Schema validation is upstream's job (SKILL.md step 9); this only reads back
+    the `required property` results so the conversion report can list what the
+    mapping could not fill.
+    """
+    from linkml.validator import validate_file
+
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False, encoding="utf-8") as fh:
+        yaml.safe_dump(data, fh, sort_keys=False, allow_unicode=True, default_flow_style=False)
+        tmp = Path(fh.name)
+    try:
+        report = validate_file(str(tmp), schema=str(SCHEMA_PATH), target_class="GenesisDatacardClass")
+    finally:
+        tmp.unlink(missing_ok=True)
+
+    missing: set[str] = set()
+    for result in report.results:
+        message = str(result.message)
+        match = re.match(r"'([^']+)' is a required property", message)
+        if not match:
+            continue
+        # Upstream's publisher rule fires on every card; see
+        # references/validation-rules.md. Only report it when it is real.
+        if match.group(1) == "dataset_publisher":
+            if (data.get("discoverability") or {}).get("release_status") not in {"Approved", "Published"}:
+                continue
+        where = re.search(r" in (/\S*)$", message)
+        path = (where.group(1).strip("/").replace("/", ".") + "." if where and where.group(1) != "/" else "")
+        missing.add(f"{path}{match.group(1)}")
+    return missing
 
 
 def _setp(target: dict, dotted: str, value: Any) -> None:
@@ -1260,14 +1305,10 @@ def convert(v1_raw: dict) -> ConversionReport:  # noqa: C901 (complexity OK for 
     if "dataset_readiness" in v1_raw:
         orphans.insert(0, "dataset_readiness (dropped: no equivalent in Genesis v2)")
 
-    # Validator: use the Pydantic-model-driven validator, extract MISSING_REQUIRED codes.
-    # Merge in fields the converter deliberately left unset for user selection
-    # (e.g. science_domain with no clean enum match) even though the schema
-    # itself marks them optional.
-    result = vd.validate(g)
-    missing_required = sorted(
-        {f.field for f in result.findings if f.code == "MISSING_REQUIRED"} | set(manual_missing)
-    )
+    # Merge the schema's own "required property" results with fields the
+    # converter deliberately left unset for user selection (e.g. science_domain
+    # with no clean enum match) even though the schema marks them optional.
+    missing_required = sorted(_missing_required(g) | set(manual_missing))
 
     return ConversionReport(
         genesis=g,
