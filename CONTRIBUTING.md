@@ -1,6 +1,6 @@
 # Contributing to Genesis Skills
 
-Thank you for your interest in contributing to Genesis Skills. This guide covers the [Claude Code skills format](https://code.claude.com/docs/en/skills) and our conventions for scientific applications.
+Thank you for your interest in contributing to Genesis Skills. This guide covers the [Claude Code skills format](https://code.claude.com/docs/en/skills) as a baseline, plus our conventions for portable multi-client skills. The active [development repository](https://github.com/AI-ModCon/genesis-skills) is hosted on GitHub and is where development, forks, issues, and pull requests occur.
 
 ---
 
@@ -47,7 +47,7 @@ Use this checklist when your PR adds or changes a skill:
 ### Skill Portability
 
 The compatibility workflow in [.github/workflows/validate-skills.yml](.github/workflows/validate-skills.yml) runs the validator across the supported client profiles. When writing skill docs, prefer skill-root-relative paths and plain-language references to bundled files. Avoid hard-coding `.claude/skills/` in portable instructions unless the step is truly Claude-only, and keep any client-specific syntax isolated and clearly labeled.
-For guidance on AI/LLM-assisted contributions, refer to the section below, [Guidelines for AI/LLM-Assisted Contributions](#guidelines-for-ai-llm-assisted-contributions).
+For guidance on AI/LLM-assisted contributions, refer to the section below: [Guidelines for AI/LLM-Assisted Contributions](#guidelines-for-ai-llm-assisted-contributions).
 For a PR-oriented checklist, see [.github/pull_request_template.md](.github/pull_request_template.md).
 
 ### Upstream Provenance and Submodules
@@ -388,7 +388,7 @@ python scripts/inspect_nc.py <dataset_path>
 
 ---
 
-## Merge Request Process
+## Pull Request Process
 
 ### Before Submitting
 
@@ -423,7 +423,7 @@ By participating, you are expected to uphold this code.
 
 ### Communication
 
-- Use Github issues for bugs and feature requests
+- Use GitHub issues for bugs and feature requests
 - Tag issues appropriately: `new-skill`, `bug`, `enhancement`
 - Be respectful and constructive
 

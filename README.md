@@ -34,7 +34,10 @@ git clone https://gitlab.osti.gov/genesis/genesis-skills.git
 cd genesis-skills
 ```
 
-> Mirror repository: The repository `https://gitlab.osti.gov/genesis/genesis-skills.git` mirrors the upstream development repository `https://github.com/AI-ModCon/genesis-skills`.
+> Mirror repository: The repository `https://gitlab.osti.gov/genesis/genesis-skills.git`
+> is a read-only mirror of the upstream development repository
+> `https://github.com/AI-ModCon/genesis-skills`. Please use GitHub for development,
+> forks, issues, and pull requests.
 
 ### Method 1 — Flatten skills into place (`unpack.sh`)
 

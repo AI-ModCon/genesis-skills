@@ -4,6 +4,8 @@
 
 **Author:** Matt Baughman (PPPL)
 
+Licensed Apache-2.0 as part of this subtree - see [LICENSE](LICENSE).
+
 Skills included:
 - `aurora` — ALCF Aurora (PBS, Intel Ponte Vecchio GPUs, oneAPI/SYCL, DAOS/Lustre flare storage)
 - `frontier` — OLCF Frontier (Slurm, AMD MI250X GPUs with ROCm/HIP, Cray programming environment)

@@ -4,5 +4,7 @@
 
 **Author:** Ian Foster (ANL)
 
+Licensed Apache-2.0 as part of this subtree - see [LICENSE](LICENSE).
+
 Skills included:
 - `academy` — Academy agent framework for distributed scientific computing: agents with `@action` decorators, exchanges and managers, HPC integrations, and multi-agent scientific workflows

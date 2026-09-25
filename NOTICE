@@ -1,21 +1,29 @@
 Genesis Skills
 
-Skills curated by BASE CAF.
+Skills curated by ModCon.
 Contact: Matt Baughman <mbaughman@pppl.gov>
 
 
 ------------------------------------------------------------------------
-Third-party content with separate licensing
+Content with separate licensing
 ------------------------------------------------------------------------
 
-Portions of this repository are sourced from third-party projects and
-remain subject to any applicable upstream copyright, license, or other
-terms. Where a LICENSE or LICENSE.txt file is present in a subdirectory,
-that file is the authoritative license for the contents of that
-subdirectory and any of its descendants, and it supersedes the root
+Portions of this repository are separately licensed, either because they
+were sourced from upstream projects or because the subtree maintains its
+own license. Where a LICENSE or LICENSE.txt file is present in a
+subdirectory, that file is the authoritative license for the contents of
+that subdirectory and any of its descendants, and it supersedes the root
 LICENSE for that subtree.
 
-Known third-party subtrees at the time of this writing:
+Known subtrees with separate licensing at the time of this writing:
+
+  skills/academy/                   Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/academy/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/academy/ATTRIBUTION.md.
 
   skills/amsc-skills/               Contributed by the American Science Cloud
                                     Intelligent Interfaces Team. The
@@ -37,6 +45,38 @@ Known third-party subtrees at the time of this writing:
                                     which is authoritative for this subtree
                                     and its descendants. See
                                     skills/baseeval-skills/README.md.
+
+  skills/hpc-skills/                Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/hpc-skills/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/hpc-skills/ATTRIBUTION.md.
+
+  skills/literature-search/         Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/literature-search/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/literature-search/ATTRIBUTION.md.
+
+  skills/multi-agent-systems/       Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/multi-agent-systems/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/multi-agent-systems/ATTRIBUTION.md.
+
+  skills/plasma-sim-skills/         Maintained as part of the ModCon Base CAF
+                                    family. This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/plasma-sim-skills/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. See
+                                    skills/plasma-sim-skills/ATTRIBUTION.md.
 
 
 This list is informational and may not be exhaustive. Always check for
