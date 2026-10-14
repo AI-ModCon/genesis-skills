@@ -312,6 +312,12 @@ def parse_lm_eval(path: Path) -> dict:
     files = _lm_eval_files(path)
     if not files:
         raise ParseError(f"no lm-evaluation-harness results_*.json under {path}")
+    if len(files) > 1:
+        raise ParseError(
+            f"{path} contains {len(files)} valid lm-evaluation-harness result files. "
+            "Bundle input must identify a single run. Point at one results_*.json "
+            "file or a directory containing exactly one valid result."
+        )
     results_file = files[0]
     data = _read_json(results_file)
 
