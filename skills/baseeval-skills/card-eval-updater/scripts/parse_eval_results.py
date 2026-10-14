@@ -252,16 +252,19 @@ def _eval_factory_tasks(path: Path) -> list[Path]:
 
 
 def _nemo_skills_files(path: Path) -> list[Path]:
-    """Return top-level NeMo-Skills metrics.json files under `path`."""
+    """Return run-level NeMo-Skills metrics.json files under `path`."""
     if path.is_file() and path.name == "metrics.json":
         candidates = [path]
     elif path.is_dir():
         direct = path / "metrics.json"
-        candidates = [direct] if direct.exists() else sorted(path.rglob("metrics.json"))
+        candidates = sorted(path.rglob("metrics.json"))
+        if direct.exists() and direct not in candidates:
+            candidates.insert(0, direct)
     else:
         return []
 
     valid: list[Path] = []
+    robust_aggregates: list[Path] = []
     for cand in candidates:
         try:
             data = _read_json(cand)
@@ -269,19 +272,39 @@ def _nemo_skills_files(path: Path) -> list[Path]:
             continue
         if not isinstance(data, dict) or "config" in data:
             continue  # `config` marks an Eval Factory metrics.json
-        for block in data.values():
-            if isinstance(block, dict) and any(isinstance(v, dict) for v in block.values()):
-                valid.append(cand)
-                break
 
-    # A robust_eval run contains a top-level metrics.json plus per-variant
-    # metrics.json files below it. Keep the top-level artifact and drop its
-    # descendants so one run is still one candidate.
-    return [
-        cand
-        for cand in valid
-        if not any(other != cand and other.parent in cand.parents for other in valid)
-    ]
+        is_valid = False
+        is_robust_aggregate = False
+        for block in data.values():
+            if not isinstance(block, dict):
+                continue
+            if any(isinstance(v, dict) for v in block.values()):
+                is_valid = True
+            if isinstance(block.get("aggregated"), dict):
+                is_robust_aggregate = True
+        if is_valid:
+            valid.append(cand)
+            if is_robust_aggregate:
+                robust_aggregates.append(cand)
+
+    # robust_eval keeps one aggregate metrics.json at the run root and richer
+    # per-variant metrics beneath */eval-results/*/. Those descendants belong
+    # to the same run and are used later only to recover the metric name.
+    # Other nested run-level metrics files remain candidates, so a parent that
+    # actually spans two runs still fails closed.
+    def is_robust_detail(cand: Path) -> bool:
+        for aggregate in robust_aggregates:
+            if cand == aggregate:
+                continue
+            try:
+                relative = cand.relative_to(aggregate.parent)
+            except ValueError:
+                continue
+            if "eval-results" in relative.parts:
+                return True
+        return False
+
+    return [cand for cand in valid if not is_robust_detail(cand)]
 
 # Detection probes, in the order they are tried. Each returns a truthy value
 # when `path` holds output from that harness.
