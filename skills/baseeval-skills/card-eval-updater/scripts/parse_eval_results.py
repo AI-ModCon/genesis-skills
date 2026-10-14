@@ -300,7 +300,15 @@ def _nemo_skills_files(path: Path) -> list[Path]:
                 relative = cand.relative_to(aggregate.parent)
             except ValueError:
                 continue
-            if "eval-results" in relative.parts:
+            # Documented robust_eval detail layout:
+            # <benchmark>/<variant>/eval-results/<benchmark>/metrics.json
+            parts = relative.parts
+            if (
+                len(parts) == 5
+                and parts[2] == "eval-results"
+                and parts[0] == parts[3]
+                and parts[4] == "metrics.json"
+            ):
                 return True
         return False
 
