@@ -92,6 +92,26 @@ class CardEvalRunSelectionTests(unittest.TestCase):
 
             self.assertEqual(PARSER._nemo_skills_files(root), [aggregate])
 
+    def test_robust_aggregate_does_not_hide_unrelated_nested_eval_results(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            write_json(
+                root / "metrics.json",
+                {
+                    "bench": {
+                        "variant-a": {"avg": 50.0},
+                        "aggregated": {"avg": 50.0, "num_runs": 1},
+                    }
+                },
+            )
+            write_json(
+                root / "other-run" / "eval-results" / "bench" / "metrics.json",
+                {"bench": {"pass@1": {"symbolic_correct": 60.0}}},
+            )
+
+            matches = PARSER._nemo_skills_files(root)
+            self.assertEqual(len(matches), 2)
+
     def test_nemo_direct_aggregate_does_not_hide_nested_independent_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
