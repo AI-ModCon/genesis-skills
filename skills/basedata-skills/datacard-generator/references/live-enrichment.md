@@ -147,9 +147,36 @@ checks:
 | Gate result | Where the DOI goes |
 |---|---|
 | Dataset **and** title matches | `discoverability.identification.primary_id` (`type: doi`) — and seed the fields in the table below |
-| Dataset, title **differs** | `interoperability.related_resources.datasets[]`; ask the user whether it is a prior version (`supersedes`) or a different dataset |
+| Dataset, title **differs** | `interoperability.related_resources.datasets[]`; ask the user whether it is a prior version (`supersedes`), a source this one derives from (`is_derived_from`), or a different dataset |
 | Not a dataset | `interoperability.related_resources.publications[]` — **never** `primary_id`, and never seed authors or abstract from it |
 | Does not resolve | Leave `primary_id` alone; flag the DOI as unverified |
+
+#### A failed gate does not mean "discard the record"
+
+Failing the gate stops the record seeding **this dataset's own identity** —
+`primary_id`, name, summary, authors. It does not make the record
+worthless, and it must not leave the card emptier than it found it.
+
+- **The creators are still real people.** They authored the *source*, not
+  this dataset, so they do not belong in `authors[]`. Put them in
+  `discoverability.contributors[]` where the relationship warrants it, and
+  say in the review summary whose record they came from. Never silently
+  drop them.
+- **This dataset still needs its own authors, and the registry cannot
+  supply them.** A derived sample is usually prepared by different people
+  than the source. Look for them locally — CITATION.cff, a README contacts
+  or credits section, a repository-specific metadata record — and if
+  nothing names them, **ask the user**. Do not substitute the source's
+  authors, and do not quietly settle for the hosting facility as an
+  organization author.
+- **Never write `authors: []`, and never fill it with a nameless stub.**
+  The schema says at least one author is required once `release_status` is
+  `Approved` or `Published`, but the check is for presence: an empty list
+  passes, and so does `- person: {role: [...]}` with no name, because
+  `PersonClass` requires none. Both have been observed in real runs. When
+  no individual can be named, record the stewarding **organization** as the
+  author — a real entity with a ROR — and say so in the review summary. A
+  named organization is honest; an empty list or a nameless person is not.
 
 Where a DOI came from also carries trust: a **CITATION.cff `doi:` field**
 is self-referencing by definition, while a **DOI in README prose** is a
