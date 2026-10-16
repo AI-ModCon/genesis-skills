@@ -1,4 +1,48 @@
 ---
+# --- xCard common spine (added) ---
+# Added so this card validates as a Genesis xCard and can be registered in the
+# xCard Registry alongside data, agent and resource cards. The HuggingFace keys
+# below are untouched and remain the source of truth for the eval tooling; the
+# spine mirrors the values it needs.
+xCard:
+  card_type: model
+  version: '0.1'
+id: lexical-overlap-baseline                   # CHANGE ME: lowercase, hyphens
+name: lexical-overlap-baseline v1.0            # CHANGE ME
+description: >-
+  Lexical-overlap baseline for beamline question answering, used as a reference
+  point when evaluating retrieval and QA models.
+science:                                       # at least one entry, or the card is rejected
+  - lightsource
+keywords:
+  - baseline
+  - question-answering
+  - evaluation
+sensitivity: general
+developed_by:                                  # at least one entry, or the card is rejected
+  - CHANGE ME - your organization
+version: '1.0'
+last_updated: '2026-09-25'                     # CHANGE ME
+io_contract:
+  input_modes:
+    - text/plain
+  output_modes:
+    - text/plain
+  modalities: []
+  task_tags: []
+relationships: []
+extension:
+  kind: model
+  # Mirrors the `metrics` list below, which the eval tooling owns.
+  metrics:
+    - beamline_qa/acc
+    - beamline_qa/acc_norm
+  base_model: ''                               # CHANGE ME if fine-tuned
+  training_datasets: []                        # CHANGE ME
+  architecture: ''                             # CHANGE ME e.g. "Transformer encoder, 12 layers"
+  framework: ''                                # CHANGE ME e.g. "PyTorch 2.3"
+
+# --- existing HuggingFace front matter ---
 language:
 - en # ISO language tag
 tags:
@@ -7,7 +51,10 @@ tags:
 - type:model # use other types include {agent, eval, framework, model, etc...}
 - science:lightsource # what kind of science is this for (e.g., materials, biology, lightsource, fusion, climate, etc.)
 - risk:general # indicates level of risk review {general, reviewed, restricted}
-license: {spdx_license_id} # use an SPDX license identifier https://spdx.org/licenses/
+license:
+  spdx_id: '{spdx_license_id}' # use an SPDX license identifier https://spdx.org/licenses/
+  name: ''
+  url: ''
 license_name: {license_name}  # If license = other (license not in https://hf.co/docs/hub/repositories-licenses), specify an id for it here, like `my-license-1.0`. if not delete this line
 license_link: {license_link}  # If license = other, specify "LICENSE" or "LICENSE.md" to link to a file of that name inside the repo, or a URL to a remote file. if not delete this line
 base_model: {base_model} # if fine-tuning, include the base model url here
