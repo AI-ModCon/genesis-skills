@@ -35,6 +35,7 @@ class ConversionReport:
     mapped: list[str] = field(default_factory=list)
     missing_required: list[str] = field(default_factory=list)
     orphans: list[str] = field(default_factory=list)
+    invalid: list[str] = field(default_factory=list)
 
 
 def load_v1(path: Path) -> dict:
@@ -49,12 +50,20 @@ def load_v1(path: Path) -> dict:
     return data
 
 
-def _missing_required(data: dict) -> set[str]:
-    """Ask upstream's validator which required properties are still absent.
+def _validate(data: dict) -> tuple[set[str], list[str]]:
+    """Validate the converted card and split the findings two ways.
 
-    Schema validation is upstream's job (SKILL.md step 9); this only reads back
-    the `required property` results so the conversion report can list what the
-    mapping could not fill.
+    Returns (missing_required, invalid):
+
+      missing_required  fields the mapping could not fill, for the report's
+                        prompt list
+      invalid           every other finding — bad enums, additional properties,
+                        pattern and rule violations
+
+    Both are returned because reporting only the first silently writes invalid
+    cards: this function used to drop every result that was not a "required
+    property" message, so a card failing on an unexpected key or a bad enum
+    was reported as needing nothing.
     """
     from linkml.validator import validate_file
 
@@ -67,10 +76,12 @@ def _missing_required(data: dict) -> set[str]:
         tmp.unlink(missing_ok=True)
 
     missing: set[str] = set()
+    invalid: list[str] = []
     for result in report.results:
         message = str(result.message)
         match = re.match(r"'([^']+)' is a required property", message)
         if not match:
+            invalid.append(message)
             continue
         # Upstream's publisher rule fires on every card; see
         # references/validation-rules.md. Only report it when it is real.
@@ -80,7 +91,7 @@ def _missing_required(data: dict) -> set[str]:
         where = re.search(r" in (/\S*)$", message)
         path = (where.group(1).strip("/").replace("/", ".") + "." if where and where.group(1) != "/" else "")
         missing.add(f"{path}{match.group(1)}")
-    return missing
+    return missing, invalid
 
 
 def _setp(target: dict, dotted: str, value: Any) -> None:
@@ -1308,13 +1319,15 @@ def convert(v1_raw: dict) -> ConversionReport:  # noqa: C901 (complexity OK for 
     # Merge the schema's own "required property" results with fields the
     # converter deliberately left unset for user selection (e.g. science_domain
     # with no clean enum match) even though the schema marks them optional.
-    missing_required = sorted(_missing_required(g) | set(manual_missing))
+    schema_missing, invalid = _validate(g)
+    missing_required = sorted(schema_missing | set(manual_missing))
 
     return ConversionReport(
         genesis=g,
         mapped=mapped,
         missing_required=missing_required,
         orphans=orphans,
+        invalid=invalid,
     )
 
 
@@ -1399,8 +1412,9 @@ def main(argv: list[str] | None = None) -> int:
             "mapped": report.mapped,
             "missing_required": report.missing_required,
             "orphans": report.orphans,
+            "invalid": report.invalid,
         }, indent=2))
-        return 0
+        return 1 if report.invalid else 0
 
     out = args.out or args.file.with_suffix(".genesis.md")
     write_genesis_file(report, out, src_path=args.file, preserve_body=args.preserve_body)
@@ -1412,7 +1426,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Orphaned v1 fields (no v2 equivalent): {len(report.orphans)}")
     for path in report.orphans:
         print(f"  - {path}")
-    return 0
+    if report.invalid:
+        # Not "missing a value" — the card breaks the schema in a way no prompt
+        # fixes. Loud and non-zero, because the file has still been written.
+        print(f"\nINVALID — the written card does not validate ({len(report.invalid)}):")
+        for message in report.invalid:
+            print(f"  - {message}")
+        print("\nFix these before using the card; a missing-required prompt will not.")
+    return 1 if report.invalid else 0
 
 
 if __name__ == "__main__":
