@@ -33,3 +33,29 @@ entries.
    does not have. The full ID belongs in `identifier`
    (`{type: local, value: claude-opus-5}`), the product name in `name`.
    `linkml-validate` reports this as `does not match '^\\d+\\.\\d+(\\.\\d+)?$'`.
+
+4. **Never leave `authors: []`, and never fake an entry to fill it.**
+   The schema requires at least one author once `release_status` is
+   `Approved` or `Published`, but the check is for presence, not for a
+   non-empty list. Both of these validate clean, and both are worthless:
+
+   ```yaml
+   authors: []                    # observed in a real run
+   authors:                       # observed in a real run
+     - person:
+         role: [Data_Curation]    # no given_name, no family_name
+   ```
+
+   `PersonClass` requires no name, so a nameless person passes. If you
+   cannot name a person, the honest fallback is the stewarding
+   **organization** — a real, checkable entity with a ROR — and say in the
+   review summary that no individual was named.
+
+   This bites hardest on a derived dataset whose DOI failed the provenance
+   gate. The source record's creators are not this dataset's authors, so
+   they are correctly not copied — but that leaves nothing behind. Find the
+   preparers locally (CITATION.cff, a README credits section, a repository
+   metadata record) or ask the user. The hosting facility as an
+   organization author is a last resort, not a default, and the source's
+   authors are never the answer. See `references/live-enrichment.md`
+   § "A failed gate does not mean discard the record".
