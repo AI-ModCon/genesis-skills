@@ -251,15 +251,20 @@ def _eval_factory_tasks(path: Path) -> list[Path]:
     return seen
 
 
-def _nemo_skills_file(path: Path) -> Path | None:
-    """Return the top-level NeMo-Skills metrics.json, if this looks like one."""
+def _nemo_skills_files(path: Path) -> list[Path]:
+    """Return run-level NeMo-Skills metrics.json files under `path`."""
     if path.is_file() and path.name == "metrics.json":
         candidates = [path]
     elif path.is_dir():
         direct = path / "metrics.json"
-        candidates = [direct] if direct.exists() else sorted(path.rglob("metrics.json"))
+        candidates = sorted(path.rglob("metrics.json"))
+        if direct.exists() and direct not in candidates:
+            candidates.insert(0, direct)
     else:
-        return None
+        return []
+
+    valid: list[Path] = []
+    robust_aggregates: list[Path] = []
     for cand in candidates:
         try:
             data = _read_json(cand)
@@ -267,18 +272,54 @@ def _nemo_skills_file(path: Path) -> Path | None:
             continue
         if not isinstance(data, dict) or "config" in data:
             continue  # `config` marks an Eval Factory metrics.json
-        for block in data.values():
-            if isinstance(block, dict) and any(isinstance(v, dict) for v in block.values()):
-                return cand
-    return None
 
+        is_valid = False
+        is_robust_aggregate = False
+        for block in data.values():
+            if not isinstance(block, dict):
+                continue
+            if any(isinstance(v, dict) for v in block.values()):
+                is_valid = True
+            if isinstance(block.get("aggregated"), dict):
+                is_robust_aggregate = True
+        if is_valid:
+            valid.append(cand)
+            if is_robust_aggregate:
+                robust_aggregates.append(cand)
+
+    # robust_eval keeps one aggregate metrics.json at the run root and richer
+    # per-variant metrics beneath */eval-results/*/. Those descendants belong
+    # to the same run and are used later only to recover the metric name.
+    # Other nested run-level metrics files remain candidates, so a parent that
+    # actually spans two runs still fails closed.
+    def is_robust_detail(cand: Path) -> bool:
+        for aggregate in robust_aggregates:
+            if cand == aggregate:
+                continue
+            try:
+                relative = cand.relative_to(aggregate.parent)
+            except ValueError:
+                continue
+            # Documented robust_eval detail layout:
+            # <benchmark>/<variant>/eval-results/<benchmark>/metrics.json
+            parts = relative.parts
+            if (
+                len(parts) == 5
+                and parts[2] == "eval-results"
+                and parts[0] == parts[3]
+                and parts[4] == "metrics.json"
+            ):
+                return True
+        return False
+
+    return [cand for cand in valid if not is_robust_detail(cand)]
 
 # Detection probes, in the order they are tried. Each returns a truthy value
 # when `path` holds output from that harness.
 _DETECTORS = (
     ("lm-evaluation-harness", _lm_eval_files),
     ("nemo-evaluator-launcher", _eval_factory_tasks),
-    ("nemo-skills", _nemo_skills_file),
+    ("nemo-skills", _nemo_skills_files),
 )
 
 
@@ -312,6 +353,12 @@ def parse_lm_eval(path: Path) -> dict:
     files = _lm_eval_files(path)
     if not files:
         raise ParseError(f"no lm-evaluation-harness results_*.json under {path}")
+    if len(files) > 1:
+        raise ParseError(
+            f"{path} contains {len(files)} valid lm-evaluation-harness result files. "
+            "Bundle input must identify a single run. Point at one results_*.json "
+            "file or a directory containing exactly one valid result."
+        )
     results_file = files[0]
     data = _read_json(results_file)
 
@@ -473,6 +520,13 @@ def parse_eval_factory(path: Path) -> dict:
     task_dirs = _eval_factory_tasks(path)
     if not task_dirs:
         raise ParseError(f"no Eval Factory task directories under {path}")
+    run_roots = {task_dir.parent.resolve() for task_dir in task_dirs}
+    if len(run_roots) > 1:
+        raise ParseError(
+            f"{path} contains task directories from {len(run_roots)} Eval Factory runs. "
+            "Bundle input must identify a single run. Point at one run directory "
+            "or one task directory."
+        )
 
     bundle = {
         "schema_version": SCHEMA_VERSION,
@@ -660,9 +714,16 @@ def _ns_recover_metric_name(root: Path, benchmark: str) -> str | None:
 
 
 def parse_nemo_skills(path: Path, model_id: str | None = None) -> dict:
-    metrics_path = _nemo_skills_file(path)
-    if metrics_path is None:
+    metrics_files = _nemo_skills_files(path)
+    if not metrics_files:
         raise ParseError(f"no NeMo-Skills metrics.json under {path}")
+    if len(metrics_files) > 1:
+        raise ParseError(
+            f"{path} contains {len(metrics_files)} NeMo-Skills run-level metrics files. "
+            "Bundle input must identify a single run. Point at one run directory "
+            "or one metrics.json file."
+        )
+    metrics_path = metrics_files[0]
     data = _read_json(metrics_path)
     root = metrics_path.parent
 
