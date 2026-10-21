@@ -155,6 +155,7 @@ Individual skills and their directories contain specific attribution details. Th
 - Kyle Parfrey
 - Reilly Raab
 - Emily Saldanha
+- Aatmaj Amol Salunke
 - Malachi Schram
 - Andrew Tritt
 - Aaron Tuor

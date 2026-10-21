@@ -105,6 +105,18 @@ def _amsc_team(root: Path) -> str | None:
     return "American Science Cloud Intelligent Interfaces Team"
 
 
+def _astro_contributors(root: Path) -> list[str]:
+    path = root / "skills" / "astro-skills" / "ATTRIBUTION.md"
+    if not path.is_file():
+        return []
+    for line in _read(path).splitlines():
+        if line.startswith(("**Author:**", "**Authors:**")):
+            # Drop parenthesized affiliations first: they may contain commas.
+            tail = re.sub(r"\([^)]*\)", "", line.split(":**", 1)[1])
+            return _names_from_csv_line(tail)
+    return []
+
+
 def _lm_eval_contributors(root: Path) -> list[str]:
     path = root / "skills" / "baseeval-skills" / "lm-eval-harness-skills" / "ATTRIBUTION.md"
     if not path.is_file():
@@ -204,6 +216,8 @@ def build_readme_contributor_names(root: Path) -> list[str]:
     amsc_team = _amsc_team(root)
     if amsc_team:
         teams.add(amsc_team)
+
+    individuals.update(_astro_contributors(root))
 
     team, names = _basedata_contributors(root)
     if team:
