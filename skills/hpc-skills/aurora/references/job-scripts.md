@@ -203,7 +203,7 @@ mpiexec -n 12 --ppn 12 \
     gpu_tile_compact.sh ./my_sim --input "${INPUT}" --output "${OUTPUT}"
 ```
 
-- `-J`, not `-t`. `-r y` is required: the default `-r n` makes `qsub` fail with `cannot submit non-rerunable Array Job`.
+- `-J`, not `-t`. `-r y` is required: under the default `-r n`, `qsub` fails with `cannot submit non-rerunable Array Job` followed by `qsub: directive error: -k doe -r n -W umask`.
 - Every subjob counts toward the per-user queued limit, and a `%N` throttle does not change that. In `capacity`, `-J 1-5` is accepted, but `-J 1-6` and `-J 1-20%2` are rejected (verified 2026-10). Any jobs you already have queued in the queue reduce the room further.
 - For many small tasks, run them inside one larger allocation instead (see "Several Applications on One Node" in [gpu-affinity.md](gpu-affinity.md), or a workflow tool such as Parsl, libEnsemble, or Balsam).
 

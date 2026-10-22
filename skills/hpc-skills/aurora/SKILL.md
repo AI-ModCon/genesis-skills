@@ -91,7 +91,7 @@ Submit to `debug`, `debug-scaling`, `capacity`, `prod`, or `visualization`. `pro
 
 - **`prod` rejects jobs under 256 nodes**: `qsub: Job violates queue and/or server resource limits`. For 3–255 nodes use `debug-scaling` (≤1 hr) or `capacity` (≤16 nodes). Aurora has no small-node production queue.
 - Jobs from projects with a negative allocation balance are routed to `backfill-small`, `backfill-medium`, or `backfill-large`, which run at low priority.
-- Per project, the `prod` execution queues allow 10 jobs running and 100 queued.
+- Per project, each `prod` execution queue (`small`, `medium`, `large`) holds at most 10 jobs (`max_queued=[p:PBS_GENERIC=10]`, which counts running and waiting jobs). Further jobs wait in the `prod` routing queue, up to 100 per project.
 - `prod-large` also exists: a routing queue for ≥1,920-node jobs that feeds `large` and `backfill-large`.
 
 ## Minimal Job Script — 12 Ranks per Node, One per GPU Tile
@@ -146,7 +146,7 @@ Job states: `Q` queued, `R` running, `H` held, `E` exiting, `F` finished (shown 
 
 ## Job Arrays
 
-Use `-J`, not `-t` (Torque syntax; Aurora's `qsub` rejects it with `invalid option -- 't'`). **Arrays also need `-r y`**: the server default `-r n` causes `cannot submit non-rerunable Array Job`.
+Use `-J`, not `-t` (Torque syntax; Aurora's `qsub` rejects it with `invalid option -- 't'`). **Arrays also need `-r y`**: under the server default `-r n`, `qsub` prints `cannot submit non-rerunable Array Job` followed by `qsub: directive error: -k doe -r n -W umask`.
 
 ```bash
 #PBS -J 1-50%5        # indices 1..50, at most 5 running at once
