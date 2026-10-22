@@ -51,7 +51,11 @@ Known subtrees with separate licensing at the time of this writing:
                                     Apache-2.0 LICENSE at
                                     skills/hpc-skills/LICENSE, which is
                                     authoritative for this subtree and its
-                                    descendants. See
+                                    descendants. The aurora skill is derived
+                                    from the ALCF user guides
+                                    (github.com/argonne-lcf/user-guides); no
+                                    explicit license was found in that
+                                    repository at the time of inclusion. See
                                     skills/hpc-skills/ATTRIBUTION.md.
 
   skills/literature-search/         Maintained as part of the ModCon Base CAF

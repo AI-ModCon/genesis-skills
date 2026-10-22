@@ -144,6 +144,7 @@ Individual skills and their directories contain specific attribution details. Th
 - Jong Choi
 - Shreyas Cholia
 - Robin Cosbey
+- Kyle Felker
 - David Florey
 - Ian Foster
 - Steven Goldenberg
