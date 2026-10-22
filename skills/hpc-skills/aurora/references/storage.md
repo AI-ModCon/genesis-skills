@@ -4,161 +4,137 @@
 
 ## Filesystem Overview
 
-| Name | Token | Path | Capacity | Purge | Notes |
-|------|-------|------|----------|-------|-------|
-| Home | `home` | `/home/<user>` | 100 GB/user | None | Code, configs; must declare |
-| Flare (Lustre) | `flare` | `/lus/flare/projects/<proj>/` | large | None | Primary project storage |
-| Grand | `grand` | `/grand/projects/<proj>/` | — | None | Cross-facility storage |
-| Eagle | `eagle` | `/eagle/projects/<proj>/` | — | None | Cross-facility storage |
-| DAOS | varies | via `dfuse` or daos API | 260 PB | None | Ultra-high-performance |
+| Name | `filesystems=` name | Path | Size / default quota | Use for |
+|------|---------------------|------|----------------------|---------|
+| Home (Gecko Lustre) | `home` | `/home/<user>` (served from `/lus/gecko/home`) | 50 GB default per user | Source code, configs, small files |
+| Flare (Lustre) | `flare` | `/lus/flare/projects/<project>` | 91 PB, 650 GB/s peak; 1 TB default per project | Job I/O; submit jobs from here |
+| DAOS | `daos_user` (or `daos_perf` for approved teams) | `/tmp/<pool>/<container>` once mounted with `dfuse` | ~200 PB usable, >24 TB/s peak write; pools on request | High-bandwidth I/O and checkpointing |
 
-> **Mandatory:** ALL filesystems your job accesses must be declared in `-l filesystems=<tokens>`. Omitting a token causes a job failure at startup.
+- The PBS submit hook maps each name to a resource: `home_fs`, `flare_fs`, `daos_user_fs`, `daos_perf_fs`. Either spelling is accepted. `qstat -Bf | grep -A2 valid_filesystems` lists them.
+- **`grand` and `eagle` are Polaris filesystems.** They are not mounted on Aurora, and `qsub` rejects them (`Invalid filesystem identifiers grand, eagle`). Move data from Eagle with Globus (below).
+- Nothing on Aurora is backed up. DAOS can still lose data in rare cases, so keep important results on Flare and copies elsewhere.
+- Project PIs request more Flare quota or a DAOS pool from support@alcf.anl.gov.
+
+```bash
+myquota                                  # home and project quotas
+```
 
 ---
 
-## Flare Lustre Filesystem
+## Flare (Lustre)
 
-Flare is the primary Lustre filesystem for Aurora job I/O.
+Flare has 160 OSTs and 40 MDTs. Set striping on output directories before writing large shared files in parallel:
 
 ```bash
-# Check your flare quota
-lfs quota -u $USER /lus/flare
-
-# Check project quota
-lfs quota -g <project_group> /lus/flare
-
-# View stripe settings on a file or directory
-lfs getstripe /lus/flare/projects/myproject/
-
-# Set striping for large parallel output
-lfs setstripe -c 32 /lus/flare/projects/myproject/output/
+lfs getstripe /lus/flare/projects/<project>/run1
+lfs setstripe -c 16 /lus/flare/projects/<project>/run1          # new files in run1 inherit this
 ```
 
-### Striping Guidelines for Flare
+Small files and file-per-process output should keep the default stripe count (1). Large shared files benefit from higher counts. Use `-c -1` (all 160 OSTs) only for very large files written by many nodes. ALCF's Lustre striping guide: https://www.alcf.anl.gov/support-center/training-assets/file-systems-and-io-performance
 
-| File size | Recommended stripe count (`-c`) |
-|-----------|--------------------------------|
-| < 1 GB | 1–4 |
-| 1–10 GB | 8–16 |
-| 10–100 GB | 32–64 |
-| > 100 GB | 64 or `-c -1` (all OSTs) |
+Importing Python packages or loading shared libraries from Flare on thousands of nodes at once can overload the metadata servers. Use Copper (see [programming-env.md](programming-env.md)).
 
 ---
 
-## DAOS Object Storage
+## DAOS
 
-DAOS (Distributed Asynchronous Object Store) is Aurora's primary high-performance storage. It provides ~31 TB/s aggregate bandwidth — significantly faster than Lustre for IO-intensive workloads.
+DAOS (Distributed Asynchronous Object Storage) is a separate object store, not a filesystem path. It is reached through containers inside a per-project **pool**.
 
-### Architecture Concepts
+- Total: about 230 PB from 1,024 servers. In the current configuration, about 200 PB on 800 servers is available to users.
+- Bandwidth depends on how many servers your pool spans and on the container's redundancy factor.
+- It is in a pre-production stability period: expect occasional slowdowns or outages, and treat data loss as possible.
 
-- **Pool**: Top-level administrative container (quotas set here). Managed by facility.
-- **Container**: User-created data container within a pool. Can be POSIX, HDF5, or array type.
-- **Namespace**: Accessible via DAOS API, HDF5 VOL connector, or POSIX via `dfuse`.
+### Getting Access
 
-### DAOS CLI Quick Reference
+Email support@alcf.anl.gov with the project name, ALCF usernames, the space you need (typically 100 TB or more), a justification, and a preferred pool name. The pool label is usually the project name.
 
-```bash
-# Check your pools (facility assigns pools to projects)
-daos pool list
-
-# Query pool details and space
-daos pool query --pool <pool_label>
-
-# List containers in a pool
-daos container list --pool <pool_label>
-
-# Create a POSIX container
-daos container create \
-    --pool <pool_label> \
-    --type POSIX \
-    --label mycontainer \
-    --properties "rf:0"   # rf=redundancy factor (0=no redundancy, faster)
-
-# Query container info
-daos container query --pool <pool_label> --cont mycontainer
-
-# Destroy a container (permanent!)
-daos container destroy --pool <pool_label> --cont mycontainer --force
-```
-
-### Mounting DAOS as a POSIX Filesystem (`dfuse`)
-
-`dfuse` mounts a DAOS container as a standard POSIX filesystem, allowing normal file operations.
+### Setup
 
 ```bash
-# Mount
-POOL="mypool"
-CONT="mycontainer"
-MOUNT="/tmp/daos_${PBS_JOBID}"
+module use /soft/modulefiles
+module load daos
 
-mkdir -p "$MOUNT"
-dfuse --pool "$POOL" --container "$CONT" --mountpoint "$MOUNT" --foreground &
-DFUSE_PID=$!
-sleep 3   # wait for mount to be ready
+DAOS_POOL=<pool>
+DAOS_CONT=<container>
 
-# Use normally
-ls "$MOUNT"
-cp my_data.h5 "$MOUNT/"
-./my_app --data "$MOUNT"
-
-# Unmount (do this before job ends)
-fusermount3 -u "$MOUNT"
+daos pool query ${DAOS_POOL}                        # space, targets, rebuild status
+daos container create --type=POSIX ${DAOS_POOL} ${DAOS_CONT}
+daos cont list ${DAOS_POOL}
+daos container get-prop ${DAOS_POOL} ${DAOS_CONT}
+daos container destroy ${DAOS_POOL} ${DAOS_CONT}    # permanent
 ```
 
-> Always unmount `dfuse` before the job ends. Leaving it mounted can cause issues.
+The pool and container are **positional arguments**, not `--pool`/`--label` options.
 
-### DAOS + HDF5 (Native I/O, No `dfuse`)
+### Redundancy
 
-For HDF5 workloads, use the DAOS HDF5 VOL connector for direct high-performance I/O:
+ALCF recommends redundancy factor 3 for anything you care about. This uses erasure coding 16+3 for files and 4-way replication for directories:
 
 ```bash
-module load hdf5-vol-daos  # check exact module name with: module avail | grep daos
-
-export HDF5_PLUGIN_PATH=<path to vol plugin>
-export HDF5_VOL_CONNECTOR="daos under_vol=0;under_info={}"
-export DAOS_POOL=<pool_uuid>
-export DAOS_CONT=<container_uuid>
-
-mpiexec -n 24 -ppn 6 ./my_hdf5_app
+daos container create --type=POSIX --chunk-size=2097152 \
+    --properties=rd_fac:3,ec_cell_sz:131072,cksum:crc32,srv_cksum:on \
+    --file-oclass=EC_16P3G32 --dir-oclass=RP_4G1 \
+    ${DAOS_POOL} ${DAOS_CONT}
 ```
+
+`rd_fac:0` (no redundancy) is fastest, but losing a single SSD loses data. The property is `rd_fac`, not `rf`.
+
+### Mounting with dfuse
+
+```bash
+# Compute nodes (inside a job with -l filesystems=...:daos_user):
+launch-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}     # clush across all nodes; mounts /tmp/<pool>/<container>
+ls /tmp/${DAOS_POOL}/${DAOS_CONT}
+clean-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}      # optional; the PBS epilogue also unmounts
+
+# Login node:
+mkdir -p /tmp/${USER}/${DAOS_POOL}/${DAOS_CONT}
+start-dfuse.sh -m /tmp/${USER}/${DAOS_POOL}/${DAOS_CONT} --pool ${DAOS_POOL} --cont ${DAOS_CONT}
+fusermount3 -u /tmp/${USER}/${DAOS_POOL}/${DAOS_CONT}    # always unmount on login nodes
+```
+
+### Running against DAOS
+
+```bash
+mpiexec --no-vni --env LD_PRELOAD=/usr/lib64/libpil4dfs.so -n ... --ppn ... ./app
+```
+
+- `--no-vni` is currently required for DAOS jobs.
+- `libpil4dfs` intercepts both data and metadata calls, which gives performance close to the native DFS API with no code changes.
+- Other access paths: MPI-IO (ROMIO hints such as `romio_cb_write enable`, `cb_config_list *:8`, `striping_unit 2097152`), HDF5, the DFS C API (examples in `/soft/daos/examples/src/`), and PyDAOS for PyTorch data loading (`module load daos_perf` with `filesystems=...:daos_perf`).
+- A container in `UNCLEAN` status (seen in `daos cont get-prop`) blocks mounts. Contact support.
 
 ---
 
 ## Data Transfer
 
-### Globus (Recommended for Large Transfers)
+### Globus (recommended)
 
-Aurora has a Globus endpoint. Use the Globus web app or CLI:
+- **Flare:** the Globus collection `alcf#dtn_flare`.
+- **Eagle (Polaris) ↔ Flare:** transfer between `alcf#dtn_eagle` and `alcf#dtn_flare`.
+- **Home:** only Globus Connect Personal, run on a login node. See the ALCF docs, "Transferring Files through Globus".
 
-```bash
-# Install Globus CLI locally
-pip install globus-cli
-globus login
-
-# Find Aurora's endpoint UUID in the ALCF user portal, then:
-globus transfer \
-    <source_endpoint>:<source_path> \
-    <aurora_endpoint>:<dest_path> \
-    --recursive
-```
-
-### SCP / SFTP
-
-For smaller transfers, use the ALCF data transfer nodes:
+### scp / rsync
 
 ```bash
-# From your workstation:
-scp mydata.tar.gz <username>@aurora.alcf.anl.gov:/lus/flare/projects/myproject/
-sftp <username>@aurora.alcf.anl.gov
+scp data.tar.gz <user>@aurora.alcf.anl.gov:/lus/flare/projects/<project>/
 ```
+
+Each new connection asks for a MobilePASS+ or hardware-token passcode. An SSH `ControlMaster` lets you reuse one authenticated connection.
+
+### Moving data into DAOS
+
+- Small data: copy into a mounted container with ordinary Unix tools, or use `daos filesystem copy --src <flare path> --dst daos://<pool>/<cont>/<path>` without mounting.
+- Large data: `module load mpifileutils daos`, then run `dcp` (distributed copy) under `mpiexec`.
+
+See the ALCF docs, "Moving data across filesystems".
 
 ---
 
 ## Best Practices
 
-1. **Declare all filesystems** in `-l filesystems=` — even `home` if you read files there.
-2. **Use DAOS for production I/O** when possible — it's faster than Lustre for parallel workloads.
-3. **Use Flare for data persistence** — DAOS containers can be lost if a pool is reset.
-4. **Set Lustre striping** on Flare output directories before parallel writes.
-5. **Unmount `dfuse`** before your PBS job exits.
-6. **Use Globus for large transfers** between Aurora and other facilities.
+1. List every filesystem the job touches in `-l filesystems=`. If one of them is marked down, the job stays queued instead of failing at runtime.
+2. Run jobs out of `/lus/flare/projects/<project>`, not `$HOME`.
+3. Set Lustre striping on directories that will hold large shared files.
+4. Use DAOS for bandwidth-bound I/O with `rd_fac:3` containers, and copy results you need to keep to Flare.
+5. Use Copper for Python or shared-library loading at large node counts.
