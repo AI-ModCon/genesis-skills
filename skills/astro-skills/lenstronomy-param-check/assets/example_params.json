@@ -1,0 +1,17 @@
+{
+  "z_lens": 0.5,
+  "z_source": 1.0,
+  "lens_model_list": ["SIE"],
+  "kwargs_lens": [
+    {"theta_E": 1.0, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}
+  ],
+  "source_model_list": ["SERSIC_ELLIPSE"],
+  "kwargs_source": [
+    {"amp": 12.0, "R_sersic": 0.3, "n_sersic": 1.5, "e1": 0.1, "e2": 0.0,
+     "center_x": 0.05, "center_y": 0.05}
+  ],
+  "kwargs_data": {"numPix": 64, "deltaPix": 0.08, "exposure_time": 5400.0,
+                  "background_rms": 0.01},
+  "kwargs_psf": {"psf_type": "GAUSSIAN", "fwhm": 0.15, "pixel_size": 0.08},
+  "halo_mass": 1e12
+}
