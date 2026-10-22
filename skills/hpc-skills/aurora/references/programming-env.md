@@ -1,235 +1,167 @@
 # Aurora Programming Environment Reference
 
-Aurora uses Intel's oneAPI SDK as its primary programming environment.
+The Aurora PE (installed under `/opt/aurora`) is the default environment. It consists of the Intel oneAPI SDK, Aurora MPICH, Cray PALS (`mpiexec`), and the Spack PE (cmake, hdf5, boost, python, ...). It is loaded by default; most users need no `module load` to compile.
 
 ---
 
-## Loading the Programming Environment
+## Modules
 
 ```bash
-# Access Spack-managed modules
-module use /soft/modulefiles
+module -t list
+# gcc/14.3.0  oneapi/release/2026.1.0  mpich/prd/5.0.0...  libfabric/2.3.1  cray-pals/1.8.0  cray-libpals/1.8.0   (October 2026)
 
-# Load oneAPI (check latest version with: module avail oneapi)
-module load oneapi/eng-compiler/2024.06.28.002
+module avail oneapi                      # e.g. oneapi/release/2026.1.0 (default), oneapi/release/2025.3.1
+module load oneapi/release/2025.3.1      # switching the SDK reloads mpich and Spack PE packages to match (Lmod hierarchy)
 
-# Verify compilers are available
-icx --version
-icpx --version
-ifx --version
-mpicc --version
+module load cmake autoconf hdf5          # Spack PE packages
+module load python                       # Spack PE Python (3.12.x); also a dependency of other Spack packages
+module load frameworks                   # Python AI/ML conda env (PyTorch, TensorFlow, vLLM, ...), updated roughly quarterly
+
+module use /soft/modulefiles             # software outside the PE: daos, kokkos, ...
 ```
+
+- Do not pin old names such as `oneapi/eng-compiler/...`. Those modules have been retired. Check `module avail oneapi`.
+- Aurora has no `PrgEnv-*` or `cray-mpich`, and the Cray `cc`/`CC`/`ftn` wrappers are not part of the PE.
+- Modules in `/soft` can conflict with the PE, and loading libraries from shared filesystems is slow at scale.
+- `frameworks` may load a different oneAPI SDK than the default. Avoid mixing it with `module load python`.
 
 ---
 
-## Compilers
+## Compilers and MPI Wrappers
 
 | Command | Language | Notes |
 |---------|----------|-------|
-| `icx` | C | Intel LLVM-based C compiler |
-| `icpx` | C++ | Intel LLVM-based C++ compiler |
-| `ifx` | Fortran | Intel LLVM-based Fortran compiler |
-| `icpx -fsycl` | C++ + SYCL | GPU offload via SYCL/DPC++ |
-| `mpicc` | C | Intel MPI wrapper for `icx` |
-| `mpicxx` | C++ | Intel MPI wrapper for `icpx` |
-| `mpifc` | Fortran | Intel MPI wrapper for `ifx` |
+| `icx` | C | oneAPI LLVM-based |
+| `icpx` | C++ | oneAPI LLVM-based; SYCL with `-fsycl` |
+| `ifx` | Fortran | oneAPI LLVM-based |
+| `mpicc` | C | Aurora MPICH wrapper around `icx` (`mpicc -show`) |
+| `mpicxx` / `mpic++` | C++ | wraps `icpx` |
+| `mpifort` / `mpif90` / `mpif77` | Fortran | wraps `ifx` |
 
-### Compilation Examples
+There is no `mpifc`, `mpiicx`, or `mpiicpx` (those are Intel MPI names). In mixed C/Fortran codes, build with the same Fortran compiler that MPICH was built with, because `mpi.mod` files are compiler-specific.
 
-```bash
-# Standard MPI C++ with optimization
-mpicxx -O3 -std=c++17 my_app.cpp -o my_app
-
-# SYCL GPU code (targets Intel PVC)
-icpx -fsycl -O3 my_gpu.cpp -o my_gpu
-
-# SYCL with explicit target
-icpx -fsycl -fsycl-targets=spir64_gen \
-     -Xs "-device pvc" \
-     -O3 my_gpu.cpp -o my_gpu
-
-# OpenMP CPU parallelism
-icpx -qopenmp -O3 my_omp.cpp -o my_omp
-
-# OpenMP target offload to GPU
-icpx -fiopenmp -fopenmp-targets=spir64 -O3 my_omp_gpu.cpp -o my_omp_gpu
-
-# Link against Intel MKL (math library)
-icpx -O3 my_app.cpp -o my_app -mkl
-```
+The default compilers can build GPU code on the login nodes. Builds that need a GPU at build time must run on a compute node (interactive `debug` job).
 
 ---
 
-## SYCL/DPC++ GPU Programming
+## GPU Programming Models: Compiler Flags
 
-SYCL is Intel's GPU programming model for Ponte Vecchio (Aurora's GPU).
+| Model | JIT (kernels compiled at first run) | AoT for PVC (recommended for production) |
+|-------|-------------------------------------|------------------------------------------|
+| SYCL | `-fsycl` | `-fsycl -fsycl-targets=intel_gpu_pvc` |
+| OpenMP offload | `-fiopenmp -fopenmp-targets=spir64` | `-fiopenmp -fopenmp-targets=spir64_gen -Xopenmp-target-backend=spir64_gen "-device pvc"` |
+| OpenCL | link `-lOpenCL` | — |
+
+```bash
+# SYCL, AoT
+icpx -fsycl -fsycl-targets=intel_gpu_pvc -O3 app.cpp -o app
+
+# SYCL, separate compile and link: pass -fsycl-targets to BOTH steps,
+# otherwise the binary silently falls back to JIT
+icpx -fsycl -fsycl-targets=intel_gpu_pvc -O3 -c a.cpp
+icpx -fsycl -fsycl-targets=intel_gpu_pvc a.o -o app
+
+# Large SYCL codes: -fno-sycl-rdc moves device codegen into the per-file compiles (parallel builds)
+icpx -fsycl -fno-sycl-rdc -fsycl-targets=intel_gpu_pvc -O2 -c tu.cpp
+
+# OpenMP offload, C/C++/Fortran
+mpicxx  -fiopenmp -fopenmp-targets=spir64_gen -Xopenmp-target-backend=spir64_gen "-device pvc" app.cpp -o app
+mpifort -fiopenmp -fopenmp-targets=spir64_gen -Xs "-device pvc" app.F90 -o app
+
+# OpenMP on the CPU only
+icpx -fiopenmp -O3 app.cpp -o app      # -qopenmp is equivalent; -fopenmp is LLVM's runtime
+```
+
+- `-fsycl-targets=intel_gpu_pvc` is equivalent to the older `-fsycl-targets=spir64_gen -Xsycl-target-backend "-device pvc"`.
+- In CMake, escape the quotes: `-Xopenmp-target-backend=spir64_gen \"-device pvc\"`. CMake can find SYCL with `find_package(IntelSYCL REQUIRED)`.
+- Kokkos, RAJA, HIP (chipStar), Julia, and OpenCL are also supported; see the ALCF docs, Programming Models.
 
 ### Minimal SYCL Example
 
 ```cpp
 #include <sycl/sycl.hpp>
-using namespace sycl;
+#include <iostream>
 
 int main() {
-    queue q{gpu_selector_v};
-    std::cout << "Device: " << q.get_device().get_info<info::device::name>() << "\n";
+    sycl::queue q{sycl::gpu_selector_v};
+    std::cout << q.get_device().get_info<sycl::info::device::name>() << "\n";
 
-    // Allocate unified shared memory
-    int N = 1024;
-    float *data = malloc_shared<float>(N, q);
-
-    // Submit a kernel
-    q.parallel_for(range<1>(N), [=](id<1> i) {
-        data[i] = i * 2.0f;
-    }).wait();
-
-    free(data, q);
-    return 0;
+    constexpr int N = 1024;
+    float *x = sycl::malloc_shared<float>(N, q);
+    q.parallel_for(sycl::range<1>(N), [=](sycl::id<1> i) { x[i] = 2.0f * i; }).wait();
+    sycl::free(x, q);
 }
-// Compile: icpx -fsycl my_kernel.cpp -o my_kernel
+// icpx -fsycl -fsycl-targets=intel_gpu_pvc hello.cpp -o hello
 ```
 
-### Device Selection and Affinity
-
-```bash
-# Select all Level Zero (Intel GPU) devices
-export ONEAPI_DEVICE_SELECTOR=level_zero:*
-
-# Select specific GPUs by index (GPUs 0 and 1 only)
-export ONEAPI_DEVICE_SELECTOR=level_zero:0,level_zero:1
-
-# Per-MPI-rank GPU selection (use ZE_AFFINITY_MASK in a launcher script)
-# GPU affinity is usually handled automatically by --gpu-bind=closest in mpiexec
-export ZE_AFFINITY_MASK=0   # rank sees only GPU 0
-
-# Debug: trace SYCL device selection
-export SYCL_PI_TRACE=1
-
-# Enable Intel Level Zero validation layer (for debugging)
-export ZE_ENABLE_VALIDATION_LAYER=1
-export ZE_ENABLE_PARAMETER_VALIDATION=1
-```
-
-### Multi-GPU SYCL with MPI
-
-```cpp
-#include <sycl/sycl.hpp>
-#include <mpi.h>
-using namespace sycl;
-
-int main(int argc, char** argv) {
-    MPI_Init(&argc, &argv);
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    // Each MPI rank gets its own GPU (via ZE_AFFINITY_MASK or launcher)
-    queue q{gpu_selector_v};
-    // ... GPU work per rank ...
-
-    MPI_Finalize();
-    return 0;
-}
-```
+Under `gpu_tile_compact.sh`, each rank sees exactly one tile, so `gpu_selector_v` picks the right device without any rank-based device selection in the code.
 
 ---
 
-## Intel Ponte Vecchio (PVC) GPU Architecture
+## Aurora MPICH
 
-| Component | Details |
-|-----------|---------|
-| GPUs per node | 6× Intel GPU Max (Ponte Vecchio) |
-| Tiles per GPU | 2 (each tile is an independent compute unit) |
-| HBM per tile | ~64 GB HBM2e |
-| Compute units | 128 per tile |
-| Connection | All-to-all via Intel Xe Link (within node) |
-| NIC access | Direct GPU↔NIC memory (no CPU copy) |
-
-Each GPU appears as 1 device in SYCL but has 2 sub-devices (tiles). For maximum performance:
-- Use `ZE_AFFINITY_MASK` or `--gpu-bind` in `mpiexec` to control GPU assignment
-- Consider sub-device partitioning for very fine-grained workloads
+- GPU-aware MPI (sending and receiving device buffers directly) is **on by default**: `MPIR_CVAR_ENABLE_GPU=1`. Set it to `0` for CPU-only codes to skip GPU setup.
+- `I_MPI_*` variables have no effect; that is Intel MPI.
+- Environment variable documentation: `$MPI_ROOT/share/doc/mpich/README.envvar`
+- To get a core dump on `MPI_Abort`: `ulimit -S -c unlimited; MPIR_CVAR_COREDUMP_ON_ABORT=1 mpiexec --genvall --rlimit CORE ...`
 
 ---
 
-## Intel MPI on Aurora
+## Intel oneMKL
 
 ```bash
-# Launch options
-mpiexec -n <total_ranks> -ppn <ranks_per_node> ./my_app
-
-# With CPU and GPU binding
-mpiexec -n 24 -ppn 6 \
-    --cpu-bind=depth \
-    --gpu-bind=closest \
-    ./my_app
-
-# With environment variables per rank
-mpiexec -n 24 -ppn 6 \
-    -env I_MPI_OFFLOAD=1 \
-    -env ONEAPI_DEVICE_SELECTOR=level_zero:* \
-    ./my_app
-
-# Enable GPU-aware MPI (direct GPU buffer transfer)
-export I_MPI_OFFLOAD=1
-export I_MPI_OFFLOAD_TOPOLIB=level_zero
-
-# Verbose MPI output for debugging
-export I_MPI_DEBUG=5
+icpx -O3 app.cpp -qmkl -o app                     # CPU BLAS/LAPACK/FFT (-qmkl is the documented spelling)
+mpicxx -fsycl app.cpp -qmkl -o app                # oneMKL SYCL APIs on the GPU
+icpx -fsycl -fsycl-targets=intel_gpu_pvc app.cpp -qmkl -o app
 ```
+
+`-qmkl=sequential` or `-qmkl=parallel` selects the threading layer.
 
 ---
 
-## Intel MKL (Math Kernel Library)
+## Python
 
-```bash
-# Link with MKL
-icpx -O3 my_app.cpp -o my_app -mkl
+- `module load frameworks`: a conda environment with PyTorch (XPU), TensorFlow, Horovod, oneCCL, dpnp/dpctl, and more.
+- To extend it:
 
-# Or use explicit linking
-icpx -O3 my_app.cpp -o my_app \
-    -L$MKLROOT/lib/intel64 \
-    -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm
+  ```bash
+  module load frameworks
+  python3 -m venv /lus/flare/projects/<project>/venvs/myenv --system-site-packages
+  source /lus/flare/projects/<project>/venvs/myenv/bin/activate
+  ```
 
-# MKL with SYCL (oneMKL)
-icpx -fsycl -O3 my_mkl_sycl.cpp -o my_mkl_sycl \
-    -L$MKLROOT/lib/intel64 \
-    -lmkl_sycl -lmkl_intel_ilp64 -lmkl_tbb_thread -lmkl_core
-```
+- At large scale (≥ ~1,000 nodes), importing from Flare or home is slow and can disrupt Lustre. Use **Copper**:
 
----
+  ```bash
+  module load copper
+  launch_copper.sh
+  mpiexec ... --genv=PYTHONPATH=/tmp/${USER}/copper/<path_to_site-packages>:$PYTHONPATH python app.py
+  ```
 
-## Profiling and Debugging
-
-```bash
-# Intel VTune Profiler (CPU and GPU)
-module load vtune
-vtune --collect gpu-hotspots --result-dir vtune_results -- mpiexec -n 6 ./my_app
-
-# Intel Advisor (vectorization and offload analysis)
-module load advisor
-advisor --collect offload -- mpiexec -n 6 ./my_app
-
-# Intel oneAPI GPU Profiling (for SYCL/OpenCL)
-module load intel_compute_runtime
-export INTEL_DUMP_DEVICE_CODE=1   # dump GPU binaries
-
-# Low-level debugging with Level Zero
-export ZE_ENABLE_VALIDATION_LAYER=1
-export ZE_ENABLE_PARAMETER_VALIDATION=1
-export SYCL_PI_TRACE=2
-```
+- Compute nodes reach the internet (for example for `pip install`) only through `http(s)_proxy=http://proxy.alcf.anl.gov:3128`.
 
 ---
 
-## Cray PE on Aurora (Alternative)
+## Performance and Debugging Tools
 
-The Cray Programming Environment is also available as an alternative to Intel oneAPI:
+| Tool | How to load | Example |
+|------|-------------|---------|
+| VTune | in `oneapi` (default) | `mpiexec -n 12 ... vtune -collect gpu-hotspots -r vtune_out -- ./app` |
+| Advisor | in `oneapi` | `advisor --collect=roofline --profile-gpu --project-dir=adv -- ./app` |
+| APS | in `oneapi` | `mpiexec ... aps ./app` |
+| unitrace | `module load pti-gpu` | `mpiexec ... unitrace ./app` (see `unitrace --help`) |
+| THAPI / iprof | `module load thapi` | `mpiexec ... iprof ./app` |
+| xpu-smi | `module load xpu-smi` | `xpu-smi discovery`, `xpu-smi dump -d 0 1 2 3 4 5 -m 0 1 2 5` |
+| gdb-oneapi | in `oneapi` | GPU-aware gdb |
+| DDT / gdb4hpc | see the ALCF docs | parallel debuggers |
 
-```bash
-module load PrgEnv-cray   # LLVM/Clang-based Cray compilers
-# Then use: cc, CC, ftn wrappers (same as on Frontier)
+Level Zero debugging: `ZE_ENABLE_VALIDATION_LAYER=1 ZE_ENABLE_PARAMETER_VALIDATION=1`. For SYCL runtime tracing, use `SYCL_UR_TRACE=1`. `SYCL_PI_TRACE` no longer works; the runtime reports `SYCL_PI_TRACE has been removed use SYCL_UR_TRACE instead`.
 
-module load PrgEnv-gnu    # GCC-based
-```
+---
 
-This is useful if you have code already working with Cray PE on other systems.
+## Node Facts for Tuning
+
+- **CPU:** 2× Xeon CPU Max 9470C, 52 cores and 2 hyperthreads per core. 102 cores are usable (0 and 52 are reserved).
+- **CPU memory:** 512 GB DDR5 + 64 GB HBM per socket, in flat mode (HBM is NUMA 2 and 3).
+- **GPU:** 6× Max 1550, each with 2 tiles. Each tile has 64 Xe cores (448 active vector engines per tile) and 64 GB HBM2e. The GPU has a 384 MB last-level cache.
+- **Interconnect:** GPUs connect all-to-all with Xe Link. Each node has 8 Slingshot-11 NICs, and GPUs can send directly to the NICs over PCIe.
