@@ -1,5 +1,7 @@
 # Aurora Job Script Examples
 
+> Sources: docs.alcf.anl.gov: Aurora "Running Jobs on Aurora", "Running Jobs using PBS", "Example Job Scripts", and "DAOS Overview"; queue limits and `qsub` behavior verified on Aurora, 2026-10.
+
 Every job needs `-A <project>`, `-l walltime=`, and `-l filesystems=`. PBS email notifications (`-m`/`-M`) are not currently enabled on Aurora, so don't rely on them. Nodes are allocated whole, so request them with `-l select=N` and use `place=scatter`. The server adds `-k doe -r n -W umask=0022` by default. Submit from `/lus/flare/projects/<project>`.
 
 | Nodes | Walltime | Queue |

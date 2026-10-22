@@ -1,5 +1,7 @@
 # Aurora Storage Reference
 
+> Sources: docs.alcf.anl.gov: "Getting Started on Aurora", "Flare", "DAOS Overview", "Moving data across filesystems", and "Transferring Files through Globus"; filesystem names verified on Aurora, 2026-10.
+
 ---
 
 ## Filesystem Overview

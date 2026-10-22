@@ -1,5 +1,7 @@
 # Aurora Programming Environment Reference
 
+> Sources: docs.alcf.anl.gov: Aurora "Aurora PE", "Compiling and Linking", "Programming Models" (SYCL, OpenMP), "Python", "Copper", "Aurora MPICH", and "Performance Tools"; module names verified on Aurora, 2026-10.
+
 The Aurora PE (installed under `/opt/aurora`) is the default environment. It consists of the Intel oneAPI SDK, Aurora MPICH, Cray PALS (`mpiexec`), and the Spack PE (cmake, hdf5, boost, python, ...). It is loaded by default; most users need no `module load` to compile.
 
 ---

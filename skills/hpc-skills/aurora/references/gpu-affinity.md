@@ -1,5 +1,7 @@
 # Aurora CPU and GPU Affinity
 
+> Sources: docs.alcf.anl.gov: Aurora "Running Jobs on Aurora" (binding, CCS, HBM sections) and "Machine Overview"; `mpiexec` behavior verified on Aurora, 2026-10.
+
 How to map MPI ranks and OpenMP threads onto Aurora's 2 CPU sockets, 6 GPUs, and 12 GPU tiles. Behavior below was checked with `mpiexec` (Cray PALS 1.8) on Aurora in October 2026.
 
 ---

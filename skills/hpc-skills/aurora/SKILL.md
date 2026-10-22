@@ -25,6 +25,12 @@ Aurora is Argonne National Laboratory's Intel-GPU exascale system (HPE Cray EX).
 
 Queue limits, module versions, and filesystem names change. The values below were checked on Aurora in October 2026; confirm current values with the commands in [Checking Live Configuration](#checking-live-configuration) before relying on them.
 
+## Safety
+
+- Show the user the job script (or `qsub` command) and the project it will charge, and get confirmation before running `qsub`. Each job charges node-hours for every node requested, for the walltime used.
+- Only `qdel`, `qhold`, or `qalter` jobs this session submitted, or jobs the user names.
+- Prefer `debug` with a short walltime for first runs of a new script.
+
 ## System Overview
 
 | Component | Specification |
