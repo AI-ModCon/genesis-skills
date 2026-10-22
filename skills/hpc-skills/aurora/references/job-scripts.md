@@ -204,7 +204,7 @@ mpiexec -n 12 --ppn 12 \
 ```
 
 - `-J`, not `-t`. `-r y` is required: the default `-r n` makes `qsub` fail with `cannot submit non-rerunable Array Job`.
-- Subjobs count against the queue's per-user limits, so arrays larger than 5 will not fit in `capacity`, and `debug` allows only 1 queued job per user.
+- Every subjob counts toward the per-user queued limit, and a `%N` throttle does not change that. In `capacity`, `-J 1-5` is accepted, but `-J 1-6` and `-J 1-20%2` are rejected (verified 2026-10). Any jobs you already have queued in the queue reduce the room further.
 - For many small tasks, run them inside one larger allocation instead (see "Several Applications on One Node" in [gpu-affinity.md](gpu-affinity.md), or a workflow tool such as Parsl, libEnsemble, or Balsam).
 
 ---
@@ -269,8 +269,36 @@ mpiexec -n $(( NNODES * 12 )) --ppn 12 \
     python train.py
 ```
 
-- In FLAT mode, select the device inside the program (for example with the local rank: `torch.xpu.set_device(local_rank)`). ALCF recommends not using `gpu_tile_compact.sh` with `frameworks`.
+- In FLAT mode, select the device inside the program (`torch.xpu.set_device(local_rank)`). ALCF recommends not using `gpu_tile_compact.sh` with `frameworks`.
 - If you import packages from a venv on Flare or home at large node counts (roughly 1,000 nodes or more), use Copper (`module load copper; launch_copper.sh`) to avoid overloading Lustre.
+
+### PyTorch DDP Setup (`train.py`)
+
+```python
+from mpi4py import MPI
+import os, socket
+import torch, torch.distributed as dist
+
+comm = MPI.COMM_WORLD
+rank, size = comm.Get_rank(), comm.Get_size()
+local_rank = int(os.environ["PALS_LOCAL_RANKID"])
+
+master = comm.bcast(socket.gethostname() if rank == 0 else None, root=0)
+os.environ["MASTER_ADDR"] = f"{master}.hsn.cm.aurora.alcf.anl.gov"   # high-speed network name, as in the ALCF docs
+os.environ["MASTER_PORT"] = "29500"
+os.environ["RANK"], os.environ["WORLD_SIZE"] = str(rank), str(size)
+
+torch.xpu.set_device(local_rank)
+dist.init_process_group(backend="xccl", init_method="env://", rank=rank, world_size=size)
+model = torch.nn.parallel.DistributedDataParallel(model.to("xpu"), device_ids=[local_rank])
+```
+
+These results are from `frameworks/2026.1.0` (PyTorch 2.13) on 2 nodes with 24 ranks, October 2026:
+
+- **`backend="xccl"` is required.** `backend="ccl"` fails with `AssertionError: Unknown backend type ccl`. `oneccl_bindings_for_pytorch` and `intel_extension_for_pytorch` are no longer needed (`oneccl_bindings_for_pytorch` is not even installed).
+- `MASTER_ADDR` worked both as the bare hostname and with the `.hsn.cm.aurora.alcf.anl.gov` suffix. ALCF documents the suffix.
+- Every rank prints a long, harmless `Overriding a previously registered kernel ... aten::topk` warning at import. **Do not pipe `mpiexec` output into `head`**: the SIGPIPE kills the job (exit 141). Redirect the output to a file and `grep` it instead.
+- ALCF's PyTorch page recommends `--cpu-bind=list:4-7:8-11:12-15:16-19:20-23:24-27:56-59:60-63:64-67:68-71:72-75:76-79` (4 cores per rank). That leaves cores free for oneCCL workers, Copper, and DAOS.
 
 ---
 

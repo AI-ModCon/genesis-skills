@@ -154,7 +154,7 @@ Use `-J`, not `-t` (Torque syntax; Aurora's `qsub` rejects it with `invalid opti
 # inside the job: ${PBS_ARRAY_INDEX}
 ```
 
-Per-user limits still apply to the subjobs, so a large array in `debug`, `debug-scaling`, or `capacity` will be rejected.
+**Every subjob counts toward the queue's per-user queued limit, even with a `%N` throttle.** In `capacity` (5 queued per user), `-J 1-5` is accepted, but `-J 1-6` and `-J 1-20%2` are rejected with `would exceed queue generic's per-user limit`. `debug` and `debug-scaling` allow only 1 job. For more than 5 cases, pack several cases into one multi-node job, or use a workflow tool.
 
 ## mpiexec Essentials
 
@@ -211,6 +211,7 @@ myquota                # home and project quotas
 - **No GPU binding** → every rank sees all 6 GPUs and the runtime picks device 0, so all ranks on a node pile onto one GPU. Use `gpu_tile_compact.sh` or `gpu_dev_compact.sh`, or set `ZE_AFFINITY_MASK` per rank.
 - **`--cpu-bind=depth` without `--depth`** → each rank gets one hardware thread, so OpenMP threads all share it. `--cpu-bind=depth:17` is **silently ignored** in the same way; the thread count goes in `--depth=17`.
 - **Binding to core 0 or 52** → launch fails (`cpubind list:0[0] has fewer CPUs (0) than depth (1)`). Those cores are reserved; start lists at 1 and 53.
+- **PyTorch DDP with `backend="ccl"`** → fails in `frameworks/2026.1.0` with `Unknown backend type ccl`. Use `backend="xccl"`; no `oneccl_bindings_for_pytorch` import is needed. See the DDP setup in [references/job-scripts.md](references/job-scripts.md).
 - **`module load python` or a personal conda/pip install for Python apps** → use `module load frameworks` (plus a `--system-site-packages` venv if needed).
 - **`srun`, `mpifc`, `mpiicx`, `I_MPI_*` variables** → none of these exist or apply on Aurora.
 - **Job arrays without `-r y`** → rejected.
