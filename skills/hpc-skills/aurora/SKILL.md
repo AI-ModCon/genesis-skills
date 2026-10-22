@@ -177,11 +177,12 @@ The default environment already loads `oneapi/release/<version>`, `mpich`, `cray
 module -t list                       # what is loaded
 module avail oneapi                  # alternative oneAPI releases
 module load cmake hdf5               # Spack PE packages in the default path
-module load frameworks               # Python with PyTorch, TensorFlow, vLLM, ... (sets ZE_FLAT_DEVICE_HIERARCHY=FLAT)
+module load frameworks               # THE way to get Python: PyTorch, TensorFlow, vLLM, mpi4py, ... (sets ZE_FLAT_DEVICE_HIERARCHY=FLAT)
 module use /soft/modulefiles         # extra software outside the PE: daos, kokkos, ...
 module load daos                     # needs /soft/modulefiles
 ```
 
+- **For any Python work, start with `module load frameworks`.** If you need extra packages, layer a venv on it (`python3 -m venv --system-site-packages`). Do not use the Spack PE `python` module or your own conda install for applications. The Spack `python` exists as a dependency of other Spack packages, and mixing it with `frameworks` causes conflicts.
 - There is no `PrgEnv-*`, `cray-mpich`, or Intel MPI on Aurora. MPI is **Aurora MPICH**, with the wrappers `mpicc`, `mpicxx`, and `mpifort`.
 - Loading libraries from `/soft` or project directories at large node counts is slow. See Copper in [references/programming-env.md](references/programming-env.md).
 
@@ -204,6 +205,7 @@ myquota                # home and project quotas
 - **No GPU binding** → every rank sees all 6 GPUs and the runtime picks device 0, so all ranks on a node pile onto one GPU. Use `gpu_tile_compact.sh` or `gpu_dev_compact.sh`, or set `ZE_AFFINITY_MASK` per rank.
 - **`--cpu-bind=depth` without `--depth`** → each rank gets one hardware thread, so OpenMP threads all share it. `--cpu-bind=depth:17` is **silently ignored** in the same way; the thread count goes in `--depth=17`.
 - **Binding to core 0 or 52** → launch fails (`cpubind list:0[0] has fewer CPUs (0) than depth (1)`). Those cores are reserved; start lists at 1 and 53.
+- **`module load python` or a personal conda/pip install for Python apps** → use `module load frameworks` (plus a `--system-site-packages` venv if needed).
 - **`srun`, `mpifc`, `mpiicx`, `I_MPI_*` variables** → none of these exist or apply on Aurora.
 - **Job arrays without `-r y`** → rejected.
 - **Compute nodes have no direct internet access** → set `http_proxy`/`https_proxy` to `http://proxy.alcf.anl.gov:3128`.

@@ -14,8 +14,7 @@ module avail oneapi                      # e.g. oneapi/release/2026.1.0 (default
 module load oneapi/release/2025.3.1      # switching the SDK reloads mpich and Spack PE packages to match (Lmod hierarchy)
 
 module load cmake autoconf hdf5          # Spack PE packages
-module load python                       # Spack PE Python (3.12.x); also a dependency of other Spack packages
-module load frameworks                   # Python AI/ML conda env (PyTorch, TensorFlow, vLLM, ...), updated roughly quarterly
+module load frameworks                   # recommended Python: conda env with PyTorch, TensorFlow, vLLM, ..., updated roughly quarterly
 
 module use /soft/modulefiles             # software outside the PE: daos, kokkos, ...
 ```
@@ -23,7 +22,7 @@ module use /soft/modulefiles             # software outside the PE: daos, kokkos
 - Do not pin old names such as `oneapi/eng-compiler/...`. Those modules have been retired. Check `module avail oneapi`.
 - Aurora has no `PrgEnv-*` or `cray-mpich`, and the Cray `cc`/`CC`/`ftn` wrappers are not part of the PE.
 - Modules in `/soft` can conflict with the PE, and loading libraries from shared filesystems is slow at scale.
-- `frameworks` may load a different oneAPI SDK than the default. Avoid mixing it with `module load python`.
+- `frameworks` may load a different oneAPI SDK than the default. Do not also load the Spack PE `python` module; it exists as a dependency of other Spack packages, not for user applications.
 
 ---
 
@@ -121,14 +120,18 @@ icpx -fsycl -fsycl-targets=intel_gpu_pvc app.cpp -qmkl -o app
 
 ## Python
 
-- `module load frameworks`: a conda environment with PyTorch (XPU), TensorFlow, Horovod, oneCCL, dpnp/dpctl, and more.
-- To extend it:
+**Use the `frameworks` module for all Python on Aurora.** It is a conda environment built and tested by ALCF for Aurora's GPUs, with PyTorch (XPU), TensorFlow, Horovod, oneCCL, mpi4py, dpnp/dpctl, and more.
+
+- Do not build a personal conda or Miniforge environment. Do not use the Spack PE `module load python`, or `pip install --user`. These lack the Aurora-tuned XPU and oneCCL builds.
+- To add packages, extend `frameworks` with a venv:
 
   ```bash
   module load frameworks
   python3 -m venv /lus/flare/projects/<project>/venvs/myenv --system-site-packages
   source /lus/flare/projects/<project>/venvs/myenv/bin/activate
   ```
+
+  Before each use, `module load frameworks` first, then `source .../bin/activate`.
 
 - At large scale (≥ ~1,000 nodes), importing from Flare or home is slow and can disrupt Lustre. Use **Copper**:
 

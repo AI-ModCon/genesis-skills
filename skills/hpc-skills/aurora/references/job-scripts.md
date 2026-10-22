@@ -247,6 +247,8 @@ clean-dfuse.sh ${DAOS_POOL}:${DAOS_CONT}
 
 ## Python / AI Frameworks
 
+Always base Python jobs on `module load frameworks`, not on the Spack `python` module or a personal conda install.
+
 ```bash
 #!/bin/bash -l
 #PBS -A <project>
