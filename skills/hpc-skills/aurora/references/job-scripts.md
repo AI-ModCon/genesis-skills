@@ -1,6 +1,6 @@
 # Aurora Job Script Examples
 
-Every job needs `-A <project>`, `-l walltime=`, and `-l filesystems=`. Nodes are allocated whole, so request them with `-l select=N` and use `place=scatter`. The server adds `-k doe -r n -W umask=0022` by default. Submit from `/lus/flare/projects/<project>`.
+Every job needs `-A <project>`, `-l walltime=`, and `-l filesystems=`. PBS email notifications (`-m`/`-M`) are not currently enabled on Aurora, so don't rely on them. Nodes are allocated whole, so request them with `-l select=N` and use `place=scatter`. The server adds `-k doe -r n -W umask=0022` by default. Submit from `/lus/flare/projects/<project>`.
 
 | Nodes | Walltime | Queue |
 |-------|----------|-------|

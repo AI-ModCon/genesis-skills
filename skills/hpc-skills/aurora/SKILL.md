@@ -208,6 +208,7 @@ myquota                # home and project quotas
 - **`module load python` or a personal conda/pip install for Python apps** → use `module load frameworks` (plus a `--system-site-packages` venv if needed).
 - **`srun`, `mpifc`, `mpiicx`, `I_MPI_*` variables** → none of these exist or apply on Aurora.
 - **Job arrays without `-r y`** → rejected.
+- **Expecting PBS email (`-m be`, `-M`)** → email notifications are not currently enabled on Aurora. Check jobs with `qstat` (`qstat -x` once finished), or have the script write its own completion marker.
 - **Compute nodes have no direct internet access** → set `http_proxy`/`https_proxy` to `http://proxy.alcf.anl.gov:3128`.
 - **Multiple `mpiexec` calls in one script** → check each exit code. Node or network failures can return non-zero.
 
