@@ -192,6 +192,14 @@ class ValidatorTests(unittest.TestCase):
         self.assertFalse(res["checks"]["snr"])
         self.assertTrue(any("raise the source amp" in m for m in res["messages"]))
 
+    def test_psf_type_must_be_one_lenstronomy_accepts(self) -> None:
+        params = _good()
+        params["kwargs_psf"]["psf_type"] = "GAUSIAN"
+        res = _validate(params, "general")
+        self.assertFalse(res["checks"]["psf_type"])
+        self.assertTrue(any("GAUSIAN" in m and "NONE" in m for m in res["messages"]))
+        self.assertTrue(_validate(GOOD, "general")["checks"]["psf_type"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):

@@ -56,6 +56,9 @@ REQUIRED_PARAMS: dict[str, tuple[str, ...]] = {
     "GAUSSIAN": ("amp", "sigma"),
 }
 
+# The psf_type values lenstronomy's PSF accepts; anything else raises a ValueError.
+PSF_TYPES = ("GAUSSIAN", "PIXEL", "NONE")
+
 
 @dataclass
 class Ranges:
@@ -510,6 +513,11 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
 
     # --- PSF ------------------------------------------------------------------
     psf = params["kwargs_psf"]
+    if psf["psf_type"] in PSF_TYPES:
+        ok("psf_type")
+    else:
+        fail("psf_type", f"psf_type={psf['psf_type']!r} is not one of {list(PSF_TYPES)}; "
+             "lenstronomy's PSF raises a ValueError for anything else.")
     if psf["psf_type"] == "GAUSSIAN":
         if psf["fwhm"] is not None and psf["fwhm"] > 0:
             ok("psf_fwhm")
