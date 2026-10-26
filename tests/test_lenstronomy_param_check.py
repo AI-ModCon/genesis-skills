@@ -212,6 +212,18 @@ class ValidatorTests(unittest.TestCase):
         res = _validate(params, "general")
         self.assertFalse(res["checks"]["lens_profile_0_known"])
 
+    def test_combined_ellipticity_must_stay_below_one(self) -> None:
+        # Each component is within the general preset's 0.8, but |e| = 1.13 has no axis ratio.
+        degenerate = _good()
+        degenerate["kwargs_lens"][0].update(e1=0.8, e2=0.8)
+        res = _validate(degenerate, "general")
+        self.assertFalse(res["checks"]["ellipticity"])
+        self.assertTrue(any("sqrt(e1^2 + e2^2) = 1.13" in m for m in res["messages"]))
+
+        strong = _good()
+        strong["kwargs_lens"][0].update(e1=0.6, e2=0.6)  # |e| = 0.85, q = 0.08: extreme but valid
+        self.assertTrue(_validate(strong, "general")["checks"]["ellipticity"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):

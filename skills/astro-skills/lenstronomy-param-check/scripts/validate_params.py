@@ -470,6 +470,14 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
         for k in ("e1", "e2")
         if k in kw and abs(kw[k]) > r.ellipticity_max
     ]
+    # Each component can be in range while the pair is not: the axis ratio is
+    # (1 - |e|) / (1 + |e|), so |e| = sqrt(e1^2 + e2^2) must stay below 1.
+    e_degenerate = [
+        (label, i, math.hypot(kw.get("e1", 0.0), kw.get("e2", 0.0)))
+        for label in ("lens", "source")
+        for i, kw in enumerate(params[f"kwargs_{label}"])
+        if ("e1" in kw or "e2" in kw) and math.hypot(kw.get("e1", 0.0), kw.get("e2", 0.0)) >= 1
+    ]
     if any("e1" in kw or "e2" in kw for kw in all_kwargs):
         if e_bad:
             label, k, v = e_bad[0]
@@ -477,7 +485,13 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
                  f"{label} {k}={v} exceeds |e|<={r.ellipticity_max} (the axis ratio would "
                  "be extreme); derive e1/e2 from an axis ratio and angle, e.g. "
                  "lenstronomy's param_util.phi_q2_ellipticity.")
-        else:
+        if e_degenerate:
+            label, i, mag = e_degenerate[0]
+            fail("ellipticity",
+                 f"kwargs_{label}[{i}] has sqrt(e1^2 + e2^2) = {mag:.3g} >= 1, which has no "
+                 "positive axis ratio; derive e1/e2 from an axis ratio and angle, e.g. "
+                 "lenstronomy's param_util.phi_q2_ellipticity.")
+        if not e_bad and not e_degenerate:
             ok("ellipticity")
 
     # --- Sersic index / radius ----------------------------------------------
