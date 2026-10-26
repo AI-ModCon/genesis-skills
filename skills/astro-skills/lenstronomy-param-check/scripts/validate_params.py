@@ -357,7 +357,7 @@ def _estimate_snr(params: dict[str, Any], noise_excess: float) -> float | None:
     exposure, rms = data["exposure_time"], data["background_rms"]
     if exposure is None or rms is None:
         return None
-    if exposure <= 0 or rms <= 0:
+    if exposure <= 0 or rms <= 0 or data["deltaPix"] <= 0:
         return None  # covered by their own checks
     psf = params["kwargs_psf"]
     fwhm = psf["fwhm"] if psf["psf_type"] != "NONE" and psf["fwhm"] and psf["fwhm"] > 0 else 0.0

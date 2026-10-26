@@ -224,6 +224,15 @@ class ValidatorTests(unittest.TestCase):
         strong["kwargs_lens"][0].update(e1=0.6, e2=0.6)  # |e| = 0.85, q = 0.08: extreme but valid
         self.assertTrue(_validate(strong, "general")["checks"]["ellipticity"])
 
+    def test_snr_skipped_for_a_nonpositive_pixel_scale(self) -> None:
+        params = _good(kwargs_data={"numPix": 64, "deltaPix": 0, "exposure_time": 5400.0,
+                                    "background_rms": 0.01},
+                       kwargs_psf={"psf_type": "NONE", "fwhm": None, "pixel_size": None})
+        res = _validate(params)
+        self.assertFalse(res["checks"]["deltapix"])
+        self.assertIsNone(res["snr_estimate"])
+        self.assertNotIn("snr", res["checks"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):
