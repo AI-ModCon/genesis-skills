@@ -113,8 +113,9 @@ A failed code check lists each field with both values:
 ## Limitations
 
 - Profiles covered: SIE, SIS, EPL, SHEAR and NFW for the lens; SERSIC,
-  SERSIC_ELLIPSE and GAUSSIAN for light. Any other profile is reported as unknown.
-  Parameter names were introspected from lenstronomy 1.9.2 and 1.14.2, which agree.
+  SERSIC_ELLIPSE and GAUSSIAN for light. Any other profile, or a profile in the
+  wrong list, is reported as unknown. Parameter names were introspected from
+  lenstronomy 1.9.2 and 1.14.2, which agree.
 - The code check looks for the conventional names (`kwargs_lens`,
   `kwargs_source`, `lens_model_list`, ...) and calls (`LensModel`, `LightModel`,
   `data_configure_simple`, `PSF`, `ImageModel.image`). It does not follow values

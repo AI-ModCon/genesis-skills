@@ -56,6 +56,13 @@ REQUIRED_PARAMS: dict[str, tuple[str, ...]] = {
     "GAUSSIAN": ("amp", "sigma"),
 }
 
+# Which profiles each model list may use: LensModel rejects the light profiles and
+# LightModel the lens profiles (lenstronomy raises a ValueError at construction).
+COMPONENT_PROFILES: dict[str, tuple[str, ...]] = {
+    "lens": ("SIE", "SIS", "EPL", "SHEAR", "NFW"),
+    "source": ("SERSIC", "SERSIC_ELLIPSE", "GAUSSIAN"),
+}
+
 # The psf_type values lenstronomy's PSF accepts; anything else raises a ValueError.
 PSF_TYPES = ("GAUSSIAN", "PIXEL", "NONE")
 
@@ -418,12 +425,16 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
                  f"{len(kwargs)} dicts; lenstronomy pairs them positionally, one dict "
                  "per profile.")
             continue
+        other = "source" if label == "lens" else "lens"
         for i, (name, kw) in enumerate(zip(models, kwargs)):
-            known = PROFILE_PARAMS.get(name)
-            if known is None:
+            if name not in COMPONENT_PROFILES[label]:
+                where = (f" '{name}' is a {other} profile." if name in COMPONENT_PROFILES[other]
+                         else "")
                 fail(f"{label}_profile_{i}_known",
-                     f"Unknown {label} profile '{name}'; supported: {sorted(PROFILE_PARAMS)}.")
+                     f"Unknown {label} profile '{name}'; supported: "
+                     f"{list(COMPONENT_PROFILES[label])}.{where}")
                 continue
+            known = PROFILE_PARAMS[name]
             unknown_keys = sorted(set(kw) - set(known))
             if unknown_keys:
                 fail(f"{label}_profile_{i}_keys",

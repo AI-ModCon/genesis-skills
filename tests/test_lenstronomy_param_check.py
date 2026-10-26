@@ -200,6 +200,18 @@ class ValidatorTests(unittest.TestCase):
         self.assertTrue(any("GAUSIAN" in m and "NONE" in m for m in res["messages"]))
         self.assertTrue(_validate(GOOD, "general")["checks"]["psf_type"])
 
+    def test_profiles_are_checked_against_their_own_component(self) -> None:
+        params = _good(source_model_list=["SIE"],
+                       kwargs_source=[{"theta_E": 1.0, "e1": 0.1, "e2": 0.0}])
+        res = _validate(params, "general")
+        self.assertFalse(res["checks"]["source_profile_0_known"])
+        self.assertTrue(any("'SIE' is a lens profile" in m for m in res["messages"]))
+
+        params = _good(lens_model_list=["SERSIC"],
+                       kwargs_lens=[{"amp": 1.0, "R_sersic": 0.3, "n_sersic": 1.0}])
+        res = _validate(params, "general")
+        self.assertFalse(res["checks"]["lens_profile_0_known"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):
