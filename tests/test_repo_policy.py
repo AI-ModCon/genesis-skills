@@ -69,6 +69,23 @@ def _write_valid_fixture(root: Path) -> None:
     write_skill(root / "skills" / "amsc-skills" / "amsc-python-client", description="AmSC Python client skill")
     write_skill(root / "skills" / "amsc-skills" / "iri-api", description="IRI API skill")
     write_text(
+        root / "skills" / "astro-skills" / "ATTRIBUTION.md",
+        "\n".join(
+            [
+                "# Attribution",
+                "",
+                "**Author:** Aatmaj Amol Salunke (Northeastern University, ML4SCI)",
+                "",
+                "**Upstream source:** https://github.com/ML4SCI/DeepLense-AI-Scientist",
+                "",
+            ]
+        ),
+    )
+    write_skill(
+        root / "skills" / "astro-skills" / "lenstronomy-param-check",
+        description="lenstronomy parameter check skill",
+    )
+    write_text(
         root / "skills" / "basedata-skills" / "ATTRIBUTION.md",
         "\n".join(
             [
@@ -348,6 +365,33 @@ class RepoPolicyValidatorTests(unittest.TestCase):
 
             self.assertNotEqual(completed.returncode, 0)
             self.assertIn("contributors", completed.stdout)
+
+    def test_contributors_include_the_astro_skills_author(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_valid_fixture(root)
+
+            names = build_readme_contributor_names(root)
+
+            self.assertIn("Aatmaj Amol Salunke", names)
+            self.assertLess(names.index("Emily Saldanha"), names.index("Aatmaj Amol Salunke"))
+            self.assertLess(names.index("Aatmaj Amol Salunke"), names.index("Malachi Schram"))
+
+    def test_astro_attribution_accepts_several_authors_with_affiliations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_valid_fixture(root)
+            write_text(
+                root / "skills" / "astro-skills" / "ATTRIBUTION.md",
+                "# Attribution\n\n**Authors:** Ada Lovelace (Analytical Engines, London), Alan Turing\n",
+            )
+
+            names = build_readme_contributor_names(root)
+
+            self.assertIn("Ada Lovelace", names)
+            self.assertIn("Alan Turing", names)
+            self.assertNotIn("Aatmaj Amol Salunke", names)
+            self.assertFalse(any("London" in name for name in names))
 
 
 if __name__ == "__main__":
