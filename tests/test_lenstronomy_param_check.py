@@ -441,6 +441,23 @@ class CodeCheckRegressionTests(unittest.TestCase):
                         "kwargs_source=kwargs_source)\n")
         self.assertIn("kwargs_lens", comp["unresolved"])
 
+    def _example(self) -> str:
+        return (SKILL / "assets" / "example_simulation.py").read_text(encoding="utf-8")
+
+    def test_dict_unpacking_is_applied_in_order(self) -> None:
+        lens = 'kwargs_lens = [{"theta_E": 1.0,'
+        comp = _compare(self._example().replace(lens, 'kwargs_lens = [{"theta_E": 1.0, **{"theta_E": 2.5},'))
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"kwargs_lens[0].theta_E": 2.5})
+
+        comp = _compare(self._example().replace(lens, 'key = pick()\nkwargs_lens = [{key: 2.5, "theta_E": 1.0,'))
+        self.assertIn("kwargs_lens[0]", comp["unresolved"])
+
+        base = 'base = {"e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}\n'
+        comp = _compare(self._example().replace(
+            'kwargs_lens = [{"theta_E": 1.0, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]',
+            base + 'kwargs_lens = [{**base, "theta_E": 1.0}]'))
+        self.assertTrue(comp["passed"], comp["messages"])
+
 
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
