@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -154,6 +155,49 @@ class ValidatorTests(unittest.TestCase):
         self.assertNotIn("snr", res["checks"])
         self.assertIsNone(res["snr_estimate"])
         self.assertTrue(res["passed"], res["messages"])
+
+    def test_snr_tracks_the_source_profile(self) -> None:
+        # lenstronomy 1.9.2 renders of one lens at Model_I settings (150 px at 0.05",
+        # Gaussian PSF FWHM 0.087", no supersampling, 1778 s, background_rms 0.01, the
+        # recipe's noise), with amp set so each image measures SNR ~24: the median over
+        # 50 noise draws of (brightest pixel - mean of the 10 px corners) /
+        # sqrt(brightest pixel + their variance). Their amps span 25x, so amp alone
+        # cannot predict the SNR.
+        references = [
+            ("SERSIC_ELLIPSE", {"amp": 76.0, "R_sersic": 0.3, "n_sersic": 0.5}, 25.3),
+            ("SERSIC_ELLIPSE", {"amp": 32.0, "R_sersic": 0.3, "n_sersic": 1.0}, 24.2),
+            ("SERSIC_ELLIPSE", {"amp": 10.0, "R_sersic": 0.3, "n_sersic": 2.0}, 23.3),
+            ("SERSIC_ELLIPSE", {"amp": 3.1, "R_sersic": 0.3, "n_sersic": 4.0}, 23.6),
+            ("GAUSSIAN", {"amp": 9.9, "sigma": 0.1}, 24.5),
+        ]
+        for source, kwargs, measured in references:
+            with self.subTest(source=source, **kwargs):
+                shape = {"e1": -0.05, "e2": 0.05} if source == "SERSIC_ELLIPSE" else {}
+                params = _good(
+                    kwargs_lens=[{"theta_E": 1.2, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}],
+                    source_model_list=[source],
+                    kwargs_source=[{**kwargs, **shape, "center_x": 0.12, "center_y": 0.05}],
+                    kwargs_data={"numPix": 150, "deltaPix": 0.05, "exposure_time": 1778.0,
+                                 "background_rms": 0.01},
+                    kwargs_psf={"psf_type": "GAUSSIAN", "fwhm": 0.087, "pixel_size": 0.05},
+                )
+                res = _validate(params)
+                self.assertTrue(res["checks"]["snr"], res["messages"])
+                self.assertLess(abs(res["snr_estimate"] / measured - 1), 0.15)
+
+    def test_snr_negative_amp_fails_instead_of_crashing(self) -> None:
+        params = _good()
+        params["kwargs_source"][0]["amp"] = -100.0
+        res = _validate(params)
+        self.assertFalse(res["checks"]["snr"])
+        self.assertTrue(any("raise the source amp" in m for m in res["messages"]))
+
+    def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
+        # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
+        for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):
+            exact = s * s / math.sqrt((s * s + sr * sr) * (s * s + st * st))
+            got = V._blurred_centre(lambda r, s=s: math.exp(-r * r / (2 * s * s)), sr, st)
+            self.assertAlmostEqual(got / exact, 1.0, delta=1e-4)
 
     def test_unknown_profile_and_keys(self) -> None:
         params = _good(lens_model_list=["SIE_FANCY"])

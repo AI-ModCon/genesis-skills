@@ -16,7 +16,7 @@ be overridden with `--set NAME=VALUE`, using the names in the first column.
 | `axion_mass_min`, `axion_mass_max` (eV) | not checked | 1e-24, 1e-22 |
 | `vortex_mass_min`, `vortex_mass_max` (M_sun) | not checked | 1e9, 1e12 |
 | `snr_min`, `snr_max` (peak SNR) | not checked | 14, 60 |
-| `lensing_boost` | not used | 5.9 |
+| `snr_noise_excess` | not used | 1.35 |
 
 ## `general`
 
@@ -56,16 +56,29 @@ repository.
   recipe: median 18.1, interquartile range 16.3-20.1, 5th percentile 14.8,
   95th percentile 22.0. The lower bound is the 5th percentile rounded down; the
   upper bound is a guard against a runaway source amplitude.
-- **`lensing_boost`:** the estimate is
-  `amp * deltaPix^2 * exposure_time * lensing_boost` over the noise. 5.9 makes
-  the recipe's canonical parameters reproduce the measured median.
+- **The SNR estimate:** lenstronomy's Sersic `amp` is the surface brightness
+  at `R_sersic`, rising toward `amp * exp(b_n)` at the centre: about 5 times
+  `amp` at n = 1 and 14 at n = 1.5. At n = 4 the cusp is so sharp that
+  lenstronomy flattens it inside 0.001 arcsec, which still leaves the centre
+  about 340 times `amp` for `R_sersic` = 0.3 arcsec (1.9.2). The estimate takes each
+  source profile's centre, blurs it by the PSF and the pixel, and narrows that
+  blur along the arc by the lens's tangential stretch (an SIS approximation),
+  so no rendering is needed. A `GAUSSIAN` source's `amp` is its total flux.
+  The noise is the recipe's, whose clipped background makes the image corners
+  quieter than the arc.
+- **`snr_noise_excess`:** how far the brightest pixel of a noisy image sits
+  above the noiseless peak, in units of that pixel's noise. 1.35 makes the
+  recipe's canonical parameters reproduce the measured median (18.1); its
+  exposure and source-centre draws then give a 5th-95th percentile range of
+  14.7-21.7 against the measured 14.8-22.0.
 
-**Caveat on the SNR estimate.** lenstronomy's Sersic `amp` is the surface
-brightness at `R_sersic`, so the ratio of the central brightness to `amp` grows
-steeply with the Sersic index: about 5 at n = 1, 14 at n = 1.5 and roughly 1000
-at n = 4 (measured with lenstronomy 1.14.2). The calibration uses the recipe's
-n = 1 source, so treat the estimate with caution far from n = 1. That is why
-the `general` preset does not check SNR.
+**Accuracy of the SNR estimate.** Against 500 lenstronomy 1.9.2 renders with
+pixel scales of 0.03-0.2 arcsec, varied PSFs and backgrounds, and n_sersic
+0.5-6, the median error stays within 2% up to n = 4.5. The scatter grows with
+n, from within 10% below n = 1 to about 25% at n = 2-3, because a cusp smaller
+than a pixel lands at a random offset from the pixel centres. The noise model
+and its calibration are the recipe's, which is why the `general` preset does
+not check SNR.
 
 ## References
 
