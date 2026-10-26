@@ -414,6 +414,7 @@ class CodeCheckRegressionTests(unittest.TestCase):
         # lenstronomy 1.9.2 names the arguments numPix/deltaPix, 1.14 num_pix/delta_pix.
         base = "".join(line + "\n" for line in _program(GOOD).splitlines()
                        if not line.startswith(("numPix", "deltaPix")))
+        base = base.replace("pixel_size=deltaPix", "pixel_size=0.08")  # deltaPix is no longer a name
         call = ("kwargs_data = data_configure_simple({n}=64, {d}=0.08, "
                 "exposure_time=exposure_time, background_rms=background_rms)\n")
         for n, d in (("numPix", "deltaPix"), ("num_pix", "delta_pix")):
@@ -458,6 +459,60 @@ class CodeCheckRegressionTests(unittest.TestCase):
             base + 'kwargs_lens = [{**base, "theta_E": 1.0}]'))
         self.assertTrue(comp["passed"], comp["messages"])
 
+    def test_code_that_does_not_run_does_not_count(self) -> None:
+        wrong = 'kwargs_lens = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+        lens = 'kwargs_lens = [{"theta_E": 1.0'
+        for wrapper in ("if False:\n    ", "def unused():\n    "):
+            with self.subTest(wrapper=wrapper.split(":")[0]):
+                comp = _compare(self._example().replace(lens, wrong + wrapper + lens))
+                diverged = {d["field"]: d["actual"] for d in comp["diverged"]}
+                self.assertEqual(diverged.get("kwargs_lens[0].theta_E"), 2.5)
+
+        # A branch that depends on runtime values: either kwargs_lens may be rendered.
+        comp = _compare(self._example().replace(lens, wrong + "if len(sys.argv) > 2:\n    " + lens))
+        self.assertIn("kwargs_lens", comp["unresolved"])
+
+        # A function counts where it is called, here under the __main__ guard.
+        code = self._example()
+        head, body = code.split("numPix = 64")
+        body = "".join(f"    {line}\n" if line.strip() else "\n" for line in ("numPix = 64" + body).splitlines())
+        script = head + "def main():\n" + body + "\nif __name__ == '__main__':\n    main()\n"
+        self.assertTrue(_compare(script)["passed"], _compare(script)["messages"])
+        self.assertIn("kwargs_lens", _compare(script.replace("    main()", "    pass"))["missing"])
+
+    def test_the_model_classes_built_outrank_list_assignments(self) -> None:
+        comp = _compare(self._example().replace(
+            "LensModel(lens_model_list=lens_model_list)", "LensModel(lens_model_list=['SIS'])"))
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"lens_model_list": ["SIS"]})
+
+        # The LightModel given to ImageModel as the source is the one checked, even
+        # when a lens-light LightModel is built too.
+        code = self._example().replace(
+            "image_model = ImageModel(", "lens_light = LightModel(light_model_list=['SERSIC'])\n"
+            "image_model = ImageModel(").replace(
+            "kwargs_numerics=", "lens_light_model_class=lens_light, kwargs_numerics=")
+        self.assertTrue(_compare(code)["passed"], _compare(code)["messages"])
+
+    def test_arguments_left_out_of_image_are_missing(self) -> None:
+        call = "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
+        comp = _compare(self._example().replace(call, "image_model.image(kwargs_lens=kwargs_lens)"))
+        self.assertEqual(comp["missing"], ["kwargs_source"])
+        comp = _compare(self._example().replace(call, "image_model.image()"))
+        self.assertEqual(comp["missing"], ["kwargs_lens", "kwargs_source"])
+
+    def test_psf_type_and_pixel_size_are_compared(self) -> None:
+        psf = 'PSF(psf_type="GAUSSIAN", fwhm=0.15, pixel_size=deltaPix)'
+        for changed, field, actual in (
+            ('PSF(psf_type="NONE", fwhm=0.15, pixel_size=deltaPix)', "psf_type", "NONE"),
+            ("PSF(fwhm=0.15, pixel_size=deltaPix)", "psf_type", "NONE"),  # lenstronomy's default
+            ('PSF(psf_type="GAUSSIAN", fwhm=0.15, pixel_size=0.05)', "psf_pixel_size", 0.05),
+        ):
+            with self.subTest(psf=changed):
+                comp = _compare(self._example().replace(psf, changed))
+                self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {field: actual})
+        comp = _compare(self._example())
+        self.assertIn("psf_type", comp["matched"])
+        self.assertIn("psf_pixel_size", comp["matched"])
 
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:

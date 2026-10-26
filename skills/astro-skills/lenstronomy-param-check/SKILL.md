@@ -116,11 +116,14 @@ A failed code check lists each field with both values:
   SERSIC_ELLIPSE and GAUSSIAN for light. Any other profile, or a profile in the
   wrong list, is reported as unknown. Parameter names were introspected from
   lenstronomy 1.9.2 and 1.14.2, which agree.
-- The code check looks for the conventional names (`kwargs_lens`,
-  `kwargs_source`, `lens_model_list`, ...) and calls (`LensModel`, `LightModel`,
-  `data_configure_simple`, `PSF`, `ImageModel.image`). It does not follow values
-  through functions or loops, or through in-place edits such as
-  `kwargs_lens[0]["theta_E"] = 2`.
+- The code check follows the calls that build the simulation (`LensModel`,
+  `LightModel`, `PSF`, `ImageModel`, `data_configure_simple` and
+  `ImageModel.image`) and falls back to the conventional names (`kwargs_lens`,
+  `lens_model_list`, ...). It follows the script the way it runs: code in a
+  branch that cannot run, or in a function that is never called, does not count.
+  A value that depends on a runtime condition, a loop or an exception is
+  reported as unresolved. It does not follow return values or in-place edits
+  such as `kwargs_lens[0]["theta_E"] = 2`.
 
 ## References
 
