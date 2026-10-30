@@ -210,6 +210,20 @@ class RepoPolicyValidatorTests(unittest.TestCase):
             self.assertIn("│   └── zeta-skills/  # alpha, beta (2)", tree_lines)
             self.assertLess(tree_lines.index("│   └── zeta-skills/  # alpha, beta (2)"), tree_lines.index("├── CONTRIBUTING.md"))
 
+    def test_contributor_list_includes_hpc_contributors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_valid_fixture(root)
+            write_text(
+                root / "skills" / "hpc-skills" / "ATTRIBUTION.md",
+                "# Attribution\n\n**Author:** Matt Baughman (PPPL)\n\n**Contributors:** Kyle Felker (ANL), Ada Lovelace (ORNL)\n",
+            )
+
+            names = build_readme_contributor_names(root)
+
+            self.assertIn("Kyle Felker", names)
+            self.assertIn("Ada Lovelace", names)
+
     def test_validator_accepts_a_minimal_consistent_fixture(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
