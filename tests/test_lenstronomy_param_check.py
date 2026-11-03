@@ -287,6 +287,16 @@ class ValidatorTests(unittest.TestCase):
         params["kwargs_source"][0].update(R_sersic=1e-300, n_sersic=0.5)
         self.assertFalse(_validate(params)["checks"]["snr"])
 
+    def test_snr_is_not_estimated_for_several_sources(self) -> None:
+        # Two copies of the same source add up to twice the peak; the brightest-one
+        # estimate would not see it, so no estimate is made.
+        params = _good(source_model_list=["SERSIC_ELLIPSE"] * 2)
+        params["kwargs_source"] = params["kwargs_source"] * 2
+        res = _validate(params)
+        self.assertNotIn("snr", res["checks"])
+        self.assertIsNone(res["snr_estimate"])
+        self.assertTrue(res["passed"], res["messages"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):

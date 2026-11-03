@@ -78,7 +78,9 @@ pixel scales of 0.03-0.2 arcsec, varied PSFs and backgrounds, and n_sersic
 n, from within 10% below n = 1 to about 25% at n = 2-3, because a cusp smaller
 than a pixel lands at a random offset from the pixel centres. The noise model
 and its calibration are the recipe's, which is why the `general` preset does
-not check SNR.
+not check SNR. A parameter set with more than one source profile is not
+estimated either, since overlapping sources add up and the brightest alone would
+understate the peak; its `snr_estimate` is null and the check is left out.
 
 ## References
 

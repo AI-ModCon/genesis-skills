@@ -394,8 +394,12 @@ def _estimate_snr(params: dict[str, Any], noise_excess: float) -> float | None:
     ``noise_excess`` of that noise above the peak; the clipped background has mean
     sb / sqrt(2 pi) and variance sb / sqrt(2 pi) + sb^2 (pi - 1) / (2 pi). The noise
     model and its calibration are the recipe's, which is why only the deeplense
-    preset uses the estimate.
+    preset uses the estimate. A parameter set with several source profiles is not
+    estimated: their light can overlap and add up, so the brightest one alone would
+    understate the peak.
     """
+    if len(params["kwargs_source"]) > 1:
+        return None
     data = params["kwargs_data"]
     exposure, rms = data["exposure_time"], data["background_rms"]
     if exposure is None or rms is None:
