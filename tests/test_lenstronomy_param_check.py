@@ -273,6 +273,20 @@ class ValidatorTests(unittest.TestCase):
         with self.assertRaises(V.InputError):
             V.load_params(_good(kwargs_psf=dict(psf, kernel_point_source=[[1.0, 2.0], [3.0]])))
 
+    def test_snr_is_not_estimated_from_an_invalid_source_shape(self) -> None:
+        # n_sersic = 0.001 fails its own check; the estimate used to overflow on it.
+        params = _good()
+        params["kwargs_source"][0]["n_sersic"] = 0.001
+        res = _validate(params)
+        self.assertFalse(res["checks"]["sersic_index"])
+        self.assertNotIn("snr", res["checks"])
+        self.assertIsNone(res["snr_estimate"])
+
+        # A tiny but positive R_sersic is valid, so it is estimated, without overflowing.
+        params = _good()
+        params["kwargs_source"][0].update(R_sersic=1e-300, n_sersic=0.5)
+        self.assertFalse(_validate(params)["checks"]["snr"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):
