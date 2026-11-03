@@ -544,6 +544,34 @@ class CodeCheckRegressionTests(unittest.TestCase):
         self.assertTrue(_compare(script)["passed"], _compare(script)["messages"])
         self.assertIn("kwargs_lens", _compare(script.replace("    main()", "    pass"))["missing"])
 
+    def test_code_after_return_or_exit_does_not_count(self) -> None:
+        call = "image = image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
+        wrong = 'wrong = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+        render = ("def render():\n"
+                  "    image = image_model.image(kwargs_lens=wrong, kwargs_source=kwargs_source)\n"
+                  "    return image\n"
+                  "    image = image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)\n"
+                  "image = render()")
+        exits = ("image = image_model.image(kwargs_lens=wrong, kwargs_source=kwargs_source)\n"
+                 "sys.exit(0)\n" + call)
+        for name, replacement in (("return", render), ("sys.exit", exits)):
+            with self.subTest(after=name):
+                comp = _compare(self._example().replace(call, wrong + replacement))
+                self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"kwargs_lens[0].theta_E": 2.5})
+
+        # A path that raises renders nothing, so a guard does not make the result unresolved,
+        # and sys.exit(main()) still runs main().
+        guarded = self._example().replace(call, 'if len(sys.argv) > 5:\n    raise SystemExit("usage")\n' + call)
+        self.assertTrue(_compare(guarded)["passed"], _compare(guarded)["messages"])
+        head, body = self._example().split("numPix = 64")
+        body = "".join(f"    {line}\n" if line.strip() else "\n" for line in ("numPix = 64" + body).splitlines())
+        script = head + "def main():\n" + body + "    return 0\n\nif __name__ == '__main__':\n    sys.exit(main())\n"
+        self.assertTrue(_compare(script)["passed"], _compare(script)["messages"])
+
+        # A break ends the loop body: the assignment after it never runs.
+        looped = self._example().replace(call, "for _ in range(3):\n    break\n    " + wrong + call)
+        self.assertTrue(_compare(looped)["passed"], _compare(looped)["messages"])
+
     def test_the_model_classes_built_outrank_list_assignments(self) -> None:
         comp = _compare(self._example().replace(
             "LensModel(lens_model_list=lens_model_list)", "LensModel(lens_model_list=['SIS'])"))
