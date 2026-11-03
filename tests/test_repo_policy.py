@@ -198,20 +198,6 @@ def _write_valid_fixture(root: Path) -> None:
 
 
 class RepoPolicyValidatorTests(unittest.TestCase):
-    def test_attribution_authors_support_both_bold_colon_styles(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            root = Path(tmp_dir)
-            _write_valid_fixture(root)
-            skill = root / "skills" / "new-family" / "example"
-            write_text(
-                skill / "ATTRIBUTION.md",
-                "# Attribution\n\n**Author:** Ada Lovelace (ANL)\n"
-                "**Author**: Ada Lovelace\n**Authors:**\n- Unparsed Author\n",
-            )
-            names = build_readme_contributor_names(root)
-            self.assertEqual(names.count("Ada Lovelace"), 1)
-            self.assertNotIn("Unparsed Author", names)
-
     def test_tree_inventory_discovers_new_skill_family(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

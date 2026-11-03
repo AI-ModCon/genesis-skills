@@ -50,6 +50,7 @@ ROOT_README_EXTRA_CONTRIBUTORS = (
     "Matt Baughman",
     "Ian Foster",
     "Nathan Hodas",
+    "Ningdong Wang",
     "Stefan Wild",
 )
 
@@ -145,22 +146,6 @@ def _hpc_contributors(root: Path) -> list[str]:
     return []
 
 
-def _attribution_authors(root: Path) -> list[str]:
-    """Read single-author credits with either common bold-colon placement."""
-    names: list[str] = []
-    skills = root / "skills"
-    if not skills.is_dir():
-        return names
-    for path in sorted(skills.rglob("ATTRIBUTION.md")):
-        for line in _read(path).splitlines():
-            match = re.match(r"^\*\*Author(?::\*\*|\*\*:)\s*(.+)$", line)
-            if match:
-                name = _extract_name(match.group(1).split(",", 1)[0])
-                if name:
-                    names.append(name)
-    return names
-
-
 def _baseeval_team(root: Path) -> str | None:
     path = root / "skills" / "baseeval-skills" / "README.md"
     if not path.is_file():
@@ -239,7 +224,6 @@ def build_readme_contributor_names(root: Path) -> list[str]:
     individuals.update(_lm_eval_contributors(root))
     individuals.update(_perlmutter_ns_contributors(root))
     individuals.update(_hpc_contributors(root))
-    individuals.update(_attribution_authors(root))
     individuals.update(ROOT_README_EXTRA_CONTRIBUTORS)
     teams.update(ROOT_README_EXTRA_TEAMS)
 
