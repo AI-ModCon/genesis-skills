@@ -93,7 +93,7 @@ genesis-skills/
 │   └── scripts/skill_search.py
 ├── skills/
 │   ├── academy/SKILL.md
-│   ├── amsc-skills/  # amsc-data-movement-api, amsc-python-client, globus-compute, i2-api, iri-api, skill-explorer (6)
+│   ├── amsc-skills/  # amsc-data-movement-api, amsc-mag, amsc-python-client, globus-compute, i2-api, iri-api, skill-explorer (7)
 │   ├── astro-skills/  # lenstronomy-param-check (1)
 │   ├── basedata-skills/  # croissant-validator, datacard-generator, hdmf-schema-builder, skill-creator, well-convert (5)
 │   ├── baseeval-skills/  # card-eval-updater, configuration-creator, configuration-implementor, configuration-planner, configuration-tester, data-exploration, perlmutter-nemo-eval, perlmutter-nemo-generate (8)
@@ -145,6 +145,7 @@ Individual skills and their directories contain specific attribution details. Th
 - Jong Choi
 - Shreyas Cholia
 - Robin Cosbey
+- Kyle Felker
 - David Florey
 - Ian Foster
 - Steven Goldenberg
