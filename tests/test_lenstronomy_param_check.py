@@ -625,6 +625,17 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(_program(GOOD) + "kwargs_data = data_configure_simple(numPix, deltaPix)\n")
         self.assertEqual({d["field"] for d in comp["diverged"]}, {"exposure_time", "background_rms"})
 
+    def test_annotated_and_augmented_assignments_are_followed(self) -> None:
+        grid = "numPix = 64\n"
+        for added, expected in (("numPix: int = 128\n", {"numPix": 128}),
+                                ("numPix += 64\n", {"numPix": 128})):
+            with self.subTest(added=added.strip()):
+                comp = _compare(self._example().replace(grid, grid + added))
+                self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, expected)
+        comp = _compare(self._example().replace(grid, grid + "numPix //= 1\n"))  # not folded: unresolved
+        self.assertIn("numPix", comp["unresolved"])
+        self.assertTrue(_compare(self._example().replace(grid, "numPix: int = 64\n"))["passed"])
+
     def test_arguments_left_out_of_image_are_missing(self) -> None:
         call = "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
         comp = _compare(self._example().replace(call, "image_model.image(kwargs_lens=kwargs_lens)"))
