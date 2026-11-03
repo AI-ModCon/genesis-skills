@@ -267,6 +267,15 @@ def load_params(raw: Any) -> dict[str, Any]:
             elif value is not None and not _is_finite(value):
                 problems.append(f"kwargs_psf.{key} must be finite")
             norm_psf[key] = value
+        kernel = psf.get("kernel_point_source")
+        if kernel is not None and not (
+            isinstance(kernel, list) and kernel and all(isinstance(row, list) and row for row in kernel)
+            and len({len(row) for row in kernel}) == 1
+            and all(_is_number(v) and _is_finite(v) for row in kernel for v in row)
+        ):
+            problems.append("kwargs_psf.kernel_point_source must be a 2-D list of finite numbers "
+                            "(rows of equal length) or null")
+        norm_psf["kernel_point_source"] = kernel
         out["kwargs_psf"] = norm_psf
 
     for key in ("halo_mass", "axion_mass", "vortex_mass"):
@@ -567,6 +576,16 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
 
     # --- PSF ------------------------------------------------------------------
     psf = params["kwargs_psf"]
+    if psf["psf_type"] == "PIXEL":
+        kernel = psf["kernel_point_source"]
+        if kernel is None:
+            fail("psf_kernel", "a PIXEL PSF needs kernel_point_source, a 2-D list of pixel values "
+                 "(lenstronomy raises a ValueError without one); or use GAUSSIAN with fwhm.")
+        elif sum(sum(row) for row in kernel) > 0:
+            ok("psf_kernel")
+        else:
+            fail("psf_kernel", "kernel_point_source must have a positive sum; lenstronomy "
+                 "normalizes the kernel by it.")
     if psf["psf_type"] in PSF_TYPES:
         ok("psf_type")
     else:

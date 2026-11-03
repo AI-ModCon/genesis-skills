@@ -39,6 +39,7 @@ them `num_pix` and `delta_pix`. Either spelling is accepted here.
 | `psf_type` | `"GAUSSIAN"`, `"PIXEL"` or `"NONE"` |
 | `fwhm` | Full width at half maximum in arcsec; required for `"GAUSSIAN"` |
 | `pixel_size` | Should equal `deltaPix` |
+| `kernel_point_source` | 2-D list of pixel values with a positive sum; required for `"PIXEL"` |
 
 lenstronomy's `PSF` has no `sigma` argument; Gaussian PSFs take `fwhm`.
 

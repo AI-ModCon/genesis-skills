@@ -260,6 +260,19 @@ class ValidatorTests(unittest.TestCase):
                 params["kwargs_source"][0]["sigma"] = 0.1
                 self.assertTrue(_validate(params, preset)["checks"]["gaussian_sigma"])
 
+    def test_pixel_psf_needs_a_kernel(self) -> None:
+        psf = {"psf_type": "PIXEL", "fwhm": None, "pixel_size": 0.08}
+        res = _validate(_good(kwargs_psf=psf), "general")
+        self.assertFalse(res["checks"]["psf_kernel"])
+        self.assertTrue(any("kernel_point_source" in m for m in res["messages"]))
+
+        kernel = [[0.0, 0.1, 0.0], [0.1, 0.6, 0.1], [0.0, 0.1, 0.0]]
+        self.assertTrue(_validate(_good(kwargs_psf=dict(psf, kernel_point_source=kernel)), "general")["passed"])
+        zero = [[0.0] * 3] * 3
+        self.assertFalse(_validate(_good(kwargs_psf=dict(psf, kernel_point_source=zero)), "general")["checks"]["psf_kernel"])
+        with self.assertRaises(V.InputError):
+            V.load_params(_good(kwargs_psf=dict(psf, kernel_point_source=[[1.0, 2.0], [3.0]])))
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):
