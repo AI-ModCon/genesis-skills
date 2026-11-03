@@ -26,6 +26,8 @@ Skills are organized by domain in the `skills/` directory:
 - **BaseData (5):** `skills/basedata-skills/` for Croissant, HDMF, data
   cards, Well conversion, and skill authoring
 - **Plasma Simulation (2):** `skills/plasma-sim-skills/` for GS2 and Gkeyll
+- **Accelerator (1):** `skills/accelerator-skills/` for Bmad, Tao, and PyTao
+  accelerator modeling workflows
 - **AmSC (6):** `skills/amsc-skills/` for data movement, the Python SDK,
   Globus Compute, the i2 LLM API, the IRI API, and skill discovery
 

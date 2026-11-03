@@ -1,0 +1,3 @@
+! Select the optics targets and quadrupole strengths for fitting.
+use data twiss
+use var quad

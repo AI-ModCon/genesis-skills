@@ -17,6 +17,15 @@ LICENSE for that subtree.
 
 Known subtrees with separate licensing at the time of this writing:
 
+  skills/accelerator-skills/bmad-ecosystem/
+                                    Sourced from Ningdong Wang's
+                                    github.com/ndwang/bmad-ecosystem-skill at
+                                    d849de8da2f40031ddfda26be79423519523cc79.
+                                    Licensed GPL-3.0-only under
+                                    skills/accelerator-skills/bmad-ecosystem/LICENSE.
+                                    See
+                                    skills/accelerator-skills/bmad-ecosystem/ATTRIBUTION.md.
+
   skills/academy/                   Maintained as part of the ModCon Base CAF
                                     family. This subtree includes an
                                     Apache-2.0 LICENSE at
