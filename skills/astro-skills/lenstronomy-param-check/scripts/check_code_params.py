@@ -12,8 +12,9 @@ Resolution rules, in order:
   annotated (``name: int = value``) and augmented (``name += value``) ones;
 * constant subscripts of resolved dicts and lists, e.g. ``cfg["fwhm"]``, and
   ``**`` expansions of resolved dicts, applied in order;
-* the lenstronomy objects a name holds: ``LensModel``, ``LightModel``, ``PSF``
-  and ``ImageModel`` calls are followed through assignments.
+* the lenstronomy objects a name holds: ``LensModel``, ``LightModel``, ``PSF``,
+  ``data_configure_simple``, ``ImageData`` and ``ImageModel`` calls are followed
+  through assignments.
 Anything else (other calls, loop variables, attribute reads) is reported as
 UNRESOLVED: never guessed, and an unresolved value does not pass. A None the
 script passes, explicitly or as lenstronomy's default, is compared like any

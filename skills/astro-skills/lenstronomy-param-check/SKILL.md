@@ -117,13 +117,17 @@ A failed code check lists each field with both values:
   wrong list, is reported as unknown. Parameter names were introspected from
   lenstronomy 1.9.2 and 1.14.2, which agree.
 - The code check follows the calls that build the simulation (`LensModel`,
-  `LightModel`, `PSF`, `ImageModel`, `data_configure_simple` and
-  `ImageModel.image`) and falls back to the conventional names (`kwargs_lens`,
-  `lens_model_list`, ...). It follows the script the way it runs: code in a
-  branch that cannot run, or in a function that is never called, does not count.
-  A value that depends on a runtime condition, a loop or an exception is
-  reported as unresolved. It does not follow return values or in-place edits
-  such as `kwargs_lens[0]["theta_E"] = 2`.
+  `LightModel`, `PSF`, `data_configure_simple`, `ImageData`, `ImageModel` and
+  `ImageModel.image`) and checks what the rendering `ImageModel` is given; only
+  a script with no `ImageModel` falls back to the conventional names
+  (`kwargs_lens`, `lens_model_list`, ...). It follows the script the way it
+  runs: code in a branch that cannot run, in a function that is never called,
+  or after a `return` or `sys.exit()` does not count. A value that depends on a
+  runtime condition, a loop or an exception, or that comes from a call it does
+  not follow, is reported as unresolved. It does not follow return values or
+  in-place edits such as `kwargs_lens[0]["theta_E"] = 2`.
+- The `deeplense` preset's SNR estimate covers one source profile; with several
+  it is skipped, since overlapping sources add up.
 
 ## References
 
