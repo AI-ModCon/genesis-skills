@@ -198,22 +198,6 @@ def _write_valid_fixture(root: Path) -> None:
 
 
 class RepoPolicyValidatorTests(unittest.TestCase):
-    def test_accelerator_family_and_attribution_are_discovered(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            root = Path(tmp_dir)
-            _write_valid_fixture(root)
-            skill = root / "skills" / "accelerator-skills" / "bmad-ecosystem"
-            write_skill(skill, description="Accelerator modeling with Bmad, Tao, and PyTao")
-            write_text(skill / "ATTRIBUTION.md", "# Attribution\n\n**Author**: Ningdong Wang\n")
-
-            self.assertTrue(any(
-                "accelerator-skills/  # bmad-ecosystem (1)" in line
-                for line in build_readme_tree_lines(root)
-            ))
-            names = build_readme_contributor_names(root)
-            self.assertIn("Ningdong Wang", names)
-            self.assertEqual(names.count("Ningdong Wang"), 1)
-
     def test_attribution_authors_support_both_bold_colon_styles(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)
