@@ -585,6 +585,23 @@ class CodeCheckRegressionTests(unittest.TestCase):
             "kwargs_numerics=", "lens_light_model_class=lens_light, kwargs_numerics=")
         self.assertTrue(_compare(code)["passed"], _compare(code)["messages"])
 
+    def test_an_argument_the_check_cannot_follow_is_unresolved(self) -> None:
+        # The expected PSF and LensModel are built, but ImageModel is given something else.
+        for old, new, field in (
+            ("    psf_class,\n    lens_model_class", "    get_psf(),\n    lens_model_class", "psf_fwhm"),
+            ("lens_model_class=LensModel(lens_model_list=lens_model_list)",
+             "lens_model_class=make_lens_model(LensModel(lens_model_list=lens_model_list))", "lens_model_list"),
+        ):
+            with self.subTest(field=field):
+                comp = _compare(self._example().replace(old, new))
+                self.assertIn(field, comp["unresolved"])
+
+        # The ImageModel that renders cannot be identified: the one built earlier is not assumed.
+        call = "image = image_model.image("
+        comp = _compare(self._example().replace(call, "image_model = choose_image_model()\n" + call))
+        for field in ("lens_model_list", "source_model_list", "psf_type"):
+            self.assertIn(field, comp["unresolved"])
+
     def test_arguments_left_out_of_image_are_missing(self) -> None:
         call = "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
         comp = _compare(self._example().replace(call, "image_model.image(kwargs_lens=kwargs_lens)"))
