@@ -614,6 +614,17 @@ class CodeCheckRegressionTests(unittest.TestCase):
         code = self._example().replace("ImageData(**kwargs_data)", "ImageData(image_data=np.zeros((64, 64)))")
         self.assertIn("numPix", _compare(code)["unresolved"])
 
+    def test_an_explicit_none_is_kept(self) -> None:
+        # The assignments match, but data_configure_simple is passed None, which lenstronomy uses.
+        code = _program(GOOD) + ("kwargs_data = data_configure_simple(numPix, deltaPix, "
+                                 "exposure_time=None, background_rms=None)\n")
+        comp = _compare(code)
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]},
+                         {"exposure_time": None, "background_rms": None})
+        # Left out, they default to None in lenstronomy too.
+        comp = _compare(_program(GOOD) + "kwargs_data = data_configure_simple(numPix, deltaPix)\n")
+        self.assertEqual({d["field"] for d in comp["diverged"]}, {"exposure_time", "background_rms"})
+
     def test_arguments_left_out_of_image_are_missing(self) -> None:
         call = "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
         comp = _compare(self._example().replace(call, "image_model.image(kwargs_lens=kwargs_lens)"))
