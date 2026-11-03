@@ -233,6 +233,23 @@ class ValidatorTests(unittest.TestCase):
         self.assertIsNone(res["snr_estimate"])
         self.assertNotIn("snr", res["checks"])
 
+    def test_non_finite_numbers_are_schema_errors(self) -> None:
+        # json.loads turns 1e400 into inf and accepts NaN; a 400-digit int overflows a float.
+        for path, value in ((("kwargs_lens", 0, "center_x"), float("inf")),
+                            (("kwargs_lens", 0, "e1"), float("nan")),
+                            (("kwargs_source", 0, "amp"), 10 ** 400),
+                            (("kwargs_data", "exposure_time"), float("inf"))):
+            with self.subTest(field=path):
+                params = _good()
+                target = params
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = value
+                with self.assertRaises(V.InputError) as raised:
+                    V.load_params(params)
+                self.assertTrue(any("finite" in p for p in raised.exception.problems))
+        self.assertEqual(V.load_params(json.loads(json.dumps(GOOD)))["z_lens"], 0.5)
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):

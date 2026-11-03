@@ -3,7 +3,8 @@
 Both scripts read one JSON object. Its structure mirrors the inputs lenstronomy's
 `LensModel`, `LightModel`, `data_configure_simple` and `PSF` take: each model
 list holds profile names, and the matching kwargs list holds one object per
-profile, paired by position.
+profile, paired by position. Every number must be finite: JSON's `1e400` (infinity)
+and `NaN` are rejected.
 
 | Field | Required | Type | Meaning |
 |-------|----------|------|---------|

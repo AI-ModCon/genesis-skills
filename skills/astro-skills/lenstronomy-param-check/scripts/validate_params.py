@@ -167,6 +167,14 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _is_finite(value: Any) -> bool:
+    """JSON can encode infinity (1e400) and NaN, which no range check here catches."""
+    try:
+        return math.isfinite(float(value))
+    except OverflowError:  # an int too large for a float
+        return False
+
+
 def load_params(raw: Any) -> dict[str, Any]:
     """Check the structure of a parameter set and return a normalized copy.
 
@@ -183,6 +191,8 @@ def load_params(raw: Any) -> dict[str, Any]:
             problems.append(f"missing required field '{key}'")
         elif not _is_number(raw[key]):
             problems.append(f"'{key}' must be a number")
+        elif not _is_finite(raw[key]):
+            problems.append(f"'{key}' must be finite")
         else:
             out[key] = raw[key]
 
@@ -205,6 +215,8 @@ def load_params(raw: Any) -> dict[str, Any]:
                 for name, value in kw.items():
                     if not _is_number(value):
                         problems.append(f"{kwargs_key}[{i}].{name} must be a number")
+                    elif not _is_finite(value):
+                        problems.append(f"{kwargs_key}[{i}].{name} must be finite")
             out[kwargs_key] = [dict(kw) for kw in kwargs]
 
     data = raw.get("kwargs_data")
@@ -222,6 +234,8 @@ def load_params(raw: Any) -> dict[str, Any]:
                 problems.append(f"missing required field 'kwargs_data.{camel}'")
             elif not _is_number(value):
                 problems.append(f"kwargs_data.{camel} must be a number")
+            elif not _is_finite(value):
+                problems.append(f"kwargs_data.{camel} must be finite")
             else:
                 norm[camel] = value
         if "numPix" in norm:
@@ -233,6 +247,8 @@ def load_params(raw: Any) -> dict[str, Any]:
             value = data.get(key)
             if value is not None and not _is_number(value):
                 problems.append(f"kwargs_data.{key} must be a number or null")
+            elif value is not None and not _is_finite(value):
+                problems.append(f"kwargs_data.{key} must be finite")
             norm[key] = value
         out["kwargs_data"] = norm
 
@@ -248,6 +264,8 @@ def load_params(raw: Any) -> dict[str, Any]:
             value = psf.get(key)
             if value is not None and not _is_number(value):
                 problems.append(f"kwargs_psf.{key} must be a number or null")
+            elif value is not None and not _is_finite(value):
+                problems.append(f"kwargs_psf.{key} must be finite")
             norm_psf[key] = value
         out["kwargs_psf"] = norm_psf
 
@@ -255,6 +273,8 @@ def load_params(raw: Any) -> dict[str, Any]:
         value = raw.get(key)
         if value is not None and not _is_number(value):
             problems.append(f"'{key}' must be a number or null")
+        elif value is not None and not _is_finite(value):
+            problems.append(f"'{key}' must be finite")
         out[key] = value
 
     if problems:
