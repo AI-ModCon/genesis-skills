@@ -531,6 +531,15 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
             else:
                 fail("sersic_radius", f"R_sersic={kw['R_sersic']} must be positive (arcsec).")
 
+    # --- Gaussian source width ------------------------------------------------
+    for name, kw in zip(params["source_model_list"], params["kwargs_source"]):
+        if name == "GAUSSIAN" and "sigma" in kw:
+            if kw["sigma"] > 0:
+                ok("gaussian_sigma")
+            else:
+                fail("gaussian_sigma", f"GAUSSIAN sigma={kw['sigma']} must be positive (arcsec); "
+                     "a zero-width Gaussian is undefined.")
+
     # --- data / instrument block ---------------------------------------------
     data = params["kwargs_data"]
     if r.numpix_min <= data["numPix"] <= r.numpix_max:

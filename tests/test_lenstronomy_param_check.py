@@ -250,6 +250,16 @@ class ValidatorTests(unittest.TestCase):
                 self.assertTrue(any("finite" in p for p in raised.exception.problems))
         self.assertEqual(V.load_params(json.loads(json.dumps(GOOD)))["z_lens"], 0.5)
 
+    def test_gaussian_source_width_must_be_positive(self) -> None:
+        for preset in ("general", "deeplense"):
+            with self.subTest(preset=preset):
+                params = _good(source_model_list=["GAUSSIAN"],
+                               kwargs_source=[{"amp": 9.9, "sigma": 0.0, "center_x": 0.05, "center_y": 0.05}])
+                res = _validate(params, preset)
+                self.assertFalse(res["checks"]["gaussian_sigma"])
+                params["kwargs_source"][0]["sigma"] = 0.1
+                self.assertTrue(_validate(params, preset)["checks"]["gaussian_sigma"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):
