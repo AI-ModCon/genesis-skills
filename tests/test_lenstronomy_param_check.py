@@ -602,6 +602,18 @@ class CodeCheckRegressionTests(unittest.TestCase):
         for field in ("lens_model_list", "source_model_list", "psf_type"):
             self.assertIn(field, comp["unresolved"])
 
+    def test_the_grid_is_read_from_the_imagedata_that_renders(self) -> None:
+        config = "kwargs_data = sim_util.data_configure_simple(\n    numPix, deltaPix, exposure_time=5400.0, background_rms=0.01\n)"
+        self.assertIn(config, self._example())
+        used_128 = config.replace("numPix, deltaPix", "128, deltaPix")
+        unused_64 = "\ndata_class = ImageData(**kwargs_data)\nunused = sim_util.data_configure_simple(64, 0.08)"
+        code = self._example().replace(config, used_128).replace("\ndata_class = ImageData(**kwargs_data)", unused_64)
+        self.assertEqual({d["field"]: d["actual"] for d in _compare(code)["diverged"]}, {"numPix": 128})
+
+        # An ImageData the check cannot follow leaves the grid unresolved.
+        code = self._example().replace("ImageData(**kwargs_data)", "ImageData(image_data=np.zeros((64, 64)))")
+        self.assertIn("numPix", _compare(code)["unresolved"])
+
     def test_arguments_left_out_of_image_are_missing(self) -> None:
         call = "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
         comp = _compare(self._example().replace(call, "image_model.image(kwargs_lens=kwargs_lens)"))
