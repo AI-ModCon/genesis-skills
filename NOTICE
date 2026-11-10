@@ -82,6 +82,15 @@ Known subtrees with separate licensing at the time of this writing:
                                     descendants. See
                                     skills/plasma-sim-skills/ATTRIBUTION.md.
 
+  skills/accelerator-skills/bmad-ecosystem/
+                                    Sourced from Ningdong Wang's
+                                    github.com/ndwang/bmad-ecosystem-skill at
+                                    d849de8da2f40031ddfda26be79423519523cc79.
+                                    Licensed GPL-3.0-only under
+                                    skills/accelerator-skills/bmad-ecosystem/LICENSE.
+                                    See
+                                    skills/accelerator-skills/bmad-ecosystem/ATTRIBUTION.md.
+
 
 This list is informational and may not be exhaustive. Always check for
 a LICENSE file in any subdirectory before assuming the root license

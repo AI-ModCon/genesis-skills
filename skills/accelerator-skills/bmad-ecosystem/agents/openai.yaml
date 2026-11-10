@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bmad, Tao, and PyTao"
+  short_description: "Accelerator modeling with Bmad, Tao, and PyTao"
+  default_prompt: "Use $bmad-ecosystem to help me build and analyze an accelerator model."

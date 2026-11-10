@@ -50,6 +50,7 @@ ROOT_README_EXTRA_CONTRIBUTORS = (
     "Matt Baughman",
     "Ian Foster",
     "Nathan Hodas",
+    "Ningdong Wang",
     "Stefan Wild",
 )
 
