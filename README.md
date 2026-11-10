@@ -12,7 +12,7 @@ Skills encode domain expertise, connect to scientific data sources, and provide 
 
 Skills are markdown files (`SKILL.md`) with YAML frontmatter that teach an AI agent how to handle domain-specific tasks. Each skill provides:
 
-- **Domain expertise** — Specialized knowledge for literature, HPC, plasma simulation, scientific-data metadata, and AI-system evaluation
+- **Domain expertise** — Specialized knowledge for literature, HPC, plasma and astrophysics simulation, scientific-data metadata, and AI-system evaluation
 - **Tool access** — Permissions to use specific tools (Bash commands, file operations, web APIs)
 - **Structured workflows** — Step-by-step instructions for complex scientific tasks
 - **Supporting resources** — Scripts, templates, and reference materials the agent can use
@@ -94,6 +94,7 @@ genesis-skills/
 ├── skills/
 │   ├── academy/SKILL.md
 │   ├── amsc-skills/  # amsc-data-movement-api, amsc-mag, amsc-python-client, globus-compute, i2-api, iri-api, skill-explorer (7)
+│   ├── astro-sim-skills/  # athenak (1)
 │   ├── basedata-skills/  # croissant-validator, datacard-generator, hdmf-schema-builder, skill-creator, well-convert (5)
 │   ├── baseeval-skills/  # card-eval-updater, configuration-creator, configuration-implementor, configuration-planner, configuration-tester, data-exploration, perlmutter-nemo-eval, perlmutter-nemo-generate (8)
 │   ├── basesafe-skills/  # agentic-vulnerabilities-scan, ai-fingerprint, battleprint, fingerprinting, uncertainty-quantification, uq-metrics-evaluator (6)
@@ -154,6 +155,7 @@ Individual skills and their directories contain specific attribution details. Th
 - Fernando Llorente
 - Kyle Parfrey
 - Reilly Raab
+- David Radice
 - Emily Saldanha
 - Malachi Schram
 - Andrew Tritt
