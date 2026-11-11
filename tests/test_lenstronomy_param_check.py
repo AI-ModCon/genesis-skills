@@ -1166,6 +1166,25 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(EXAMPLE.replace("numPix = 64", "numPix = " + "1 + " * 20000 + "1"))
         self.assertFalse(comp["passed"])
 
+    def test_an_import_replaces_the_value_a_name_had(self) -> None:
+        # The review's case: an import only recorded the module, so deltaPix kept 0.08 and
+        # passed although Python hands pi to both builders.
+        grid = "deltaPix = 0.08\n"
+        for name, code in (("from-import", "from math import pi as deltaPix\n"),
+                           ("import as", "import math as deltaPix\n"),
+                           ("in a function, into a global",
+                            "def load():\n    global deltaPix\n    from math import pi as deltaPix\nload()\n")):
+            with self.subTest(name):
+                comp = _compare(EXAMPLE.replace(grid, grid + code))
+                self.assertFalse(comp["passed"])
+                self.assertEqual(comp["unresolved"], ["deltaPix", "psf_pixel_size"])
+        # The fallback to a conventional name's assignment, used when nothing renders, too.
+        comp = _compare(EXAMPLE.replace(self.RENDER, "from config import kwargs_lens"))
+        self.assertIn("kwargs_lens", comp["unresolved"])
+        # Imports of names the script has not bound are modules, as before.
+        comp = _compare(EXAMPLE.replace(grid, grid + "import numpy as np\nfrom math import pi\n"))
+        self.assertTrue(comp["passed"], comp["messages"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(

@@ -1061,7 +1061,7 @@ class _Walker:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 name = alias.asname or alias.name.split(".")[0]
-                self.set_found(state, f"import:{name}", alias.name if alias.asname else name)
+                self.imported(state, name, alias.name if alias.asname else name)
             return False
         if isinstance(node, ast.ImportFrom):
             module = "." * node.level + (node.module or "")
@@ -1070,7 +1070,7 @@ class _Walker:
                     if module.split(".")[0] != "lenstronomy":
                         self.go_wild(node, f"from {module} import * may rebind any name")
                 else:
-                    self.set_found(state, f"import:{alias.asname or alias.name}", f"{module}.{alias.name}")
+                    self.imported(state, alias.asname or alias.name, f"{module}.{alias.name}")
             return False
         if isinstance(node, ast.If):
             value = _truth(self.eval(node.test, state))
@@ -1146,6 +1146,12 @@ class _Walker:
             for target in node.targets:
                 self.delete(target, state)
         return False
+
+    def imported(self, state: _State, name: str, source: str) -> None:
+        """An import binds ``name`` to a module or something in one: a value the name held is gone."""
+        if name in state.symbols or name in state.frame.shared or name in _CONVENTIONAL:
+            self.bind(ast.Name(id=name, ctx=ast.Store()), UNRESOLVED, state)
+        self.set_found(state, f"import:{name}", source)
 
     def augmented(self, node: ast.AugAssign, state: _State) -> None:
         target = node.target
