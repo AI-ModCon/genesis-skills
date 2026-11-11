@@ -524,6 +524,9 @@ _PURE_BUILTINS = {"print", "len", "repr", "str", "format", "isinstance", "issubc
 _CAPTURING_BUILTINS = {"list", "tuple", "dict", "set", "frozenset", "sorted", "reversed", "iter",
                        "enumerate", "zip", "min", "max", "sum", "next", "filter", "map", "getattr"}
 _PURE_MODULE_CALLS = {"json.dumps", "json.dump", "copy.deepcopy", "pprint.pprint"}
+# Builtins that iterate over a generator they are given before returning (as does str.join).
+_EAGER_BUILTINS = {"list", "tuple", "set", "frozenset", "dict", "sorted", "sum", "min", "max",
+                   "any", "all", "next"}
 # numpy's array constructors: of a nested list of numbers, a copy of it (kept as lists).
 _ARRAY_CALLS = {"np.array", "np.asarray", "numpy.array", "numpy.asarray"}
 _CAPTURING_MODULE_CALLS = {"copy.copy"}
@@ -1518,8 +1521,9 @@ class _Walker:
                       state: _State) -> Any:
         """The first iterable is evaluated once; the rest runs once per item, or never.
 
-        A generator expression passed straight to a call is followed as if consumed right
-        away; one kept for later runs its body when it is consumed, which the check cannot see.
+        A generator expression passed straight to a builtin that consumes it (list(), sum(),
+        str.join() and the like) is followed as if run right away; any other runs its body
+        when it is consumed, which the check cannot see.
         """
         if isinstance(node, ast.GeneratorExp) and id(node) not in self.consumed \
                 and any(isinstance(n, (ast.Call, ast.NamedExpr)) for n in ast.walk(node)):
@@ -1639,9 +1643,11 @@ class _Walker:
         expansions: list[Any] = []
         spread: list[Any] = []
         opaque = False
+        eager = self.is_builtin(func, state) in _EAGER_BUILTINS \
+            or (isinstance(func, ast.Attribute) and func.attr == "join" and isinstance(receiver, str))
         for arg in node.args:
-            if isinstance(arg, ast.GeneratorExp):
-                self.consumed.add(id(arg))
+            if isinstance(arg, ast.GeneratorExp) and eager:
+                self.consumed.add(id(arg))  # run now; any other call may keep it for later
             if isinstance(arg, ast.Starred):
                 value = self.eval(arg.value, state)
                 if isinstance(value, (list, tuple)) and not opaque:

@@ -1199,6 +1199,24 @@ class CodeCheckRegressionTests(unittest.TestCase):
         code = "match numPix:\n    case 64 if numPix > 0:\n        print('ok')\n    case [first] if first:\n        pass"
         self.assertTrue(self._before_render(code)["passed"])  # a guard without effects
 
+    def test_a_generator_passed_to_a_call_may_run_later(self) -> None:
+        # The review's case: every generator passed to a call was taken as consumed there, so a
+        # wrong render deferred by iter() and run after the real one passed.
+        wrong = 'wrong = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+        bad = "(image_model.image(kwargs_lens=wrong, kwargs_source=kwargs_source) for _ in range(1))"
+        for keep in ("iter", "map(print, ", "zip(", "enumerate", "keep"):
+            with self.subTest(keep):
+                call = f"{keep}{bad})" if keep.endswith(" ") or keep.endswith("(") else f"{keep}({bad})"
+                code = wrong + f"pending = {call}\n" + self.RENDER + "\nlist(pending)"
+                comp = _compare(EXAMPLE.replace(self.RENDER, code))
+                self.assertFalse(comp["passed"])
+                self.assertIn("kwargs_lens", comp["unresolved"])
+        for code in ("names = sorted(str(k) for k in kwargs_lens[0])",
+                     "peak = max(abs(kw['theta_E']) for kw in kwargs_lens)",
+                     "ok = all(isinstance(k, str) for k in kwargs_lens[0])"):
+            with self.subTest(code):
+                self.assertTrue(self._before_render(code)["passed"])  # consumed right away
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
