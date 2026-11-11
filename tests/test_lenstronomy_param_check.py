@@ -316,6 +316,19 @@ class ValidatorTests(unittest.TestCase):
         self.assertIsNone(res["snr_estimate"])
         self.assertTrue(res["passed"], res["messages"])
 
+    def test_snr_is_not_estimated_for_a_pixel_psf(self) -> None:
+        # A PIXEL PSF has no fwhm; the estimate used to treat it as no blur at all, so two
+        # very different kernels got the same estimate.
+        sharp = [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]
+        wide = [[1.0] * 3] * 3
+        for kernel in (sharp, wide):
+            with self.subTest(kernel=kernel):
+                res = _validate(_good(kwargs_psf={"psf_type": "PIXEL", "pixel_size": 0.08,
+                                                  "kernel_point_source": kernel}))
+                self.assertNotIn("snr", res["checks"])
+                self.assertIsNone(res["snr_estimate"])
+                self.assertTrue(res["passed"], res["messages"])
+
     def test_blurred_centre_matches_the_gaussian_closed_form(self) -> None:
         # A Gaussian of width s blurred by widths (sr, st) peaks at s^2 / sqrt((s^2+sr^2)(s^2+st^2)).
         for s, sr, st in ((0.1, 0.04, 0.04), (0.05, 0.08, 0.002), (0.3, 0.02, 0.01)):

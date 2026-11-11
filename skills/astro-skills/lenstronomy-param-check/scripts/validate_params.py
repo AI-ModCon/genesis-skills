@@ -398,9 +398,10 @@ def _estimate_snr(params: dict[str, Any], noise_excess: float) -> float | None:
     model and its calibration are the recipe's, which is why only the deeplense
     preset uses the estimate. A parameter set with several source profiles is not
     estimated: their light can overlap and add up, so the brightest one alone would
-    understate the peak.
+    understate the peak. Nor is a PIXEL PSF: its blur is the kernel, which the
+    Gaussian blur here cannot stand in for.
     """
-    if len(params["kwargs_source"]) > 1:
+    if len(params["kwargs_source"]) > 1 or params["kwargs_psf"]["psf_type"] == "PIXEL":
         return None
     data = params["kwargs_data"]
     exposure, rms = data["exposure_time"], data["background_rms"]
