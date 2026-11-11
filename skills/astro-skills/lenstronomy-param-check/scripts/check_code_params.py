@@ -449,15 +449,20 @@ class _Dead(Exception):
 
 
 class _State:
-    """The names bound on one control-flow path, and what that path built and rendered."""
+    """The names bound on one control-flow path, and what that path built and rendered.
 
-    def __init__(self, symbols: dict[str, Any] | None = None,
-                 found: dict[str, Any] | None = None) -> None:
+    ``scope`` tells the module (0) from each function call; ``shared`` is the names
+    that call declares ``global``.
+    """
+
+    def __init__(self, symbols: dict[str, Any] | None = None, found: dict[str, Any] | None = None,
+                 scope: int = 0, shared: frozenset[str] = frozenset()) -> None:
         self.symbols: dict[str, Any] = dict(symbols or {})
         self.found: dict[str, Any] = dict(found or {})
+        self.scope, self.shared = scope, shared
 
     def copy(self) -> _State:
-        return _State(self.symbols, self.found)
+        return _State(self.symbols, self.found, self.scope, self.shared)
 
     def take(self, other: _State) -> None:
         self.symbols, self.found = other.symbols, other.found
@@ -469,7 +474,7 @@ def _merge(paths: list[_State], dropped: list[Any] | None = None) -> _State:
     The values that differ are appended to ``dropped``: what they hold can now be
     reached only through an UNRESOLVED value.
     """
-    merged = _State()
+    merged = _State(scope=paths[0].scope, shared=paths[0].shared)
     for attr in ("symbols", "found"):
         tables = [getattr(p, attr) for p in paths]
         out = getattr(merged, attr)
@@ -517,6 +522,26 @@ class _Walker:
         self.program_exits: list[_State] = []
         self.swaps: list[tuple[Any, Any]] = []  # every (old, new) object swap, in order
         self.escaped: dict[int, Any] = {}  # objects reachable through a value the check does not know
+        self.writes: list[set[tuple[Any, ...]]] = []  # what each running try body has assigned
+        self.scopes = 0
+
+    # --- writes -------------------------------------------------------------------
+
+    def set_symbol(self, state: _State, name: str, value: Any) -> None:
+        state.symbols[name] = value
+        if self.writes:
+            where = ("global",) if state.scope == 0 or name in state.shared else ("local", state.scope)
+            self.logged((*where, name), value)
+
+    def set_found(self, state: _State, key: str, value: Any) -> None:
+        state.found[key] = value
+        if self.writes:
+            self.logged(("found", key), value)
+
+    def logged(self, entry: tuple[Any, ...], value: Any) -> None:
+        for log in self.writes:
+            log.add(entry)
+        self.escape(value)  # a handler may see it under a name that is UNRESOLVED there
 
     # --- objects ------------------------------------------------------------------
 
@@ -627,10 +652,10 @@ class _Walker:
     def _statement(self, node: ast.stmt, state: _State) -> bool:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             self.functions[node.name] = node  # the body runs only where it is called
-            state.symbols[node.name] = UNRESOLVED
+            self.set_symbol(state, node.name, UNRESOLVED)
             return False
         if isinstance(node, ast.ClassDef):
-            state.symbols[node.name] = UNRESOLVED
+            self.set_symbol(state, node.name, UNRESOLVED)
             return False
         if isinstance(node, ast.If):
             value = _truth(self.eval(node.test, state))
@@ -653,7 +678,7 @@ class _Walker:
             for case in node.cases:
                 path = state.copy()
                 for name in _names_bound(case.pattern):
-                    path.symbols[name] = UNRESOLVED
+                    self.set_symbol(path, name, UNRESOLVED)
                 cases.append((case.body, path))
             return self.branches([*cases, ([], state.copy())], state)  # or no case matches
         if isinstance(node, ast.Expr):
@@ -816,25 +841,52 @@ class _Walker:
         return False
 
     def attempt(self, node: ast.AST, state: _State) -> bool:
-        """try/except: a handler may start from any point in the body."""
-        before = state.copy()
-        ended = self.block(node.body, state) or self.block(node.orelse, state)
+        """try/except/else/finally.
+
+        An exception can stop the body anywhere, in a function it calls too, so a handler
+        starts from the state before the body with everything the body assigned or built
+        UNRESOLVED and every edit it made to an object kept (see ``handler_entry``).
+        """
+        before, since = state.copy(), len(self.swaps)
+        self.writes.append(set())
+        ended = self.block(node.body, state)
+        writes = self.writes.pop()
+        ended = ended or self.block(node.orelse, state)  # the handlers do not cover the else block
         paths = [] if ended else [state.copy()]
         for handler in node.handlers:
-            path = self.merge([before, state])
+            path = self.handler_entry(before, since, writes)
+            try:
+                if handler.type is not None:
+                    self.eval(handler.type, path)
+            except _Dead:
+                continue
             if handler.name:
-                path.symbols[handler.name] = UNRESOLVED
+                self.set_symbol(path, handler.name, UNRESOLVED)
             if not self.block(handler.body, path):
                 paths.append(path)
         if paths:
             state.take(self.merge(paths))
         return self.block(node.finalbody, state) or not paths
 
+    def handler_entry(self, before: _State, since: int, writes: set[tuple[Any, ...]]) -> _State:
+        """The state an except handler may start from: ``before`` with the body's edits to
+        objects replayed and everything the body wrote UNRESOLVED."""
+        entry = before.copy()
+        self.replay(entry, since)
+        for kind, *where in writes:
+            table = entry.found if kind == "found" else entry.symbols
+            if kind == "local" and where[0] != entry.scope:
+                continue  # a variable of a function the body called
+            key = where[-1]
+            self.escape(table.get(key))
+            table[key] = UNRESOLVED
+        return entry
+
     def bind(self, target: ast.AST, value: Any, state: _State) -> None:
         if isinstance(target, ast.Name):
-            state.symbols[target.id] = value
+            self.set_symbol(state, target.id, value)
             if target.id in _CONVENTIONAL:
-                state.found[f"assigned:{_CONVENTIONAL[target.id]}"] = value
+                self.set_found(state, f"assigned:{_CONVENTIONAL[target.id]}", value)
         elif isinstance(target, (ast.Tuple, ast.List)):
             parts = list(value) if isinstance(value, (list, tuple)) else None
             starred = any(isinstance(el, ast.Starred) for el in target.elts)
@@ -991,7 +1043,7 @@ class _Walker:
                 if i:
                     self.escape(self.eval(gen.iter, path))
                 for name in _names_bound(gen.target):
-                    path.symbols[name] = UNRESOLVED
+                    self.set_symbol(path, name, UNRESOLVED)
                 for condition in gen.ifs:
                     self.eval(condition, path)
             parts = (node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,)
@@ -1006,7 +1058,7 @@ class _Walker:
                 if value is _ABSENT:
                     state.symbols.pop(name, None)
                 else:
-                    state.symbols[name] = value
+                    self.set_symbol(state, name, value)
             if _same_state(before, state):
                 break
         return UNRESOLVED
@@ -1099,19 +1151,19 @@ class _Walker:
 
     def call(self, node: ast.Call, receiver: Any, args: _Args, state: _State) -> Any:
         """What a call returns, as far as the check follows it."""
-        func, found = node.func, state.found
+        func = node.func
         name = _call_name(func)
         if name in _BUILDERS:
             built = _build(name, args)
             key = f"built:{name}"
-            previous = found.get(key, ())
-            found[key] = UNRESOLVED if previous == UNRESOLVED else previous + (built,)
+            previous = state.found.get(key, ())
+            self.set_found(state, key, UNRESOLVED if previous == UNRESOLVED else previous + (built,))
             return built
         if name == "image" and isinstance(func, ast.Attribute):
             bound = args.bind(_PARAMETERS["image"])
-            found["rendered"] = _Render(_snapshot(bound.get("kwargs_lens", _MISSING)),
-                                        _snapshot(bound.get("kwargs_source", _MISSING)),
-                                        _snapshot(receiver))
+            self.set_found(state, "rendered", _Render(_snapshot(bound.get("kwargs_lens", _MISSING)),
+                                                      _snapshot(bound.get("kwargs_source", _MISSING)),
+                                                      _snapshot(receiver)))
             return UNRESOLVED
         if _is_exit_call(node):
             self.program_exits.append(state.copy())
@@ -1184,23 +1236,25 @@ class _Walker:
         for extra in [*args.positional[len(positional):], *args.spread,
                       *(v for k, v in args.keywords.items() if k not in named)]:
             self.escape(extra)  # it goes to *args or **kwargs, which are UNRESOLVED
-        local = _State(state.symbols, state.found)
+        shared = frozenset(n for node in ast.walk(fn) if isinstance(node, ast.Global) for n in node.names)
+        self.scopes += 1
+        local = _State(state.symbols, state.found, self.scopes, shared)
         defaults = dict(zip(positional[len(positional) - len(a.defaults):], a.defaults))
         defaults.update({p.arg: d for p, d in zip(a.kwonlyargs, a.kw_defaults) if d is not None})
         for p in (*positional, *(k.arg for k in a.kwonlyargs)):
             if p in given:
-                local.symbols[p] = given[p]
+                value = given[p]
             elif p in defaults:
                 try:
-                    local.symbols[p] = self.eval(defaults[p], state.copy())
+                    value = self.eval(defaults[p], state.copy())
                 except _Dead:
-                    local.symbols[p] = UNRESOLVED
+                    value = UNRESOLVED
             else:
-                local.symbols[p] = UNRESOLVED
+                value = UNRESOLVED
+            self.set_symbol(local, p, value)
         for extra in (a.vararg, a.kwarg):
             if extra is not None:
-                local.symbols[extra.arg] = UNRESOLVED
-        shared = {n for node in ast.walk(fn) if isinstance(node, ast.Global) for n in node.names}
+                self.set_symbol(local, extra.arg, UNRESOLVED)
         since = len(self.swaps)
         self.active.append(fn.name)
         self.returns.append([])
@@ -1213,7 +1267,7 @@ class _Walker:
         final = self.merge(paths)
         state.found = final.found
         for name in shared & set(final.symbols):
-            state.symbols[name] = final.symbols[name]
+            self.set_symbol(state, name, final.symbols[name])
         self.replay(state, since)  # what it changed in the objects it was given
         return UNRESOLVED
 

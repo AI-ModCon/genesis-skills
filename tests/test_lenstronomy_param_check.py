@@ -858,6 +858,35 @@ class CodeCheckRegressionTests(unittest.TestCase):
                                         "kwargs_source=kwargs_source)"))
         self.assertTrue(comp["passed"], comp["messages"])
 
+    def test_an_except_handler_may_start_anywhere_in_the_try_body(self) -> None:
+        # Bad kwargs, an exception, then good kwargs: the handler sees the bad ones, but the
+        # check joined only the states before and after the whole body, which both had good ones.
+        lens = 'kwargs_lens = [{"theta_E": 1.0, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]'
+        wrong = lens.replace('"theta_E": 1.0', '"theta_E": 2.5')
+        indent = lambda code: "".join(f"    {line}\n" for line in code.splitlines())
+        cases = {
+            "in the body": (lens, lens + "\ntry:\n" + indent(wrong + "\n1 / 0\n" + lens)
+                            + "except ZeroDivisionError:\n    pass", "kwargs_lens"),
+            "a number in the body": ("numPix = 64\n", "numPix = 64\ntry:\n    numPix = 128\n    1 / 0\n"
+                                     "    numPix = 64\nexcept ZeroDivisionError:\n    pass\n", "numPix"),
+            "in a function it calls": (
+                self.RENDER, self.RENDER + "\ndef risky():\n" + indent(
+                    wrong + "\nimage_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
+                    "\nmaybe_fail()\n" + lens + "\n" + self.RENDER)
+                + "try:\n    risky()\nexcept Exception:\n    pass", "kwargs_lens"),
+            "a global set in a function": (
+                "numPix = 64\n", "numPix = 64\ndef setup():\n    global numPix\n    numPix = 128\n"
+                "    maybe_fail()\n    numPix = 64\ntry:\n    setup()\nexcept Exception:\n    pass\n", "numPix"),
+        }
+        for name, (old, new, field) in cases.items():
+            with self.subTest(name):
+                self.assertIn(old, EXAMPLE)
+                comp = _compare(EXAMPLE.replace(old, new, 1))
+                self.assertIn(field, comp["unresolved"])
+        # A handler that re-raises or exits ends its path, so it does not matter.
+        guarded = EXAMPLE.replace(lens, "try:\n    " + lens + "\nexcept Exception:\n    raise")
+        self.assertTrue(_compare(guarded)["passed"], _compare(guarded)["messages"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
