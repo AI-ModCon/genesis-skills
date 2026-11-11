@@ -242,7 +242,17 @@ def _truth(value: Any) -> bool | None:
 # everywhere on that control-flow path (see _Walker.swap). Other paths, and earlier
 # snapshots, keep the original.
 
-_MUTABLE = (list, dict, _Built)
+@dataclass(eq=False)
+class _Function:
+    """A function the script defines: its definition, the call (scope) it was defined in,
+    and its default argument values, evaluated once when the ``def`` ran."""
+
+    node: ast.FunctionDef | ast.AsyncFunctionDef
+    scope: int
+    defaults: dict[str, Any]
+
+
+_MUTABLE = (list, dict, _Built, _Function)
 
 
 def _children(value: Any) -> list[Any]:
@@ -252,6 +262,8 @@ def _children(value: Any) -> list[Any]:
         return list(value.values())
     if isinstance(value, _Built):
         return list(value.fields.values())
+    if isinstance(value, _Function):
+        return list(value.defaults.values())
     return []
 
 
@@ -297,7 +309,7 @@ def _snapshot(value: Any) -> Any:
         return {k: _snapshot(v) for k, v in value.items()}
     if isinstance(value, _Built):
         return _Built(value.kind, {k: _snapshot(v) for k, v in value.fields.items()})
-    return value
+    return value  # a function is kept as it is
 
 
 class _Replacer:
@@ -328,6 +340,10 @@ class _Replacer:
             items = {k: self(v) for k, v in value.items()}
             if any(items[k] is not v for k, v in value.items()):
                 new = items
+        elif isinstance(value, _Function):  # a default argument shared by every call
+            defaults = {k: self(v) for k, v in value.defaults.items()}
+            if any(defaults[k] is not v for k, v in value.defaults.items()):
+                new = _Function(value.node, value.scope, defaults)
         else:
             fields = {}
             for k, v in value.fields.items():
@@ -462,14 +478,6 @@ def _root(node: ast.AST) -> ast.AST:
 
 class _Dead(Exception):
     """A call never returns: the path it is on ends there."""
-
-
-@dataclass(eq=False)
-class _Function:
-    """A function the script defines: its definition, and the call (scope) it was defined in."""
-
-    node: ast.FunctionDef | ast.AsyncFunctionDef
-    scope: int
 
 
 @dataclass(frozen=True)
@@ -760,8 +768,17 @@ class _Walker:
 
     def _statement(self, node: ast.stmt, state: _State) -> bool:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            # The body runs only where it is called, seeing the names of the scope it is defined in.
-            self.set_symbol(state, node.name, _Function(node, state.frame.scope))
+            # The body runs only where it is called, seeing the names of the scope it is defined
+            # in; the default values are evaluated now, once.
+            a = node.args
+            positional = [p.arg for p in (*a.posonlyargs, *a.args)]
+            defaults = {}
+            for name, default in zip(positional[len(positional) - len(a.defaults):], a.defaults):
+                defaults[name] = self.eval(default, state)
+            for p, default in zip(a.kwonlyargs, a.kw_defaults):
+                if default is not None:
+                    defaults[p.arg] = self.eval(default, state)
+            self.set_symbol(state, node.name, _Function(node, state.frame.scope, defaults))
             return False
         if isinstance(node, ast.ClassDef):
             self.set_symbol(state, node.name, UNRESOLVED)
@@ -1404,19 +1421,8 @@ class _Walker:
                 local.symbols.pop(name, None)
         for name in local_names:
             local.symbols[name] = UNRESOLVED  # unbound until the body assigns it
-        defaults = dict(zip(positional[len(positional) - len(a.defaults):], a.defaults))
-        defaults.update({p.arg: d for p, d in zip(a.kwonlyargs, a.kw_defaults) if d is not None})
         for p in (*positional, *(k.arg for k in a.kwonlyargs)):
-            if p in given:
-                value = given[p]
-            elif p in defaults:
-                try:
-                    value = self.eval(defaults[p], state.copy())
-                except _Dead:
-                    value = UNRESOLVED
-            else:
-                value = UNRESOLVED
-            self.set_symbol(local, p, value)
+            self.set_symbol(local, p, given[p] if p in given else fn.defaults.get(p, UNRESOLVED))
         for extra in (a.vararg, a.kwarg):
             if extra is not None:
                 self.set_symbol(local, extra.arg, UNRESOLVED)

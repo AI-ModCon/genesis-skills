@@ -940,6 +940,25 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(EXAMPLE.replace(self.RENDER, unbound))
         self.assertIn("kwargs_lens", comp["unresolved"])
 
+    def test_default_arguments_are_evaluated_when_the_function_is_defined(self) -> None:
+        # Defaults were resolved with the names at the call, so rebinding default_lens to the
+        # expected kwargs after `def render(actual=default_lens)` certified the wrong default.
+        wrong = '[{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]'
+        render = "image_model.image(kwargs_lens=actual, kwargs_source=kwargs_source)"
+        code = (f"default_lens = {wrong}\ndef render(actual=default_lens):\n    {render}\n"
+                "default_lens = kwargs_lens\nrender()")
+        comp = _compare(EXAMPLE.replace(self.RENDER, code))
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"kwargs_lens[0].theta_E": 2.5})
+        comp = _compare(EXAMPLE.replace(self.RENDER, code.replace("render()", "render(kwargs_lens)")))
+        self.assertTrue(comp["passed"], comp["messages"])
+
+        # A default list is one object shared by every call: an edit in one call is seen by the next.
+        good = '[{"theta_E": 1.0, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]'
+        shared = f"def render(actual={good}):\n    {render}\n    actual[0]['theta_E'] = 2.5\nrender()"
+        self.assertTrue(_compare(EXAMPLE.replace(self.RENDER, shared))["passed"])  # edited after rendering
+        comp = _compare(EXAMPLE.replace(self.RENDER, shared + "\nrender()"))
+        self.assertEqual(comp["unresolved"], ["kwargs_lens[0].theta_E"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
