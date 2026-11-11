@@ -1077,6 +1077,95 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(EXAMPLE.replace("fwhm=0.15, pixel_size=deltaPix)", "fwhm=0.15, pixel_size=deltaPix, truncation=t)"))
         self.assertIn("PSF.truncation", comp["unresolved"])
 
+    def test_code_the_check_cannot_follow_leaves_everything_unresolved(self) -> None:
+        # The script's own code that runs at a time the check cannot know (a callback, a
+        # decorator, a lambda, a generator, a method, recursion) and code that changes Python or
+        # lenstronomy itself can render or edit anything, so nothing can be certified.
+        wrong = 'wrong = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+        bad = "image_model.image(kwargs_lens=wrong, kwargs_source=kwargs_source)"
+        cases = {
+            "a callback": f"def late():\n    {bad}\natexit.register(late)",
+            "a returned closure": f"def make():\n    def render():\n        {bad}\n    return render\nmake()()",
+            "a decorator": f"@register\ndef render():\n    {bad}",
+            "a lambda": f"render = lambda: {bad}\nrender()",
+            "a generator kept for later": f"later = ({bad} for _ in range(1))\nlist(later)",
+            "a generator function": f"def frames():\n    yield {bad}\nfor _ in frames():\n    pass",
+            "a method": f"class Sim:\n    def run(self):\n        {bad}\nSim().run()",
+            "recursion": f"def again(n):\n    if n:\n        again(n - 1)\n    {bad}\nagain(2)",
+            "exec": f"exec({bad!r})",
+            "globals()": "globals()['kwargs_lens'] = wrong",
+            "patching lenstronomy": "sim_util.data_configure_simple = lambda *a, **k: {}",
+            "patching numpy": "np.exp = abs",
+            "setattr on lenstronomy": "setattr(sim_util, 'data_configure_simple', None)",
+            "mock.patch": "unittest.mock.patch('lenstronomy.ImSim.image_model.ImageModel.image').start()",
+        }
+        for name, code in cases.items():
+            with self.subTest(name):
+                comp = _compare(EXAMPLE.replace(self.RENDER, wrong + code + "\n" + self.RENDER))
+                self.assertFalse(comp["passed"])
+                self.assertIn("kwargs_lens", comp["unresolved"])
+                self.assertTrue(comp["messages"][0].startswith("The check cannot follow this script"))
+
+        # Their harmless forms still pass.
+        for code in ("order = sorted(kwargs_lens, key=lambda kw: kw['theta_E'])",
+                     "class Config:\n    def __init__(self, n):\n        self.n = n\nConfig(1)",
+                     "def pairs():\n    yield 1\nfor _ in pairs():\n    pass",
+                     "total = sum(kw['theta_E'] for kw in kwargs_lens)",
+                     "plt.rcParams['font.size'] = 12"):
+            with self.subTest(code):
+                comp = _compare(EXAMPLE.replace(self.RENDER, code + "\n" + self.RENDER))
+                self.assertTrue(comp["passed"], comp["messages"])
+
+    def test_exit_status_names_imports_and_context_managers(self) -> None:
+        render = "image_model.image(kwargs_lens={}, kwargs_source=kwargs_source)"
+        wrong = 'wrong = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+        # sys.exit(1) is a failed run, like a raise, so a guard around the render that exits does
+        # not leave it unresolved; raise SystemExit(0) is a successful end, like sys.exit(0).
+        guarded = EXAMPLE.replace(self.RENDER, "try:\n    " + self.RENDER
+                                  + "\nexcept Exception as exc:\n    print(exc)\n    sys.exit(1)")
+        self.assertTrue(_compare(guarded)["passed"], _compare(guarded)["messages"])
+        code = wrong + render.format("wrong") + "\nraise SystemExit(0)\n" + self.RENDER
+        comp = _compare(EXAMPLE.replace(self.RENDER, code))
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"kwargs_lens[0].theta_E": 2.5})
+
+        # A name the script defines or imports from elsewhere is not lenstronomy's, nor a builtin.
+        psf = 'psf_class = PSF(psf_type="GAUSSIAN", fwhm=0.15, pixel_size=deltaPix)'
+        for prelude, field in (("def PSF(**kwargs):\n    return None\n", "psf_type"),
+                               ("from mylib import PSF\n", "psf_type"),
+                               ("from mylib import *\n", "psf_type")):  # it may rebind any name
+            with self.subTest(prelude):
+                comp = _compare(EXAMPLE.replace(psf, prelude + psf))
+                self.assertFalse(comp["passed"])
+                self.assertIn(field, comp["unresolved"] + comp["missing"])
+        code = "def exit():\n    pass\nexit()\n" + self.RENDER  # the script's own exit() does not end it
+        self.assertTrue(_compare(EXAMPLE.replace(self.RENDER, code))["passed"])
+        comp = _compare(EXAMPLE.replace(self.RENDER, "from mylib import print\nprint(kwargs_lens)\n" + self.RENDER))
+        self.assertIn("kwargs_lens", comp["unresolved"])  # not the builtin, so it may change its argument
+
+        # Imports inside a function stay modules.
+        code = EXAMPLE.split('"""\n', 1)[1]  # everything after the docstring, imports included
+        indented = "".join(f"    {line}\n" for line in code.splitlines())
+        comp = _compare("def main():\n" + indented + "\nmain()\n")
+        self.assertTrue(comp["passed"], comp["messages"])
+
+        # A context manager that may swallow an exception leaves what its block did unresolved.
+        code = (wrong + "with contextlib.suppress(Exception):\n    " + render.format("wrong")
+                + "\n    maybe_fail()\n    " + render.format("kwargs_lens"))
+        self.assertIn("kwargs_lens", _compare(EXAMPLE.replace(self.RENDER, code))["unresolved"])
+        code = "with open('log.txt', 'w') as log:\n    " + self.RENDER
+        self.assertTrue(_compare(EXAMPLE.replace(self.RENDER, code))["passed"])
+
+        # A *expansion of unknown length leaves the positions of the items after it unknown.
+        comp = _compare(EXAMPLE.replace("kwargs_lens = [{", "kwargs_lens = [*extra, {"))
+        self.assertIn("kwargs_lens", comp["unresolved"])
+
+    def test_scripts_python_would_reject_or_that_nest_too_deep(self) -> None:
+        comp = _compare(EXAMPLE + "\nreturn 1\n")
+        self.assertEqual(comp["missing"], ["<script>"])
+        self.assertIn("not parseable", comp["messages"][0])
+        comp = _compare(EXAMPLE.replace("numPix = 64", "numPix = " + "1 + " * 20000 + "1"))
+        self.assertFalse(comp["passed"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(

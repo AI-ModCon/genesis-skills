@@ -209,6 +209,7 @@ class _Extracted:
     """What the AST walk recovered from the script (_MISSING = not found)."""
 
     def __init__(self) -> None:
+        self.notes: list[str] = []  # why every value is unresolved, when it is
         self.lens_model_list: Any = _MISSING
         self.source_model_list: Any = _MISSING
         self.kwargs_lens: Any = _MISSING
@@ -558,6 +559,77 @@ def _names_bound(target: ast.AST) -> list[str]:
     return names
 
 
+def _scope_imports(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """The names a function's body imports (not those of nested functions or classes)."""
+    out: set[str] = set()
+
+    def walk(n: ast.AST) -> None:
+        if isinstance(n, (ast.Import, ast.ImportFrom)):
+            out.update((a.asname or a.name).split(".")[0] for a in n.names if a.name != "*")
+        if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            for child in ast.iter_child_nodes(n):
+                walk(child)
+    for stmt in fn.body:
+        walk(stmt)
+    return out
+
+
+def _may_have_effects(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda) -> bool:
+    """Whether running a function could change what the check follows.
+
+    It could when it calls anything, declares global or nonlocal names, or assigns or
+    deletes through a subscript or attribute, except an attribute of its first
+    argument (``self.x = x`` in a method).
+    """
+    args = node.args.posonlyargs + node.args.args
+    first = args[0].arg if args and not isinstance(node, ast.Lambda) else None
+    for sub in ast.walk(node.body if isinstance(node, ast.Lambda) else ast.Module(node.body, [])):
+        if isinstance(sub, (ast.Call, ast.Global, ast.Nonlocal, ast.NamedExpr, ast.YieldFrom, ast.Await)):
+            return True
+        if isinstance(sub, (ast.Subscript, ast.Attribute)) and isinstance(sub.ctx, (ast.Store, ast.Del)):
+            if not (isinstance(sub, ast.Attribute) and isinstance(sub.value, ast.Name) and sub.value.id == first):
+                return True
+    return False
+
+
+def _is_generator(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """A generator or coroutine function: calling it does not run its body."""
+    if isinstance(node, ast.AsyncFunctionDef):
+        return True
+
+    def walk(n: ast.AST) -> bool:
+        if isinstance(n, (ast.Yield, ast.YieldFrom)):
+            return True
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            return False
+        return any(walk(c) for c in ast.iter_child_nodes(n))
+    return any(walk(stmt) for stmt in node.body)
+
+
+def _exit_status(args: _Args) -> bool | None:
+    """Whether sys.exit(...) with these arguments ends the run successfully (None: unknown)."""
+    if args.opaque or args.keywords:
+        return None
+    if not args.positional:
+        return True
+    code = args.positional[0]
+    if _unknown(code):
+        return None
+    return code is None or (isinstance(code, int) and code == 0)
+
+
+# Libraries whose own functions lenstronomy relies on: a script that changes them is not
+# followed. Names it uses without importing them are taken to be lenstronomy's.
+_PATCHED_ROOTS = {"lenstronomy", "numpy", "scipy", "astropy"}
+# Code that runs or reaches Python source and namespaces the check cannot see.
+_DYNAMIC_BUILTINS = {"exec", "eval", "globals", "locals", "vars", "breakpoint"}
+# Context managers known not to swallow an exception raised in their with block.
+_PLAIN_CONTEXTS = {"open", "io.open", "gzip.open", "bz2.open", "lzma.open", "tarfile.open",
+                   "zipfile.ZipFile", "tempfile.TemporaryDirectory", "tempfile.NamedTemporaryFile",
+                   "tempfile.TemporaryFile", "h5py.File", "numpy.errstate", "np.errstate",
+                   "warnings.catch_warnings", "contextlib.nullcontext", "threading.Lock", "threading.RLock"}
+
+
 def _redirects(stmts: list[ast.stmt]) -> bool:
     """Whether the block can return, or break or continue a loop that encloses it."""
     def walk(node: ast.AST, in_loop: bool) -> bool:
@@ -597,7 +669,8 @@ _MODULE = _Frame()
 
 
 def _scope_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[frozenset[str], frozenset[str]]:
-    """A function's ``global`` names and its local names, as Python decides them.
+    """A function's ``global`` names and its local names, as Python decides them (names it
+    only imports are left out: they stay modules, as the check treats them).
 
     A name the function binds anywhere in its body is local to it everywhere in the body,
     unless it is declared global or nonlocal; nested functions, classes, lambdas and
@@ -608,6 +681,7 @@ def _scope_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[frozenset[
         return cached
     declared_global: set[str] = set()
     declared_nonlocal: set[str] = set()
+    imported: set[str] = set()
     bound = {p.arg for p in (*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs,
                              fn.args.vararg, fn.args.kwarg) if p is not None}
 
@@ -628,7 +702,7 @@ def _scope_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[frozenset[
         elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             bound.add(node.id)
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            bound.update((a.asname or a.name).split(".")[0] for a in node.names if a.name != "*")
+            imported.update((a.asname or a.name).split(".")[0] for a in node.names if a.name != "*")
         elif isinstance(node, ast.ExceptHandler) and node.name:
             bound.add(node.name)
         elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
@@ -640,7 +714,7 @@ def _scope_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[frozenset[
 
     for stmt in fn.body:
         visit(stmt)
-    result = (frozenset(declared_global), frozenset(bound - declared_global - declared_nonlocal))
+    result = (frozenset(declared_global), frozenset(bound - declared_global - declared_nonlocal - imported))
     fn._param_check_scope = result  # type: ignore[attr-defined]
     return result
 
@@ -731,6 +805,14 @@ class _Walker:
         self.escaped: dict[int, Any] = {}  # objects reachable through a value the check does not know
         self.writes: list[set[tuple[Any, ...]]] = []  # what each running try body has assigned
         self.scopes = 0
+        self.wild: list[str] = []  # why the script cannot be followed, if it cannot
+        self.consumed: set[int] = set()  # generator expressions passed straight to a call
+
+    def go_wild(self, node: ast.AST, reason: str) -> None:
+        """The script runs its own code at a time the check cannot know: nothing is certain."""
+        note = f"line {getattr(node, 'lineno', '?')}: {reason}"
+        if note not in self.wild:
+            self.wild.append(note)
 
     # --- writes -------------------------------------------------------------------
 
@@ -801,6 +883,9 @@ class _Walker:
         """What the value holds can now be reached through a value the check does not know."""
         for obj in _reachable(value):
             self.escaped[id(obj)] = obj
+            if isinstance(obj, _Function) and _may_have_effects(obj.node):
+                self.go_wild(obj.node, f"{obj.node.name}() reaches code the check does not follow, "
+                                       "which may call it at any time")
 
     def invalidate(self, state: _State, objects: list[Any]) -> None:
         """Every reference this path has to these objects becomes UNRESOLVED."""
@@ -808,8 +893,7 @@ class _Walker:
         if not targets:
             return
         for obj in targets:
-            for child in _children(obj):
-                self.escape(child)
+            self.escape(obj)
         self.swap(state, [(obj, UNRESOLVED) for obj in targets])
 
     def mark(self, state: _State, container: Any, keys: list[Any]) -> None:
@@ -833,6 +917,51 @@ class _Walker:
         root = _root(node)
         return isinstance(root, ast.Name) and root.id not in state.symbols
 
+    def qualname(self, node: ast.AST, state: _State) -> str | None:
+        """The dotted name ``a.b.c`` refers to when ``a`` is a module (imported or not), else None."""
+        parts: list[str] = []
+        while isinstance(node, ast.Attribute):
+            parts.append(node.attr)
+            node = node.value
+        if not isinstance(node, ast.Name) or node.id in state.symbols:
+            return None
+        imported = state.found.get(f"import:{node.id}", _ABSENT)
+        if _unknown(imported):
+            return None  # imported differently on different paths
+        return ".".join([node.id if imported is _ABSENT else imported, *reversed(parts)])
+
+    def is_builtin(self, func: ast.AST, state: _State) -> str | None:
+        """The name of the builtin a bare-name call is, when the script neither binds nor imports it."""
+        if isinstance(func, ast.Name) and func.id not in state.symbols and f"import:{func.id}" not in state.found:
+            return func.id
+        return None
+
+    def builder(self, func: ast.AST, state: _State) -> str | None:
+        """The lenstronomy builder a call is, if any: by name, and from lenstronomy when imported."""
+        name = _call_name(func)
+        if name not in _BUILDERS or not isinstance(func, (ast.Name, ast.Attribute)) \
+                or not self.module_like(func, state):
+            return None  # e.g. the script's own function, or a method of an object it holds
+        root = _root(func)
+        assert isinstance(root, ast.Name)
+        qualified = self.qualname(func, state)
+        if qualified is None:
+            return None
+        if f"import:{root.id}" not in state.found:
+            return name  # used without an import: taken to be lenstronomy's
+        return name if qualified.split(".")[0] == "lenstronomy" else None
+
+    def patches(self, target: ast.AST, state: _State) -> str | None:
+        """The library name an assignment or call changes, when it is lenstronomy or one it uses."""
+        qualified = self.qualname(target, state) if self.module_like(target, state) else None
+        if qualified is None:
+            return None
+        root = qualified.split(".")[0]
+        unimported = f"import:{_root(target).id}" not in state.found  # type: ignore[union-attr]
+        if root in _PATCHED_ROOTS or (unimported and (root in _BUILDERS or root == "np")):
+            return qualified
+        return None
+
     def edit(self, state: _State, target: ast.Attribute | ast.Subscript, container: Any, key: Any,
              stored: Any = _ABSENT) -> None:
         """``target`` (``container[key]``, or an attribute) is assigned, deleted or changed in place."""
@@ -845,6 +974,9 @@ class _Walker:
         else:
             # An object the check does not track: whatever is stored in it may be changed
             # unseen later, and the object itself may be any that escaped.
+            patched = self.patches(target, state)
+            if patched is not None:
+                self.go_wild(target, f"the script changes {patched}, which lenstronomy relies on")
             unknown = [] if self.module_like(target.value, state) else list(self.escaped.values())
             self.invalidate(state, [*_reachable(stored), *unknown])
 
@@ -873,7 +1005,15 @@ class _Walker:
     def _statement(self, node: ast.stmt, state: _State) -> bool:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             # The body runs only where it is called, seeing the names of the scope it is defined
-            # in; the default values are evaluated now, once.
+            # in; the default values are evaluated now, once. A decorator is handed the function
+            # and may call it at any time, and the name holds whatever it returns.
+            if node.decorator_list:
+                for decorator in node.decorator_list:
+                    self.eval(decorator, state)
+                if _may_have_effects(node):
+                    self.go_wild(node, f"{node.name}() is decorated, so the check cannot tell when it runs")
+                self.set_symbol(state, node.name, UNRESOLVED)
+                return False
             a = node.args
             positional = [p.arg for p in (*a.posonlyargs, *a.args)]
             defaults = {}
@@ -885,7 +1025,36 @@ class _Walker:
             self.set_symbol(state, node.name, _Function(node, state.frame.scope, defaults))
             return False
         if isinstance(node, ast.ClassDef):
+            # The class body runs now, in its own namespace; its methods run when called through
+            # an instance, which the check does not follow.
+            for expr in [*node.decorator_list, *node.bases, *(k.value for k in node.keywords)]:
+                self.escape(self.eval(expr, state))
+            namespace, since = state.copy(), len(self.swaps)
+            if not self.block(node.body, namespace):
+                state.found = namespace.found
+                self.replay(state, since)
+            for stmt in ast.walk(ast.Module(node.body, [])):
+                if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) and _may_have_effects(stmt):
+                    self.go_wild(node, f"class {node.name} has methods that call code, which run "
+                                       "whenever an instance's method is called")
+                    break
+                if isinstance(stmt, (ast.Global, ast.Nonlocal)):
+                    self.go_wild(node, f"class {node.name} rebinds names outside itself")
             self.set_symbol(state, node.name, UNRESOLVED)
+            return False
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                name = alias.asname or alias.name.split(".")[0]
+                self.set_found(state, f"import:{name}", alias.name if alias.asname else name)
+            return False
+        if isinstance(node, ast.ImportFrom):
+            module = "." * node.level + (node.module or "")
+            for alias in node.names:
+                if alias.name == "*":
+                    if module.split(".")[0] != "lenstronomy":
+                        self.go_wild(node, f"from {module} import * may rebind any name")
+                else:
+                    self.set_found(state, f"import:{alias.asname or alias.name}", f"{module}.{alias.name}")
             return False
         if isinstance(node, ast.If):
             value = _truth(self.eval(node.test, state))
@@ -895,11 +1064,22 @@ class _Walker:
         if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
             return self.loop(node, state)
         if isinstance(node, (ast.With, ast.AsyncWith)):
+            plain = True
             for item in node.items:
                 self.escape(self.eval(item.context_expr, state))  # `as` may bind it, or part of it
+                plain = plain and self.plain_context(item.context_expr, state)
                 if item.optional_vars is not None:
                     self.bind(item.optional_vars, UNRESOLVED, state)
-            return self.block(node.body, state)
+            if plain:
+                return self.block(node.body, state)
+            # Its __exit__ may swallow an exception raised anywhere in the body, as an except
+            # handler that does nothing would.
+            start, since = state.copy(), len(self.swaps)
+            self.writes.append(set())
+            ended = self.block(node.body, state)
+            writes = self.writes.pop()
+            state.take(self.merge(([] if ended else [state.copy()]) + [self.handler_entry(start, since, writes)]))
+            return False
         if isinstance(node, ast.Try) or type(node).__name__ == "TryStar":
             return self.attempt(node, state)
         if isinstance(node, ast.Match):
@@ -932,6 +1112,13 @@ class _Walker:
             for part in (node.exc, node.cause):
                 if part is not None:
                     self.eval(part, state)
+            exc = node.exc
+            if isinstance(exc, ast.Call) and self.is_builtin(exc.func, state) == "SystemExit":
+                code = [self.eval(a, state.copy()) for a in exc.args]
+                if _exit_status(_Args(code, {}, [], [], False)) is not False:
+                    self.program_exits.append(state.copy())  # raise SystemExit(0) ends the run
+            elif isinstance(exc, ast.Name) and self.is_builtin(exc, state) == "SystemExit":
+                self.program_exits.append(state.copy())
             return True
         elif isinstance(node, (ast.Break, ast.Continue)):
             if self.loops:
@@ -1186,6 +1373,8 @@ class _Walker:
 
     def lambda_(self, node: ast.Lambda, state: _State) -> None:
         """A lambda's body runs only when it is called, and may reach what it names."""
+        if _may_have_effects(node):
+            self.go_wild(node, "a lambda that calls code, which runs whenever it is called")
         for name in ast.walk(node.body):
             if isinstance(name, ast.Name):
                 self.escape(state.symbols.get(name.id))
@@ -1295,8 +1484,12 @@ class _Walker:
                       state: _State) -> Any:
         """The first iterable is evaluated once; the rest runs once per item, or never.
 
-        A generator expression is followed as if it were consumed right away.
+        A generator expression passed straight to a call is followed as if consumed right
+        away; one kept for later runs its body when it is consumed, which the check cannot see.
         """
+        if isinstance(node, ast.GeneratorExp) and id(node) not in self.consumed \
+                and any(isinstance(n, (ast.Call, ast.NamedExpr)) for n in ast.walk(node)):
+            self.go_wild(node, "a generator expression that calls code and is kept for later")
         first = node.generators[0]
         self.escape(self.eval(first.iter, state))  # the loop variables hold its items
         local = {name for gen in node.generators for name in _names_bound(gen.target)}
@@ -1343,10 +1536,31 @@ class _Walker:
         return UNRESOLVED
 
     def _eval_List(self, node: ast.List, state: _State) -> Any:
-        return [self.eval(el, state) for el in node.elts]
+        items = self.items(node.elts, state)
+        return UNRESOLVED if items is None else items
 
     def _eval_Tuple(self, node: ast.Tuple, state: _State) -> Any:
-        return tuple(self.eval(el, state) for el in node.elts)
+        items = self.items(node.elts, state)
+        return UNRESOLVED if items is None else tuple(items)
+
+    def items(self, elts: list[ast.expr], state: _State) -> list[Any] | None:
+        """The items of a list or tuple display; None when a *expansion leaves them unknown."""
+        out: list[Any] = []
+        known = True
+        for el in elts:
+            if isinstance(el, ast.Starred):
+                value = self.eval(el.value, state)
+                if isinstance(value, (list, tuple)):
+                    out.extend(value)
+                    continue
+                self.escape(value)
+                known = False  # how many items it adds, and so where the rest go, is unknown
+            else:
+                out.append(self.eval(el, state))
+        if not known:
+            self.escape(out)
+            return None
+        return out
 
     def _eval_Starred(self, node: ast.Starred, state: _State) -> Any:
         self.escape(self.eval(node.value, state))
@@ -1392,6 +1606,8 @@ class _Walker:
         spread: list[Any] = []
         opaque = False
         for arg in node.args:
+            if isinstance(arg, ast.GeneratorExp):
+                self.consumed.add(id(arg))
             if isinstance(arg, ast.Starred):
                 value = self.eval(arg.value, state)
                 if isinstance(value, (list, tuple)) and not opaque:
@@ -1421,7 +1637,8 @@ class _Walker:
         """What a call returns, as far as the check follows it."""
         func = node.func
         name = _call_name(func)
-        if name in _BUILDERS:
+        builder = self.builder(func, state) if callee is _ABSENT else None
+        if builder is not None:
             built = _build(name, args)
             key = f"built:{name}"
             previous = state.found.get(key, ())
@@ -1433,9 +1650,16 @@ class _Walker:
                                                       _snapshot(bound.get("kwargs_source", _MISSING)),
                                                       _snapshot(receiver), _snapshot(_extras("image", args))))
             return UNRESOLVED
-        if _is_exit_call(node):
-            self.program_exits.append(state.copy())
+        qualified = self.qualname(func, state) if callee is _ABSENT else None
+        if qualified in ("sys.exit", "os._exit", "exit", "quit"):
+            if _exit_status(args) is not False:  # sys.exit(1) or sys.exit("message") is a failed run
+                self.program_exits.append(state.copy())
             raise _Dead
+        if qualified is not None and (qualified in _DYNAMIC_BUILTINS
+                                      or qualified.split(".")[0] in ("unittest", "mock")
+                                      or (qualified in ("setattr", "delattr") and node.args
+                                          and self.patches(node.args[0], state))):
+            self.go_wild(node, f"{qualified}() changes code or names the check cannot see")
         if isinstance(callee, _Function):
             return self.run(callee, args, state)
         if not isinstance(func, (ast.Name, ast.Attribute)):
@@ -1444,16 +1668,16 @@ class _Walker:
             return self.container_method(receiver, name, args, state)
         if isinstance(receiver, _Built) and name in _LENSTRONOMY_READS:
             return UNRESOLVED
-        if isinstance(func, ast.Name) and func.id not in state.symbols:
-            if func.id in _PURE_BUILTINS:
-                return _builtin_value(func.id, args)
-            if func.id in _CAPTURING_BUILTINS:
-                for value in args.values():
-                    self.escape(value)
-                return UNRESOLVED
+        builtin = self.is_builtin(func, state)
+        if builtin in _PURE_BUILTINS:
+            return _builtin_value(builtin, args)
+        if builtin in _CAPTURING_BUILTINS:
+            for value in args.values():
+                self.escape(value)
+            return UNRESOLVED
         module_call = self.module_like(func, state)
         if module_call and isinstance(func, ast.Attribute):
-            dotted = ast.unparse(func)
+            dotted = qualified or ""
             if dotted in _ARRAY_CALLS:
                 return _array_value(args)
             if dotted in _PURE_MODULE_CALLS:
@@ -1466,6 +1690,14 @@ class _Walker:
         # method of a script object, or a function the script holds, may reach any escaped one.
         self.unknown_call(state, args, _ABSENT if module_call else receiver, not module_call)
         return UNRESOLVED
+
+    def plain_context(self, expr: ast.expr, state: _State) -> bool:
+        """A context manager known not to swallow exceptions: open() and a few like it."""
+        if not isinstance(expr, ast.Call):
+            return False
+        if isinstance(expr.func, ast.Attribute) and expr.func.attr == "open":
+            return True  # e.g. Path(...).open()
+        return self.qualname(expr.func, state) in _PLAIN_CONTEXTS
 
     def container_method(self, container: dict | list, name: str, args: _Args, state: _State) -> Any:
         """A method call on a dict or list the script built."""
@@ -1504,8 +1736,17 @@ class _Walker:
         """
         node = fn.node
         nested = fn.scope != 0
-        if node in self.active or len(self.active) >= _MAX_CALL_DEPTH or (nested and fn.scope != state.frame.scope):
-            # Recursion, or a nested function called from outside the call that defined it.
+        reason = None
+        if node in self.active or len(self.active) >= _MAX_CALL_DEPTH:
+            reason = f"{node.name}() calls itself, or calls nest too deep, which the check does not follow"
+        elif nested and fn.scope != state.frame.scope:
+            reason = f"{node.name}() is called outside the function that defines it"
+        elif _is_generator(node):
+            reason = f"{node.name}() is a generator or async function, whose body runs later"
+        if reason is not None:
+            if reason.startswith(f"{node.name}() is a generator") and not _may_have_effects(node):
+                return UNRESOLVED
+            self.go_wild(node, reason)
             self.unknown_call(state, args, _ABSENT, True)
             return UNRESOLVED
         declared_global, local_names = _scope_names(node)
@@ -1527,6 +1768,8 @@ class _Walker:
                 local.symbols.pop(name, None)
         for name in local_names:
             local.symbols[name] = UNRESOLVED  # unbound until the body assigns it
+        for name in _scope_imports(node):
+            local.symbols.pop(name, None)  # an imported module is not one of the script's values
         for p in (*positional, *(k.arg for k in a.kwonlyargs)):
             self.set_symbol(local, p, given[p] if p in given else fn.defaults.get(p, UNRESOLVED))
         for extra in (a.vararg, a.kwarg):
@@ -1554,15 +1797,6 @@ class _Walker:
                     self.set_symbol(state, name, value)
         self.replay(state, since)  # what it changed in the objects it was given or could reach
         return UNRESOLVED
-
-
-def _is_exit_call(call: ast.Call) -> bool:
-    """sys.exit(), os._exit(), exit() or quit(): the program ends here."""
-    func = call.func
-    if isinstance(func, ast.Name):
-        return func.id in ("exit", "quit")
-    return (isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)
-            and (func.value.id, func.attr) in (("sys", "exit"), ("os", "_exit")))
 
 
 def _only(built: Any) -> Any:
@@ -1596,6 +1830,7 @@ def _component(image_model: Any, role: str, kind: str, found: dict[str, Any]) ->
 def extract_lenstronomy_inputs(code: str) -> _Extracted:
     """Walk the script and recover the lenstronomy input values."""
     tree = ast.parse(code)
+    compile(tree, "<script>", "exec", dont_inherit=True)  # e.g. a return outside a function
     state = _State({"__name__": "__main__"})  # the check is about the script run directly
     walker = _Walker()
     ended = walker.block(tree.body, state)
@@ -1665,6 +1900,13 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
         else:
             value = UNRESOLVED
         setattr(found, attr, value)
+    if walker.wild:
+        # The script runs its own code at points the check cannot see: nothing is certain.
+        for attr, value in vars(found).items():
+            if attr not in ("notes", "extras"):
+                setattr(found, attr, UNRESOLVED)
+        found.extras = []
+        found.notes = walker.wild
     return found
 
 
@@ -1714,9 +1956,12 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
     """
     try:
         found = extract_lenstronomy_inputs(code)
-    except SyntaxError as exc:
+    except (SyntaxError, ValueError) as exc:  # ValueError: e.g. a null byte in the source
         return {"passed": False, "matched": [], "diverged": [], "missing": ["<script>"],
                 "unresolved": [], "messages": [f"script is not parseable: {exc}"]}
+    except (RecursionError, MemoryError):
+        return {"passed": False, "matched": [], "diverged": [], "missing": [], "unresolved": ["<script>"],
+                "messages": ["<script>: nested too deeply for the check to follow; simplify it."]}
 
     matched: list[str] = []
     diverged: list[dict[str, Any]] = []
@@ -1836,7 +2081,8 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
         # The kernel, element by element as written: a runtime-computed one is UNRESOLVED.
         record("psf_kernel", psf["kernel_point_source"], found.psf_kernel)
 
-    messages: list[str] = []
+    messages: list[str] = [f"The check cannot follow this script, so every value is unresolved: {note}."
+                           for note in found.notes]
     for d in diverged:
         if d["field"] == "psf_kernel":
             messages.append("psf_kernel: the script's kernel_point_source is not the parameter "
