@@ -123,6 +123,7 @@ _CONVENTIONAL = {"lens_model_list": "lens_model_list", "source_model_list": "sou
                  "kwargs_source": "kwargs_source"}
 
 _ABSENT = object()  # marks a key missing on one control-flow path
+_NOT_IN_PARAMS = "<not in the parameter set>"  # the expected value of something the script adds
 
 
 class _Missing:
@@ -1643,6 +1644,7 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
     diverged: list[dict[str, Any]] = []
     missing: list[str] = []
     unresolved: list[str] = []
+    unexpected: list[str] = []  # diverged: the script passes something the parameter set does not have
 
     def record(field: str, expected: Any, actual: Any) -> None:
         if actual is _MISSING:
@@ -1692,6 +1694,7 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(actual_kwargs, (list, tuple)):
             diverged.append({"field": label, "expected": expected_kwargs, "actual": actual_kwargs})
             continue
+        models = params["lens_model_list" if label == "kwargs_lens" else "source_model_list"]
         for i, exp_dict in enumerate(expected_kwargs):
             if i < len(actual_kwargs) and actual_kwargs[i] == UNRESOLVED:
                 unresolved.append(f"{label}[{i}]")
@@ -1701,6 +1704,23 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
                 continue
             for key, exp_val in exp_dict.items():
                 record(f"{label}[{i}].{key}", exp_val, actual_kwargs[i].get(key, _MISSING))
+            # Keys the script passes that the parameter set leaves out: an optional one must
+            # be lenstronomy's default (0), anything else is not a parameter of the profile.
+            name = models[i] if i < len(models) else None
+            optional = [k for k in _validator.PROFILE_PARAMS.get(name, ())
+                        if k not in _validator.REQUIRED_PARAMS.get(name, ())]
+            for key, value in actual_kwargs[i].items():
+                if key in exp_dict:
+                    continue
+                field = f"{label}[{i}].{key}"
+                if key in optional:
+                    record(field, 0.0, value)
+                else:
+                    unexpected.append(field)
+                    diverged.append({"field": field, "expected": _NOT_IN_PARAMS, "actual": value})
+        for i in range(len(expected_kwargs), len(actual_kwargs)):
+            unexpected.append(f"{label}[{i}]")
+            diverged.append({"field": f"{label}[{i}]", "expected": _NOT_IN_PARAMS, "actual": actual_kwargs[i]})
 
     data = params["kwargs_data"]
     record("numPix", data["numPix"], found.numPix)
@@ -1723,6 +1743,11 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
         if d["field"] == "psf_kernel":
             messages.append("psf_kernel: the script's kernel_point_source is not the parameter "
                             "set's; use the parameter-set kernel exactly, as a literal.")
+            continue
+        if d["field"] in unexpected:
+            messages.append(f"{d['field']}: the script passes {d['actual']!r}, which is not in the "
+                            "parameter set; remove it, or add it to the parameter set and validate "
+                            "that again.")
             continue
         messages.append(f"{d['field']}: script uses {d['actual']!r} but the parameter set "
                         f"has {d['expected']!r}; use the parameter-set value exactly.")

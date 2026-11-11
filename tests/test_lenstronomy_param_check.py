@@ -1019,6 +1019,29 @@ class CodeCheckRegressionTests(unittest.TestCase):
                 self.assertEqual(comp["passed"], verdict == "matched", comp["messages"])
         self.assertTrue(_compare(EXAMPLE)["passed"])  # single plane, no redshifts given
 
+    def test_profile_keys_the_parameter_set_leaves_out_are_checked(self) -> None:
+        # Only the parameter set's keys were compared, so a script passing center_x=100 passed
+        # against a parameter set that leaves center_x at lenstronomy's default of 0.
+        params = _good()
+        del params["kwargs_lens"][0]["center_x"], params["kwargs_lens"][0]["center_y"]
+        self.assertTrue(_validate(params, "general")["passed"])
+        lens = '"center_x": 0.0, "center_y": 0.0}]'
+        self.assertIn(lens, EXAMPLE)
+        comp = _compare(EXAMPLE.replace(lens, '"center_x": 100.0, "center_y": 0.0}]'), params)
+        self.assertEqual(comp["diverged"], [{"field": "kwargs_lens[0].center_x", "expected": 0.0, "actual": 100.0}])
+        self.assertIn("kwargs_lens[0].center_y", comp["matched"])  # 0, the default
+        self.assertTrue(_compare(EXAMPLE, params)["passed"])
+
+        del params["kwargs_source"][0]["center_x"]  # the example's source is at 0.05, not the default
+        self.assertEqual([d["field"] for d in _compare(EXAMPLE, params)["diverged"]], ["kwargs_source[0].center_x"])
+
+        # A key the profile does not take, and an extra profile entry, are reported too.
+        comp = _compare(EXAMPLE.replace('"theta_E": 1.0,', '"theta_E": 1.0, "theta_e": 1.0,'))
+        self.assertEqual([d["field"] for d in comp["diverged"]], ["kwargs_lens[0].theta_e"])
+        self.assertTrue(any("not in the parameter set" in m for m in comp["messages"]))
+        comp = _compare(EXAMPLE.replace(lens, lens[:-1] + ', {"theta_E": 0.1, "e1": 0.0, "e2": 0.0}]'))
+        self.assertEqual([d["field"] for d in comp["diverged"]], ["kwargs_lens[1]"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
