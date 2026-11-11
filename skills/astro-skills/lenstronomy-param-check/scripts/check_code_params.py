@@ -102,7 +102,7 @@ _GRID_ALIASES = (("numPix", "num_pix"), ("deltaPix", "delta_pix"))
 
 # The leading parameters of the calls the check follows (identical in 1.9.2 and 1.14).
 _PARAMETERS = {
-    "LensModel": ("lens_model_list",),
+    "LensModel": ("lens_model_list", "z_lens", "z_source", "lens_redshift_list", "cosmo", "multi_plane"),
     "LightModel": ("light_model_list",),
     "PSF": ("psf_type", "fwhm", "truncation", "pixel_size", "kernel_point_source"),
     "ImageModel": ("data_class", "psf_class", "lens_model_class", "source_model_class"),
@@ -110,6 +110,10 @@ _PARAMETERS = {
     "image": ("kwargs_lens", "kwargs_source"),
 }
 _PSF_DEFAULT_TYPE = "NONE"
+# LensModel's arguments that place the deflectors and the source in redshift (1.14 adds
+# z_lens_convention); None, their default, means not given.
+_REDSHIFT_ARGUMENTS = ("z_lens", "z_source", "lens_redshift_list", "multi_plane",
+                       "z_source_convention", "z_lens_convention")
 # The calls whose results the check follows through names.
 _BUILDERS = ("LensModel", "LightModel", "PSF", "ImageModel", "ImageData", "data_configure_simple")
 
@@ -167,6 +171,7 @@ class _Extracted:
         self.psf_fwhm: Any = _MISSING
         self.psf_pixel_size: Any = _MISSING
         self.psf_kernel: Any = _MISSING
+        self.lens_redshifts: Any = _MISSING  # the rendering LensModel's redshift arguments
 
 
 def _call_name(func: ast.AST) -> str:
@@ -415,6 +420,11 @@ def _build(name: str, args: _Args) -> _Built:
         return _Built("ImageModel", {"data": bound.get("data_class"), "psf": bound.get("psf_class"),
                                      "lens": bound.get("lens_model_class"),
                                      "source": bound.get("source_model_class")})
+    if name == "LensModel":
+        redshifts = {k: bound.get(k) for k in _REDSHIFT_ARGUMENTS}
+        if args.opaque:  # an expansion may be passing any of them
+            redshifts = {k: UNRESOLVED if v is None else v for k, v in redshifts.items()}
+        return _Built(name, {"models": bound.get("lens_model_list", _MISSING), "redshifts": redshifts})
     return _Built(name, {"models": bound.get(_PARAMETERS[name][0], _MISSING)})
 
 
@@ -1548,6 +1558,8 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
         model = _component(image_model, role, kind, f)
         if isinstance(model, _Built):
             setattr(found, attr, model.fields["models"])
+            if kind == "LensModel":
+                found.lens_redshifts = model.fields["redshifts"]
         elif model == UNRESOLVED:
             setattr(found, attr, UNRESOLVED)
         elif model is None:
@@ -1646,6 +1658,26 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
 
     record("lens_model_list", params["lens_model_list"], found.lens_model_list)
     record("source_model_list", params["source_model_list"], found.source_model_list)
+
+    # Redshifts: every one the rendering LensModel is given. A single-plane LensModel
+    # given none renders the same image whatever the redshifts (the profiles here are in
+    # angles), so there is nothing to compare; multi-plane needs z_source and a redshift
+    # for each deflector, all of which must be the parameter set's.
+    redshifts = found.lens_redshifts
+    if isinstance(redshifts, dict):
+        z_lens, z_source = params["z_lens"], params["z_source"]
+        expected_z = {"z_lens": z_lens, "z_source": z_source, "z_source_convention": z_source,
+                      "z_lens_convention": z_lens,
+                      "lens_redshift_list": [z_lens] * len(params["lens_model_list"])}
+        multi_plane = redshifts["multi_plane"]
+        if _unknown(multi_plane):
+            unresolved.append("multi_plane")
+        for name, expected in expected_z.items():
+            value = redshifts[name]
+            if value is not None:
+                record(name, expected, value)
+            elif multi_plane is True and name in ("z_source", "lens_redshift_list"):
+                missing.append(name)  # lenstronomy's multi-plane mode requires it
 
     for label, expected_kwargs, actual_kwargs in (
         ("kwargs_lens", params["kwargs_lens"], found.kwargs_lens),

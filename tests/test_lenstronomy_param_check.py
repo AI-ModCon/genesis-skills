@@ -989,6 +989,36 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(EXAMPLE.replace("numPix = 64", "numPix = 64 if len(sys.argv) == 12 else 128"))
         self.assertIn("numPix", comp["unresolved"])
 
+    def test_redshifts_given_to_lens_model_are_compared(self) -> None:
+        # The loader dropped z_lens and z_source, so a multi-plane LensModel at redshifts 0.9
+        # and 3.0 passed against a parameter set at 0.5 and 1.0.
+        lens = "LensModel(lens_model_list=lens_model_list)"
+        self.assertIn(lens, EXAMPLE)
+        multi = "LensModel(lens_model_list=lens_model_list, lens_redshift_list={}, z_source={}, multi_plane=True)"
+        comp = _compare(EXAMPLE.replace(lens, multi.format("[0.9]", "3.0")))
+        self.assertFalse(comp["passed"])
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]},
+                         {"lens_redshift_list": [0.9], "z_source": 3.0})
+
+        cases = {
+            multi.format("[0.5]", "1.0"): ("matched", ["lens_redshift_list", "z_source"]),
+            multi.format("[0.5]", "get_z()"): ("unresolved", ["z_source"]),
+            "LensModel(lens_model_list, 0.5, 1.0)": ("matched", ["z_lens", "z_source"]),
+            "LensModel(lens_model_list=lens_model_list, z_lens=0.4, z_source=1.0)": ("diverged", ["z_lens"]),
+            "LensModel(lens_model_list=lens_model_list, z_source_convention=2.0)": ("diverged", ["z_source_convention"]),
+            "LensModel(lens_model_list=lens_model_list, multi_plane=True)": ("missing", ["lens_redshift_list", "z_source"]),
+            "LensModel(lens_model_list=lens_model_list, multi_plane=flag)": ("unresolved", ["multi_plane"]),
+            "LensModel(lens_model_list=lens_model_list, **options)": ("unresolved", ["z_source", "z_source_convention"]),
+        }
+        for changed, (verdict, fields) in cases.items():
+            with self.subTest(changed):
+                comp = _compare(EXAMPLE.replace(lens, changed))
+                listed = [d["field"] for d in comp["diverged"]] if verdict == "diverged" else comp[verdict]
+                for field in fields:
+                    self.assertIn(field, listed)
+                self.assertEqual(comp["passed"], verdict == "matched", comp["messages"])
+        self.assertTrue(_compare(EXAMPLE)["passed"])  # single plane, no redshifts given
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
