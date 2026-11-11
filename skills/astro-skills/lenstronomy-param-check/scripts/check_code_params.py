@@ -464,24 +464,102 @@ class _Dead(Exception):
     """A call never returns: the path it is on ends there."""
 
 
+@dataclass(eq=False)
+class _Function:
+    """A function the script defines: its definition, and the call (scope) it was defined in."""
+
+    node: ast.FunctionDef | ast.AsyncFunctionDef
+    scope: int
+
+
+@dataclass(frozen=True)
+class _Frame:
+    """The module (scope 0) or one call of a function: the names it declares, and its locals."""
+
+    scope: int = 0
+    shared: frozenset[str] = frozenset()  # declared global
+    locals: frozenset[str] = frozenset()  # every name the function binds (its parameters too)
+
+
+_MODULE = _Frame()
+
+
+def _scope_names(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[frozenset[str], frozenset[str]]:
+    """A function's ``global`` names and its local names, as Python decides them.
+
+    A name the function binds anywhere in its body is local to it everywhere in the body,
+    unless it is declared global or nonlocal; nested functions, classes, lambdas and
+    comprehensions have their own scopes (a walrus in a comprehension binds here).
+    """
+    cached = getattr(fn, "_param_check_scope", None)
+    if cached is not None:
+        return cached
+    declared_global: set[str] = set()
+    declared_nonlocal: set[str] = set()
+    bound = {p.arg for p in (*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs,
+                             fn.args.vararg, fn.args.kwarg) if p is not None}
+
+    def visit(node: ast.AST) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+            return
+        if isinstance(node, ast.Lambda):
+            return
+        if isinstance(node, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            bound.update(n.target.id for n in ast.walk(node)
+                         if isinstance(n, ast.NamedExpr) and isinstance(n.target, ast.Name))
+            return
+        if isinstance(node, ast.Global):
+            declared_global.update(node.names)
+        elif isinstance(node, ast.Nonlocal):
+            declared_nonlocal.update(node.names)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bound.add(node.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            bound.update((a.asname or a.name).split(".")[0] for a in node.names if a.name != "*")
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name:
+            bound.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            bound.add(node.rest)
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    for stmt in fn.body:
+        visit(stmt)
+    result = (frozenset(declared_global), frozenset(bound - declared_global - declared_nonlocal))
+    fn._param_check_scope = result  # type: ignore[attr-defined]
+    return result
+
+
 class _State:
     """The names bound on one control-flow path, and what that path built and rendered.
 
-    ``scope`` tells the module (0) from each function call; ``shared`` is the names
-    that call declares ``global``.
+    In a function's call, ``symbols`` holds every name its body can see (its locals,
+    then the names of the scope it was defined in) and ``globals`` the module's names
+    as that call sees them; in the module, ``globals`` is None and ``symbols`` holds them.
     """
 
     def __init__(self, symbols: dict[str, Any] | None = None, found: dict[str, Any] | None = None,
-                 scope: int = 0, shared: frozenset[str] = frozenset()) -> None:
+                 frame: _Frame = _MODULE, globals_: dict[str, Any] | None = None) -> None:
         self.symbols: dict[str, Any] = dict(symbols or {})
         self.found: dict[str, Any] = dict(found or {})
-        self.scope, self.shared = scope, shared
+        self.frame = frame
+        self.globals: dict[str, Any] | None = None if globals_ is None else dict(globals_)
 
     def copy(self) -> _State:
-        return _State(self.symbols, self.found, self.scope, self.shared)
+        return _State(self.symbols, self.found, self.frame, self.globals)
 
     def take(self, other: _State) -> None:
-        self.symbols, self.found = other.symbols, other.found
+        self.symbols, self.found, self.globals = other.symbols, other.found, other.globals
+
+    def tables(self) -> list[dict[str, Any]]:
+        return [t for t in (self.symbols, self.found, self.globals) if t is not None]
+
+    def global_names(self) -> dict[str, Any]:
+        """The module's names as this path sees them."""
+        return self.symbols if self.globals is None else self.globals
 
 
 def _merge(paths: list[_State], dropped: list[Any] | None = None) -> _State:
@@ -490,10 +568,12 @@ def _merge(paths: list[_State], dropped: list[Any] | None = None) -> _State:
     The values that differ are appended to ``dropped``: what they hold can now be
     reached only through an UNRESOLVED value.
     """
-    merged = _State(scope=paths[0].scope, shared=paths[0].shared)
-    for attr in ("symbols", "found"):
+    merged = _State(frame=paths[0].frame, globals_=None if paths[0].globals is None else {})
+    for attr in ("symbols", "found", "globals"):
         tables = [getattr(p, attr) for p in paths]
         out = getattr(merged, attr)
+        if out is None:
+            continue
         for key in {k for t in tables for k in t}:
             values = [t.get(key, _ABSENT) for t in tables]
             if values[0] is not _ABSENT and all(v is not _ABSENT and _same(v, values[0]) for v in values[1:]):
@@ -507,7 +587,7 @@ def _merge(paths: list[_State], dropped: list[Any] | None = None) -> _State:
 
 def _same_state(a: _State, b: _State) -> bool:
     return all(t1.keys() == t2.keys() and all(_same(t1[k], t2[k]) for k in t1)
-               for t1, t2 in ((a.symbols, b.symbols), (a.found, b.found)))
+               for t1, t2 in zip(a.tables(), b.tables()))
 
 
 class _Walker:
@@ -531,8 +611,7 @@ class _Walker:
     """
 
     def __init__(self) -> None:
-        self.functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
-        self.active: list[str] = []
+        self.active: list[ast.AST] = []  # the functions being run
         self.returns: list[list[_State]] = []  # one list per running function
         self.loops: list[tuple[list[_State], list[_State]]] = []  # (breaks, continues) per running loop
         self.program_exits: list[_State] = []
@@ -545,9 +624,23 @@ class _Walker:
 
     def set_symbol(self, state: _State, name: str, value: Any) -> None:
         state.symbols[name] = value
+        frame = state.frame
+        is_global = frame.scope == 0 or name in frame.shared
+        if is_global and state.globals is not None:
+            state.globals[name] = value
         if self.writes:
-            where = ("global",) if state.scope == 0 or name in state.shared else ("local", state.scope)
-            self.logged((*where, name), value)
+            self.logged(("global", name) if is_global else ("local", frame.scope, name), value)
+
+    def set_global(self, state: _State, name: str, value: Any) -> None:
+        """Rebind a module name, from a function this path called."""
+        if state.globals is None:
+            self.set_symbol(state, name, value)
+            return
+        state.globals[name] = value
+        if name not in state.frame.locals:
+            state.symbols[name] = value
+        if self.writes:
+            self.logged(("global", name), value)
 
     def set_found(self, state: _State, key: str, value: Any) -> None:
         state.found[key] = value
@@ -564,7 +657,7 @@ class _Walker:
     def swap(self, state: _State, swaps: list[tuple[Any, Any]]) -> None:
         """Put each new object in place of its old one, everywhere this path refers to it."""
         replacer = _Replacer({id(old): new for old, new in swaps})
-        for table in (state.symbols, state.found):
+        for table in state.tables():
             for key, value in list(table.items()):
                 new = replacer(value)
                 if new is not value:
@@ -667,8 +760,8 @@ class _Walker:
 
     def _statement(self, node: ast.stmt, state: _State) -> bool:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            self.functions[node.name] = node  # the body runs only where it is called
-            self.set_symbol(state, node.name, UNRESOLVED)
+            # The body runs only where it is called, seeing the names of the scope it is defined in.
+            self.set_symbol(state, node.name, _Function(node, state.frame.scope))
             return False
         if isinstance(node, ast.ClassDef):
             self.set_symbol(state, node.name, UNRESOLVED)
@@ -890,7 +983,7 @@ class _Walker:
             for target, mark in zip(exits, exit_marks):
                 leaving, target[mark:] = target[mark:], []
                 for path in leaving:
-                    if path.scope != state.scope:  # sys.exit() inside a function the body called
+                    if path.frame.scope != state.frame.scope:  # sys.exit() in a function the body called
                         exit_path = self.handler_entry(before, since, all_writes)
                         exit_path.found = dict(path.found)
                         path = exit_path
@@ -919,12 +1012,17 @@ class _Walker:
         entry = before.copy()
         self.replay(entry, since)
         for kind, *where in writes:
-            table = entry.found if kind == "found" else entry.symbols
-            if kind == "local" and where[0] != entry.scope:
-                continue  # a variable of a function the body called
             key = where[-1]
-            self.escape(table.get(key))
-            table[key] = UNRESOLVED
+            if kind == "found":
+                tables = [entry.found]
+            elif kind == "local":
+                tables = [entry.symbols] if where[0] == entry.frame.scope else []  # else another call's
+            else:
+                tables = [t for t in (entry.globals, entry.symbols) if t is not None
+                          and (t is not entry.symbols or entry.frame.scope == 0 or key not in entry.frame.locals)]
+            for table in tables:
+                self.escape(table.get(key))
+                table[key] = UNRESOLVED
         return entry
 
     def bind(self, target: ast.AST, value: Any, state: _State) -> None:
@@ -1161,8 +1259,12 @@ class _Walker:
     def _eval_Call(self, node: ast.Call, state: _State) -> Any:
         func = node.func
         receiver = self.eval(func.value, state) if isinstance(func, ast.Attribute) else _ABSENT
-        if not isinstance(func, (ast.Attribute, ast.Name)):
-            self.escape(self.eval(func, state))
+        if isinstance(func, ast.Name):
+            callee = state.symbols.get(func.id, _ABSENT)
+        elif isinstance(func, ast.Attribute):
+            callee = _ABSENT
+        else:
+            callee = self.eval(func, state)  # e.g. handlers[0](...)
         positional: list[Any] = []
         keywords: dict[str, Any] = {}
         expansions: list[Any] = []
@@ -1192,9 +1294,9 @@ class _Walker:
                 keywords.update({k: v for k, v in value.items() if isinstance(k, str)})
             else:
                 opaque = True
-        return self.call(node, receiver, _Args(positional, keywords, expansions, spread, opaque), state)
+        return self.call(node, callee, receiver, _Args(positional, keywords, expansions, spread, opaque), state)
 
-    def call(self, node: ast.Call, receiver: Any, args: _Args, state: _State) -> Any:
+    def call(self, node: ast.Call, callee: Any, receiver: Any, args: _Args, state: _State) -> Any:
         """What a call returns, as far as the check follows it."""
         func = node.func
         name = _call_name(func)
@@ -1213,8 +1315,10 @@ class _Walker:
         if _is_exit_call(node):
             self.program_exits.append(state.copy())
             raise _Dead
-        if isinstance(func, ast.Name) and func.id in self.functions:
-            return self.run(self.functions[func.id], args, state)
+        if isinstance(callee, _Function):
+            return self.run(callee, args, state)
+        if not isinstance(func, (ast.Name, ast.Attribute)):
+            self.escape(callee)
         if isinstance(receiver, (dict, list)):
             return self.container_method(receiver, name, args, state)
         if isinstance(receiver, _Built) and name in _LENSTRONOMY_READS:
@@ -1266,24 +1370,40 @@ class _Walker:
             self.mark(state, container, keys)
         return UNRESOLVED
 
-    def run(self, fn: ast.FunctionDef | ast.AsyncFunctionDef, args: _Args, state: _State) -> Any:
+    def run(self, fn: _Function, args: _Args, state: _State) -> Any:
         """Run a called function's body in its own scope; what it builds still counts.
 
-        Raises _Dead when the function never returns (every path raises or exits).
+        The body sees its own locals (UNRESOLVED until assigned), then the names of the
+        scope it was defined in: the module's, or for a nested function the call it was
+        defined in, which must be the one calling it. Its global rebindings, and a nested
+        function's rebinding of its enclosing names, come back to the caller, and so do its
+        edits to objects. Raises _Dead when the function never returns.
         """
-        if fn.name in self.active or len(self.active) >= _MAX_CALL_DEPTH:
+        node = fn.node
+        nested = fn.scope != 0
+        if node in self.active or len(self.active) >= _MAX_CALL_DEPTH or (nested and fn.scope != state.frame.scope):
+            # Recursion, or a nested function called from outside the call that defined it.
             self.unknown_call(state, args, _ABSENT, True)
             return UNRESOLVED
-        a = fn.args
+        declared_global, local_names = _scope_names(node)
+        a = node.args
         positional = [p.arg for p in (*a.posonlyargs, *a.args)]
         given = args.bind(tuple(positional))
         named = {*positional, *(k.arg for k in a.kwonlyargs)}
         for extra in [*args.positional[len(positional):], *args.spread,
                       *(v for k, v in args.keywords.items() if k not in named)]:
             self.escape(extra)  # it goes to *args or **kwargs, which are UNRESOLVED
-        shared = frozenset(n for node in ast.walk(fn) if isinstance(node, ast.Global) for n in node.names)
+        module_names = state.global_names()
         self.scopes += 1
-        local = _State(state.symbols, state.found, self.scopes, shared)
+        frame = _Frame(self.scopes, declared_global, local_names)
+        local = _State(state.symbols if nested else module_names, state.found, frame, module_names)
+        for name in declared_global:
+            if name in module_names:
+                local.symbols[name] = module_names[name]
+            else:
+                local.symbols.pop(name, None)
+        for name in local_names:
+            local.symbols[name] = UNRESOLVED  # unbound until the body assigns it
         defaults = dict(zip(positional[len(positional) - len(a.defaults):], a.defaults))
         defaults.update({p.arg: d for p, d in zip(a.kwonlyargs, a.kw_defaults) if d is not None})
         for p in (*positional, *(k.arg for k in a.kwonlyargs)):
@@ -1301,9 +1421,9 @@ class _Walker:
             if extra is not None:
                 self.set_symbol(local, extra.arg, UNRESOLVED)
         since = len(self.swaps)
-        self.active.append(fn.name)
+        self.active.append(node)
         self.returns.append([])
-        ended = self.block(fn.body, local)
+        ended = self.block(node.body, local)
         paths = self.returns.pop() + ([] if ended else [local])
         self.active.pop()
         if not paths:
@@ -1311,9 +1431,16 @@ class _Walker:
             raise _Dead
         final = self.merge(paths)
         state.found = final.found
-        for name in shared & set(final.symbols):
-            self.set_symbol(state, name, final.symbols[name])
-        self.replay(state, since)  # what it changed in the objects it was given
+        assert final.globals is not None
+        for name, value in final.globals.items():  # its global rebindings
+            if not _same(value, module_names.get(name, _ABSENT)):
+                self.set_global(state, name, value)
+        if nested:  # its nonlocal rebindings
+            for name, value in final.symbols.items():
+                if name not in local_names and name not in declared_global \
+                        and not _same(value, state.symbols.get(name, _ABSENT)):
+                    self.set_symbol(state, name, value)
+        self.replay(state, since)  # what it changed in the objects it was given or could reach
         return UNRESOLVED
 
 
@@ -1362,7 +1489,8 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
     ended = walker.block(tree.body, state)
     # The script ends where it falls off the end or calls sys.exit(); if every path
     # raises, there is no successful run, so the state as walked is kept.
-    paths = walker.program_exits + ([] if ended else [state])
+    exits = [p if p.globals is None else _State(p.globals, p.found) for p in walker.program_exits]
+    paths = exits + ([] if ended else [state])
     if paths:
         state = _merge(paths)
     symbols, f = state.symbols, state.found

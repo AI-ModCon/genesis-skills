@@ -918,6 +918,28 @@ class CodeCheckRegressionTests(unittest.TestCase):
                "        print('done')\nimage = render()"
         self.assertTrue(_compare(EXAMPLE.replace(self.RENDER, code))["passed"])
 
+    def test_a_function_reads_the_names_of_the_scope_it_is_defined_in(self) -> None:
+        # Functions were run with their caller's names, so render() reading the wrong global
+        # kwargs_lens passed when its caller had a local kwargs_lens with the expected values.
+        lens = 'kwargs_lens = [{"theta_E": 1.0, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]'
+        wrong = lens.replace('"theta_E": 1.0', '"theta_E": 2.5')
+        render = "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
+        global_render = ("def render():\n    return " + render + "\n"
+                         "def main():\n    " + lens + "\n    render()\nmain()")
+        comp = _compare(EXAMPLE.replace(self.RENDER, wrong + "\n" + global_render))
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"kwargs_lens[0].theta_E": 2.5})
+
+        # A nested function sees the call that defines it, and a local function shadows a global one.
+        closure = ("def render():\n    " + render.replace("kwargs_lens=kwargs_lens", "kwargs_lens=[]") + "\n"
+                   "def main():\n    " + lens + "\n    def render():\n        " + render + "\n    render()\nmain()")
+        comp = _compare(EXAMPLE.replace(self.RENDER, wrong + "\n" + closure))
+        self.assertTrue(comp["passed"], comp["messages"])
+
+        # A name a function assigns is local throughout it, even before the assignment.
+        unbound = "def main():\n    " + render + "\n    " + lens + "\nmain()"
+        comp = _compare(EXAMPLE.replace(self.RENDER, unbound))
+        self.assertIn("kwargs_lens", comp["unresolved"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
