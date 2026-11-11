@@ -692,9 +692,20 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
 
 
 def _numbers_match(expected: float, actual: Any) -> bool:
+    """Equal to within _REL_TOL of the expected value's magnitude; zero only matches zero.
+
+    The tolerance is relative, so a nonzero value never matches zero, nor a value of
+    the opposite sign: sigma=0 does not match a validated sigma=1e-7.
+    """
     if not isinstance(actual, (int, float)) or isinstance(actual, bool):
         return False
-    return abs(float(actual) - float(expected)) <= _REL_TOL * max(1.0, abs(float(expected)))
+    try:
+        expected, actual = float(expected), float(actual)
+    except OverflowError:  # an integer literal too large for a float
+        return False
+    if expected == 0.0 or actual == 0.0:
+        return expected == actual
+    return abs(actual - expected) <= _REL_TOL * abs(expected)
 
 
 def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:

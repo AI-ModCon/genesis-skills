@@ -712,6 +712,26 @@ class CodeCheckRegressionTests(unittest.TestCase):
         self.assertIn("psf_type", comp["matched"])
         self.assertIn("psf_pixel_size", comp["matched"])
 
+    def test_a_nonzero_value_never_matches_zero(self) -> None:
+        # The tolerance was an absolute 1e-6 below 1, so a validated Gaussian sigma=1e-7 matched
+        # a script's sigma=0, an invalid zero-width source.
+        params = _good(source_model_list=["GAUSSIAN"],
+                       kwargs_source=[{"amp": 12.0, "sigma": 1e-7, "center_x": 0.05, "center_y": 0.05}])
+        self.assertTrue(_validate(params, "general")["passed"])
+        for script_sigma, verdict in (("0", "diverged"), ("0.0", "diverged"), ("2e-7", "diverged"),
+                                      ("-1e-7", "diverged"), ("1e-7", "matched"),
+                                      ("1.0000001e-7", "matched"), ("10**400", "diverged")):
+            with self.subTest(sigma=script_sigma):
+                program = _program(params).replace("'sigma': 1e-07", f"'sigma': {script_sigma}")
+                comp = _compare(program, params)
+                fields = comp["matched"] if verdict == "matched" else [d["field"] for d in comp["diverged"]]
+                self.assertIn("kwargs_source[0].sigma", fields)
+                self.assertEqual(comp["passed"], verdict == "matched")
+        self.assertTrue(C._numbers_match(0.0, 0))
+        self.assertTrue(C._numbers_match(0.0, -0.0))
+        self.assertFalse(C._numbers_match(0.0, 1e-300))
+        self.assertTrue(C._numbers_match(5400.0, 5400.000001))
+
     def test_an_omitted_psf_type_is_gaussian_as_in_the_validator(self) -> None:
         # The validator reads a kwargs_psf without psf_type as GAUSSIAN; the check skipped the
         # comparison, so PSF(psf_type="NONE") passed.
