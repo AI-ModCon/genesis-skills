@@ -316,6 +316,28 @@ class ValidatorTests(unittest.TestCase):
         self.assertIsNone(res["snr_estimate"])
         self.assertTrue(res["passed"], res["messages"])
 
+    def test_snr_is_not_estimated_from_an_out_of_range_pixel_scale(self) -> None:
+        # deltaPix=1e-300 squares to 0 and used to raise ZeroDivisionError; a huge one overflowed.
+        for delta in (1e-300, 1e200):
+            with self.subTest(deltaPix=delta):
+                params = _good(kwargs_data={"numPix": 64, "deltaPix": delta, "exposure_time": 5400.0,
+                                            "background_rms": 0.01},
+                               kwargs_psf={"psf_type": "NONE", "fwhm": None, "pixel_size": None})
+                res = _validate(params)
+                self.assertFalse(res["checks"]["deltapix"])
+                self.assertNotIn("snr", res["checks"])
+                self.assertIsNone(res["snr_estimate"])
+
+    def test_an_overflowing_snr_estimate_fails_as_json(self) -> None:
+        # amp=1e308 overflows the estimate; the report used to print NaN, which is not JSON.
+        params = _good()
+        params["kwargs_source"][0]["amp"] = 1e308
+        res = _validate(params)
+        self.assertFalse(res["checks"]["snr"])
+        self.assertIsNone(res["snr_estimate"])
+        self.assertTrue(any("overflows" in m for m in res["messages"]))
+        json.loads(json.dumps(res, allow_nan=False))
+
     def test_snr_is_not_estimated_for_a_pixel_psf(self) -> None:
         # A PIXEL PSF has no fwhm; the estimate used to treat it as no blur at all, so two
         # very different kernels got the same estimate.

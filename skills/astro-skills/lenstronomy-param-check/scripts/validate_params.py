@@ -371,7 +371,9 @@ def _source_peak(params: dict[str, Any], name: str, kw: dict[str, float], sigma:
 
 
 def _snr_inputs_valid(params: dict[str, Any], r: Ranges) -> bool:
-    """The SNR estimate needs every source shape to have passed its own check."""
+    """The SNR estimate needs the pixel scale and every source shape to have passed their own checks."""
+    if not r.deltapix_min <= params["kwargs_data"]["deltaPix"] <= r.deltapix_max:
+        return False
     for name, kw in zip(params["source_model_list"], params["kwargs_source"]):
         if kw.get("amp", 0.0) <= 0:
             return False
@@ -649,8 +651,16 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
     # --- peak SNR (deeplense preset only) -------------------------------------
     snr = None
     if r.snr_min is not None and r.snr_max is not None and _snr_inputs_valid(params, r):
-        snr = _estimate_snr(params, r.snr_noise_excess)
-    if snr is not None:
+        try:
+            snr = _estimate_snr(params, r.snr_noise_excess)
+        except (OverflowError, ZeroDivisionError, ValueError):
+            snr = math.nan
+    if snr is not None and not math.isfinite(snr):
+        fail("snr", "the peak SNR estimate overflows: the source amp, exposure_time or "
+             "background_rms is many orders of magnitude beyond any real image; fix the one "
+             "that is off.")
+        snr = None
+    elif snr is not None:
         if r.snr_min <= snr <= r.snr_max:
             ok("snr")
         elif snr < r.snr_min:
