@@ -1099,14 +1099,26 @@ class _Walker:
         if isinstance(node, ast.Try) or type(node).__name__ == "TryStar":
             return self.attempt(node, state)
         if isinstance(node, ast.Match):
+            # Cases are tried in order. A case is reached when the ones before it did not match
+            # (a failed pattern may have bound some of its names) or matched with a false guard,
+            # whose effects stay; its guard runs before its body.
             self.escape(self.eval(node.subject, state))  # the patterns may bind parts of it
             cases = []
+            rest = state.copy()
             for case in node.cases:
-                path = state.copy()
                 for name in _names_bound(case.pattern):
-                    self.set_symbol(path, name, UNRESOLVED)
+                    self.set_symbol(rest, name, UNRESOLVED)
+                if case.guard is None:
+                    cases.append((case.body, rest.copy()))
+                    continue
+                path = rest.copy()
+                try:
+                    self.eval(case.guard, path)
+                except _Dead:
+                    continue
                 cases.append((case.body, path))
-            return self.branches([*cases, ([], state.copy())], state)  # or no case matches
+                rest = self.merge([rest, path.copy()])
+            return self.branches([*cases, ([], rest)], state)  # or no case matches
         if isinstance(node, ast.Expr):
             self.eval(node.value, state)
         elif isinstance(node, ast.Assign):

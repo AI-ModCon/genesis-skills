@@ -1185,6 +1185,20 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(EXAMPLE.replace(grid, grid + "import numpy as np\nfrom math import pi\n"))
         self.assertTrue(comp["passed"], comp["messages"])
 
+    def test_match_guards_run_before_their_case(self) -> None:
+        # The review's case: guards were never evaluated, so a walrus in one rebound the lens
+        # kwargs unseen. A false guard's effects also reach the cases after it.
+        wrong = 'wrong = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+        for name, code in (("walrus in a guard", wrong + "match 0:\n    case _ if (kwargs_lens := wrong):\n        pass"),
+                           ("edit in a false guard", "match 0:\n    case _ if kwargs_lens[0].update(theta_E=2.5):\n"
+                                                     "        pass\n    case _:\n        pass")):
+            with self.subTest(name):
+                comp = self._before_render(code)
+                self.assertFalse(comp["passed"])
+                self.assertIn("kwargs_lens", comp["unresolved"])
+        code = "match numPix:\n    case 64 if numPix > 0:\n        print('ok')\n    case [first] if first:\n        pass"
+        self.assertTrue(self._before_render(code)["passed"])  # a guard without effects
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
