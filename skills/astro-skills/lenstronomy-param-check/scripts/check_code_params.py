@@ -149,76 +149,7 @@ class _Extracted:
         self.psf_pixel_size: Any = _MISSING
 
 
-def _resolve(node: ast.AST, symbols: dict[str, Any]) -> Any:
-    """Resolve a node to a Python value, UNRESOLVED, or containers thereof."""
-    if isinstance(node, ast.Constant):
-        return node.value
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
-        val = _resolve(node.operand, symbols)
-        if isinstance(val, (int, float)) and not isinstance(val, bool):
-            return -val if isinstance(node.op, ast.USub) else val
-        return UNRESOLVED
-    if isinstance(node, ast.Name):
-        return symbols.get(node.id, UNRESOLVED)
-    if isinstance(node, ast.BinOp) and isinstance(
-        node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)
-    ):
-        left, right = _resolve(node.left, symbols), _resolve(node.right, symbols)
-        if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (left, right)):
-            try:
-                if isinstance(node.op, ast.Add):
-                    return left + right
-                if isinstance(node.op, ast.Sub):
-                    return left - right
-                if isinstance(node.op, ast.Mult):
-                    return left * right
-                if isinstance(node.op, ast.Div):
-                    return left / right
-                return left**right
-            except (ZeroDivisionError, OverflowError):
-                return UNRESOLVED
-        return UNRESOLVED
-    if isinstance(node, ast.Subscript):
-        # Still fully static: a dict or list literal reached through a name and
-        # indexed by a constant, e.g. kwargs_data["exposure_time"].
-        base = _resolve(node.value, symbols)
-        key = _resolve(node.slice, symbols)
-        if isinstance(base, dict) and isinstance(key, (str, int, float)) and key in base:
-            return base[key]
-        if (
-            isinstance(base, (list, tuple))
-            and isinstance(key, int)
-            and not isinstance(key, bool)
-            and 0 <= key < len(base)
-        ):
-            return base[key]
-        return UNRESOLVED
-    if isinstance(node, ast.List):
-        return [_resolve(el, symbols) for el in node.elts]
-    if isinstance(node, ast.Tuple):
-        return tuple(_resolve(el, symbols) for el in node.elts)
-    if isinstance(node, ast.Dict):
-        out: dict[Any, Any] = {}
-        for k, v in zip(node.keys, node.values):
-            if k is None:
-                # **mapping: merged in order, so it can override an earlier key.
-                mapping = _resolve(v, symbols)
-                if not isinstance(mapping, dict):
-                    return UNRESOLVED
-                out.update(mapping)
-                continue
-            key = _resolve(k, symbols)
-            if key == UNRESOLVED or not isinstance(key, (str, int, float, bool, type(None))):
-                return UNRESOLVED  # an unknown key could override any of the others
-            out[key] = _resolve(v, symbols)
-        return out
-    if isinstance(node, ast.Call):
-        return _build(node, symbols)
-    return UNRESOLVED
-
-
-def _call_name(call: ast.Call) -> str:
-    func = call.func
+def _call_name(func: ast.AST) -> str:
     if isinstance(func, ast.Attribute):
         return func.attr
     if isinstance(func, ast.Name):
@@ -226,133 +157,127 @@ def _call_name(call: ast.Call) -> str:
     return ""
 
 
-def _arguments(call: ast.Call, symbols: dict[str, Any], names: tuple[str, ...]) -> dict[str, Any]:
-    """The call's arguments, resolved and bound to the callee's leading parameter ``names``.
-
-    Keyword arguments are kept under their own names. An argument the call does
-    not pass is absent, or UNRESOLVED when a ``*`` or ``**`` expansion that cannot
-    be resolved might be passing it.
-    """
-    out: dict[str, Any] = {}
-    opaque = False
-    for i, arg in enumerate(call.args):
-        if isinstance(arg, ast.Starred):
-            opaque = True
-            break
-        if i < len(names):
-            out[names[i]] = _resolve(arg, symbols)
-    for keyword in call.keywords:
-        if keyword.arg is not None:
-            out[keyword.arg] = _resolve(keyword.value, symbols)
-            continue
-        mapping = _resolve(keyword.value, symbols)
-        if isinstance(mapping, dict):
-            out.update({k: v for k, v in mapping.items() if isinstance(k, str)})
-        else:
-            opaque = True
-    if opaque:
-        for name in names:
-            out.setdefault(name, UNRESOLVED)
-    return out
+def _unknown(value: Any) -> bool:
+    return isinstance(value, str) and value == UNRESOLVED
 
 
-def _build(call: ast.Call, symbols: dict[str, Any]) -> Any:
-    """What a call returns, as far as the check follows it."""
-    name = _call_name(call)
-    if name not in _BUILDERS:
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+_FOLDED = {ast.Add: lambda a, b: a + b, ast.Sub: lambda a, b: a - b, ast.Mult: lambda a, b: a * b,
+           ast.Div: lambda a, b: a / b, ast.Pow: lambda a, b: a ** b}
+
+
+def _fold(op: ast.operator, left: Any, right: Any) -> Any:
+    """Constant folding of + - * / ** on numbers; anything else is UNRESOLVED."""
+    if type(op) not in _FOLDED or not (_is_number(left) and _is_number(right)):
         return UNRESOLVED
-    if name == "ImageData":
-        # Followed when built as ImageData(**kwargs_data) from data_configure_simple.
-        expansions = [k.value for k in call.keywords if k.arg is None]
-        config = _resolve(expansions[0], symbols) if len(expansions) == 1 and not call.args else UNRESOLVED
-        is_config = isinstance(config, _Built) and config.kind == "data_configure_simple"
-        return _Built("ImageData", {"config": config if is_config else UNRESOLVED})
-    args = _arguments(call, symbols, _PARAMETERS[name])
-    if name == "data_configure_simple":
-        for camel, snake in _GRID_ALIASES:
-            if snake in args:
-                args[camel] = args.pop(snake)
-        # numPix and deltaPix are required; exposure_time and background_rms default to None.
-        return _Built(name, {k: args.get(k, _MISSING if k in ("numPix", "deltaPix") else None)
-                             for k in _PARAMETERS[name]})
-    if name == "PSF":
-        return _Built("PSF", {"psf_type": args.get("psf_type", _PSF_DEFAULT_TYPE),
-                              "fwhm": args.get("fwhm"), "pixel_size": args.get("pixel_size")})
-    if name == "ImageModel":
-        return _Built("ImageModel", {"data": args.get("data_class"), "psf": args.get("psf_class"),
-                                     "lens": args.get("lens_model_class"),
-                                     "source": args.get("source_model_class")})
-    return _Built(name, {"models": args.get(_PARAMETERS[name][0], _MISSING)})
+    if isinstance(op, ast.Pow) and isinstance(left, int) and isinstance(right, int) and abs(right) > 4096:
+        return UNRESOLVED  # 2**10**10 would take forever to compute
+    try:
+        return _FOLDED[type(op)](left, right)
+    except (ZeroDivisionError, OverflowError):
+        return UNRESOLVED
 
 
-def _truth(node: ast.AST, symbols: dict[str, Any]) -> bool | None:
-    """The condition's value when it is known statically, else None."""
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
-        value = _truth(node.operand, symbols)
-        return None if value is None else not value
-    if isinstance(node, ast.BoolOp):
-        values = [_truth(v, symbols) for v in node.values]
-        decisive = isinstance(node.op, ast.Or)  # True decides an `or`, False an `and`
-        if decisive in values:
-            return decisive
-        return (not decisive) if all(v is not None for v in values) else None
-    if isinstance(node, ast.Compare) and len(node.ops) == 1:
-        left, right = node.left, node.comparators[0]
-        if (isinstance(left, ast.Name) and left.id == "__name__"
-                and isinstance(right, ast.Constant) and right.value == "__main__"
-                and isinstance(node.ops[0], (ast.Eq, ast.NotEq))):
-            # The check is about the script run directly.
-            return isinstance(node.ops[0], ast.Eq)
-        a, b = _resolve(left, symbols), _resolve(right, symbols)
-        scalars = (str, int, float, bool, type(None))
-        if a == UNRESOLVED or b == UNRESOLVED or not (isinstance(a, scalars) and isinstance(b, scalars)):
-            return None
-        op = node.ops[0]
+def _index(base: Any, key: Any) -> Any:
+    """base[key] for a resolved dict or list and a constant key, else UNRESOLVED."""
+    if isinstance(base, dict) and isinstance(key, (str, int, float)) and key in base:
+        return base[key]
+    if isinstance(base, (list, tuple)) and isinstance(key, int) and not isinstance(key, bool) \
+            and 0 <= key < len(base):
+        return base[key]
+    return UNRESOLVED
+
+
+_COMPARISONS = {ast.Eq: lambda a, b: a == b, ast.NotEq: lambda a, b: a != b,
+                ast.Lt: lambda a, b: a < b, ast.LtE: lambda a, b: a <= b,
+                ast.Gt: lambda a, b: a > b, ast.GtE: lambda a, b: a >= b,
+                ast.Is: lambda a, b: a is b, ast.IsNot: lambda a, b: a is not b}
+_SCALARS = (str, int, float, bool, type(None))
+
+
+def _compare(ops: list[ast.cmpop], values: list[Any]) -> Any:
+    """A comparison of scalars, chained as Python does; UNRESOLVED otherwise."""
+    if any(_unknown(v) or not isinstance(v, _SCALARS) for v in values):
+        return UNRESOLVED
+    for op, a, b in zip(ops, values, values[1:]):
+        if type(op) not in _COMPARISONS:
+            return UNRESOLVED
         try:
-            if isinstance(op, ast.Eq):
-                return a == b
-            if isinstance(op, ast.NotEq):
-                return a != b
-            if isinstance(op, ast.Is):
-                return a is b
-            if isinstance(op, ast.IsNot):
-                return a is not b
-            if isinstance(op, ast.Lt):
-                return a < b
-            if isinstance(op, ast.LtE):
-                return a <= b
-            if isinstance(op, ast.Gt):
-                return a > b
-            if isinstance(op, ast.GtE):
-                return a >= b
+            if not _COMPARISONS[type(op)](a, b):
+                return False
         except TypeError:
-            return None
-        return None
-    value = _resolve(node, symbols)
-    if value == UNRESOLVED or isinstance(value, _Built):
+            return UNRESOLVED
+    return True
+
+
+def _truth(value: Any) -> bool | None:
+    """The truth value of a resolved value, or None when it is not known statically."""
+    if _unknown(value) or not isinstance(value, (*_SCALARS, list, tuple, dict)):
         return None
     return bool(value)
 
 
+@dataclass
+class _Args:
+    """The evaluated arguments of a call."""
+
+    positional: list[Any]  # up to the first * expansion
+    keywords: dict[str, Any]  # explicit keywords, and ** expansions of resolved dicts
+    expansions: list[Any]  # every ** value, in order
+    opaque: bool  # a * or ** expansion the check cannot resolve may pass more arguments
+
+    def bind(self, names: tuple[str, ...]) -> dict[str, Any]:
+        """Bound to the callee's leading parameter ``names``; keywords keep their own names.
+
+        An argument the call does not pass is absent, or UNRESOLVED when an
+        expansion that cannot be resolved might be passing it.
+        """
+        out = dict(zip(names, self.positional))
+        out.update(self.keywords)
+        if self.opaque:
+            for name in names:
+                out.setdefault(name, UNRESOLVED)
+        return out
+
+
+def _build(name: str, args: _Args) -> _Built:
+    """The lenstronomy object a builder call makes, with the arguments the check follows."""
+    if name == "ImageData":
+        # Followed when built as ImageData(**kwargs_data) from data_configure_simple.
+        config = args.expansions[0] if len(args.expansions) == 1 and not args.positional else UNRESOLVED
+        is_config = isinstance(config, _Built) and config.kind == "data_configure_simple"
+        return _Built("ImageData", {"config": config if is_config else UNRESOLVED})
+    bound = args.bind(_PARAMETERS[name])
+    if name == "data_configure_simple":
+        for camel, snake in _GRID_ALIASES:
+            if snake in bound:
+                bound[camel] = bound.pop(snake)
+        # numPix and deltaPix are required; exposure_time and background_rms default to None.
+        return _Built(name, {k: bound.get(k, _MISSING if k in ("numPix", "deltaPix") else None)
+                             for k in _PARAMETERS[name]})
+    if name == "PSF":
+        return _Built("PSF", {"psf_type": bound.get("psf_type", _PSF_DEFAULT_TYPE),
+                              "fwhm": bound.get("fwhm"), "pixel_size": bound.get("pixel_size")})
+    if name == "ImageModel":
+        return _Built("ImageModel", {"data": bound.get("data_class"), "psf": bound.get("psf_class"),
+                                     "lens": bound.get("lens_model_class"),
+                                     "source": bound.get("source_model_class")})
+    return _Built(name, {"models": bound.get(_PARAMETERS[name][0], _MISSING)})
+
+
 def _names_bound(target: ast.AST) -> list[str]:
-    """Every plain name an assignment target or loop variable binds."""
-    return [n.id for n in ast.walk(target) if isinstance(n, ast.Name)]
+    """Every plain name an assignment target, loop variable or pattern binds."""
+    names = [n.id for n in ast.walk(target) if isinstance(n, ast.Name)]
+    names += [n.name for n in ast.walk(target) if isinstance(n, (ast.MatchAs, ast.MatchStar)) and n.name]
+    names += [n.rest for n in ast.walk(target) if isinstance(n, ast.MatchMapping) and n.rest]
+    return names
 
 
-def _calls_in_order(node: ast.AST) -> list[ast.Call]:
-    """The calls inside an expression or simple statement, in evaluation order."""
-    out: list[ast.Call] = []
-
-    def visit(n: ast.AST) -> None:
-        if isinstance(n, ast.Lambda):
-            return  # its body runs only when called
-        for child in ast.iter_child_nodes(n):
-            visit(child)
-        if isinstance(n, ast.Call):
-            out.append(n)
-
-    visit(node)
-    return out
+class _Dead(Exception):
+    """A call never returns: the path it is on ends there."""
 
 
 class _State:
@@ -390,7 +315,9 @@ class _Walker:
     return, raise, break or continue, or a call that never returns. A return keeps
     its path's state for the function's caller, a break or continue for the loop's
     exit, and sys.exit() for the end of the program. A raise drops its path: a script
-    that raises renders nothing.
+    that raises renders nothing. Expressions are evaluated by ``eval``, which follows
+    the calls in them in evaluation order and raises _Dead from a call that never
+    returns.
     """
 
     def __init__(self) -> None:
@@ -400,6 +327,8 @@ class _Walker:
         self.loop_exits: list[list[_State]] = []  # one list per running loop
         self.program_exits: list[_State] = []
 
+    # --- statements ------------------------------------------------------------
+
     def block(self, stmts: list[ast.stmt], state: _State) -> bool:
         for stmt in stmts:
             if self.statement(stmt, state):
@@ -407,6 +336,12 @@ class _Walker:
         return False
 
     def statement(self, node: ast.stmt, state: _State) -> bool:
+        try:
+            return self._statement(node, state)
+        except _Dead:
+            return True
+
+    def _statement(self, node: ast.stmt, state: _State) -> bool:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             self.functions[node.name] = node  # the body runs only where it is called
             state.symbols[node.name] = UNRESOLVED
@@ -415,9 +350,7 @@ class _Walker:
             state.symbols[node.name] = UNRESOLVED
             return False
         if isinstance(node, ast.If):
-            if self.calls(node.test, state):
-                return True
-            value = _truth(node.test, state.symbols)
+            value = _truth(self.eval(node.test, state))
             if value is not None:
                 return self.block(node.body if value else node.orelse, state)
             return self.branches([(node.body, state.copy()), (node.orelse, state.copy())], state)
@@ -425,16 +358,14 @@ class _Walker:
             return self.loop(node, state)
         if isinstance(node, (ast.With, ast.AsyncWith)):
             for item in node.items:
-                if self.calls(item.context_expr, state):
-                    return True
+                self.eval(item.context_expr, state)
                 if item.optional_vars is not None:
                     self.bind(item.optional_vars, UNRESOLVED, state)
             return self.block(node.body, state)
         if isinstance(node, ast.Try) or type(node).__name__ == "TryStar":
             return self.attempt(node, state)
         if isinstance(node, ast.Match):
-            if self.calls(node.subject, state):
-                return True
+            self.eval(node.subject, state)
             cases = []
             for case in node.cases:
                 path = state.copy()
@@ -442,29 +373,43 @@ class _Walker:
                     path.symbols[name] = UNRESOLVED
                 cases.append((case.body, path))
             return self.branches([*cases, ([], state.copy())], state)  # or no case matches
-        if self.calls(node, state):
-            return True
-        if isinstance(node, ast.Assign):
-            value = _resolve(node.value, state.symbols)
+        if isinstance(node, ast.Expr):
+            self.eval(node.value, state)
+        elif isinstance(node, ast.Assign):
+            value = self.eval(node.value, state)
             for target in node.targets:
                 self.bind(target, value, state)
         elif isinstance(node, ast.AnnAssign):
             if node.value is not None:  # a bare annotation binds nothing
-                self.bind(node.target, _resolve(node.value, state.symbols), state)
+                self.bind(node.target, self.eval(node.value, state), state)
         elif isinstance(node, ast.AugAssign):
             if isinstance(node.target, ast.Name):  # x += v is x = x + v; x[...] += v is an in-place edit
-                current = ast.BinOp(left=ast.Name(id=node.target.id, ctx=ast.Load()), op=node.op, right=node.value)
-                self.bind(node.target, _resolve(current, state.symbols), state)
+                value = self.eval(node.value, state)
+                current = state.symbols.get(node.target.id, UNRESOLVED)
+                self.bind(node.target, _fold(node.op, current, value), state)
+            else:
+                self.effects(node.target, state)
+                self.eval(node.value, state)
         elif isinstance(node, ast.Return):
+            if node.value is not None:
+                self.eval(node.value, state)
             if self.returns:
                 self.returns[-1].append(state.copy())
             return True
         elif isinstance(node, ast.Raise):
+            for part in (node.exc, node.cause):
+                if part is not None:
+                    self.eval(part, state)
             return True
         elif isinstance(node, (ast.Break, ast.Continue)):
             if self.loop_exits:
                 self.loop_exits[-1].append(state.copy())
             return True
+        elif isinstance(node, ast.Assert):
+            self.eval(node.test, state)
+        elif isinstance(node, ast.Delete):
+            for target in node.targets:
+                self.effects(target, state)
         return False
 
     def branches(self, paths: list[tuple[list[ast.stmt], _State]], state: _State) -> bool:
@@ -478,12 +423,10 @@ class _Walker:
     def loop(self, node: ast.For | ast.AsyncFor | ast.While, state: _State) -> bool:
         """The body runs zero or more times: iterate until the joined state is stable."""
         if isinstance(node, ast.While):
-            if self.calls(node.test, state):
-                return True
-            if _truth(node.test, state.symbols) is False:
+            if _truth(self.eval(node.test, state)) is False:
                 return self.block(node.orelse, state)
-        elif self.calls(node.iter, state):
-            return True
+        else:
+            self.eval(node.iter, state)
         entry = state.copy()
         for _ in range(3):
             body = entry.copy()
@@ -526,43 +469,167 @@ class _Walker:
                 parts = [UNRESOLVED] * len(target.elts)
             for el, part in zip(target.elts, parts):
                 self.bind(el.value if isinstance(el, ast.Starred) else el, part, state)
-        # Attribute and subscript targets (in-place edits) are not followed.
+        else:
+            # Attribute and subscript targets (in-place edits) are not followed.
+            self.effects(target, state)
 
-    def calls(self, node: ast.AST, state: _State) -> bool:
-        """Follow the calls in an expression or simple statement; True if one never returns."""
-        for call in _calls_in_order(node):
-            if self.call(call, state):
-                return True
-        return False
+    # --- expressions -------------------------------------------------------------
 
-    def call(self, call: ast.Call, state: _State) -> bool:
-        name, found = _call_name(call), state.found
+    def effects(self, node: ast.AST, state: _State) -> None:
+        """Follow the calls inside a node's parts, in evaluation order, ignoring their values."""
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.Lambda):
+                continue  # its body runs only when called
+            if isinstance(child, ast.expr):
+                self.eval(child, state)
+            else:
+                self.effects(child, state)
+
+    def eval(self, node: ast.AST, state: _State) -> Any:
+        """The value of an expression: a Python value, UNRESOLVED, or containers thereof."""
+        method = getattr(self, f"_eval_{node.__class__.__name__}", None)
+        if method is not None:
+            return method(node, state)
+        if not isinstance(node, ast.Lambda):  # a lambda's body runs only when called
+            self.effects(node, state)
+        return UNRESOLVED
+
+    def _eval_Constant(self, node: ast.Constant, state: _State) -> Any:
+        return node.value
+
+    def _eval_Name(self, node: ast.Name, state: _State) -> Any:
+        return state.symbols.get(node.id, UNRESOLVED)
+
+    def _eval_UnaryOp(self, node: ast.UnaryOp, state: _State) -> Any:
+        value = self.eval(node.operand, state)
+        if isinstance(node.op, ast.Not):
+            truth = _truth(value)
+            return UNRESOLVED if truth is None else not truth
+        if _is_number(value) and isinstance(node.op, (ast.USub, ast.UAdd)):
+            return -value if isinstance(node.op, ast.USub) else value
+        return UNRESOLVED
+
+    def _eval_BinOp(self, node: ast.BinOp, state: _State) -> Any:
+        left = self.eval(node.left, state)
+        return _fold(node.op, left, self.eval(node.right, state))
+
+    def _eval_BoolOp(self, node: ast.BoolOp, state: _State) -> Any:
+        values = [self.eval(v, state) for v in node.values]
+        decisive = isinstance(node.op, ast.Or)  # a true value decides an `or`, a false one an `and`
+        for value in values:
+            truth = _truth(value)
+            if truth is None:
+                return UNRESOLVED
+            if truth is decisive:
+                return value
+        return values[-1]
+
+    def _eval_IfExp(self, node: ast.IfExp, state: _State) -> Any:
+        test = _truth(self.eval(node.test, state))
+        body, orelse = self.eval(node.body, state), self.eval(node.orelse, state)
+        return UNRESOLVED if test is None else (body if test else orelse)
+
+    def _eval_Compare(self, node: ast.Compare, state: _State) -> Any:
+        values = [self.eval(node.left, state)] + [self.eval(c, state) for c in node.comparators]
+        return _compare(node.ops, values)
+
+    def _eval_Subscript(self, node: ast.Subscript, state: _State) -> Any:
+        # Still fully static: a dict or list reached through a name and indexed by a
+        # constant, e.g. kwargs_data["exposure_time"].
+        base = self.eval(node.value, state)
+        return _index(base, self.eval(node.slice, state))
+
+    def _eval_List(self, node: ast.List, state: _State) -> Any:
+        return [self.eval(el, state) for el in node.elts]
+
+    def _eval_Tuple(self, node: ast.Tuple, state: _State) -> Any:
+        return tuple(self.eval(el, state) for el in node.elts)
+
+    def _eval_Starred(self, node: ast.Starred, state: _State) -> Any:
+        self.eval(node.value, state)
+        return UNRESOLVED
+
+    def _eval_Dict(self, node: ast.Dict, state: _State) -> Any:
+        out: dict[Any, Any] = {}
+        resolved = True
+        for k, v in zip(node.keys, node.values):
+            if k is None:
+                # **mapping: merged in order, so it can override an earlier key.
+                mapping = self.eval(v, state)
+                if isinstance(mapping, dict):
+                    out.update(mapping)
+                else:
+                    resolved = False
+                continue
+            key = self.eval(k, state)
+            value = self.eval(v, state)
+            if _unknown(key) or not isinstance(key, _SCALARS):
+                resolved = False  # an unknown key could override any of the others
+            else:
+                out[key] = value
+        return out if resolved else UNRESOLVED
+
+    def _eval_Call(self, node: ast.Call, state: _State) -> Any:
+        func = node.func
+        receiver = self.eval(func.value, state) if isinstance(func, ast.Attribute) else None
+        if not isinstance(func, (ast.Attribute, ast.Name)):
+            self.eval(func, state)
+        positional: list[Any] = []
+        keywords: dict[str, Any] = {}
+        expansions: list[Any] = []
+        starred = opaque = False
+        for arg in node.args:
+            if isinstance(arg, ast.Starred):
+                self.eval(arg.value, state)
+                starred = opaque = True
+                continue
+            value = self.eval(arg, state)
+            if not starred:
+                positional.append(value)
+        for keyword in node.keywords:
+            value = self.eval(keyword.value, state)
+            if keyword.arg is not None:
+                keywords[keyword.arg] = value
+                continue
+            expansions.append(value)
+            if isinstance(value, dict):
+                keywords.update({k: v for k, v in value.items() if isinstance(k, str)})
+            else:
+                opaque = True
+        return self.call(node, receiver, _Args(positional, keywords, expansions, opaque), state)
+
+    def call(self, node: ast.Call, receiver: Any, args: _Args, state: _State) -> Any:
+        """What a call returns, as far as the check follows it."""
+        name, found = _call_name(node.func), state.found
         if name in _BUILDERS:
+            built = _build(name, args)
             key = f"built:{name}"
             previous = found.get(key, ())
-            found[key] = UNRESOLVED if previous == UNRESOLVED else previous + (_build(call, state.symbols),)
-        elif name == "image" and isinstance(call.func, ast.Attribute):
-            args = _arguments(call, state.symbols, _PARAMETERS["image"])
-            found["rendered"] = {"kwargs_lens": args.get("kwargs_lens", _MISSING),
-                                 "kwargs_source": args.get("kwargs_source", _MISSING),
-                                 "image_model": _resolve(call.func.value, state.symbols)}
-        if _is_exit_call(call):
+            found[key] = UNRESOLVED if previous == UNRESOLVED else previous + (built,)
+            return built
+        if name == "image" and isinstance(node.func, ast.Attribute):
+            bound = args.bind(_PARAMETERS["image"])
+            found["rendered"] = {"kwargs_lens": bound.get("kwargs_lens", _MISSING),
+                                 "kwargs_source": bound.get("kwargs_source", _MISSING),
+                                 "image_model": receiver}
+            return UNRESOLVED
+        if _is_exit_call(node):
             self.program_exits.append(state.copy())
-            return True
-        if isinstance(call.func, ast.Name) and call.func.id in self.functions:
-            return self.run(self.functions[call.func.id], call, state)
-        return False
+            raise _Dead
+        if isinstance(node.func, ast.Name) and node.func.id in self.functions:
+            return self.run(self.functions[node.func.id], args, state)
+        return UNRESOLVED
 
-    def run(self, fn: ast.FunctionDef | ast.AsyncFunctionDef, call: ast.Call, state: _State) -> bool:
+    def run(self, fn: ast.FunctionDef | ast.AsyncFunctionDef, args: _Args, state: _State) -> Any:
         """Run a called function's body in its own scope; what it builds still counts.
 
-        Returns True when the function never returns (every path raises or exits).
+        Raises _Dead when the function never returns (every path raises or exits).
         """
         if fn.name in self.active or len(self.active) >= _MAX_CALL_DEPTH:
-            return False
+            return UNRESOLVED
         a = fn.args
         positional = [p.arg for p in (*a.posonlyargs, *a.args)]
-        given = _arguments(call, state.symbols, tuple(positional))
+        given = args.bind(tuple(positional))
         local = _State(state.symbols, state.found)
         defaults = dict(zip(positional[len(positional) - len(a.defaults):], a.defaults))
         defaults.update({p.arg: d for p, d in zip(a.kwonlyargs, a.kw_defaults) if d is not None})
@@ -570,7 +637,10 @@ class _Walker:
             if p in given:
                 local.symbols[p] = given[p]
             elif p in defaults:
-                local.symbols[p] = _resolve(defaults[p], state.symbols)
+                try:
+                    local.symbols[p] = self.eval(defaults[p], state.copy())
+                except _Dead:
+                    local.symbols[p] = UNRESOLVED
             else:
                 local.symbols[p] = UNRESOLVED
         for extra in (a.vararg, a.kwarg):
@@ -583,12 +653,12 @@ class _Walker:
         paths = self.returns.pop() + ([] if ended else [local])
         self.active.pop()
         if not paths:
-            return True
+            raise _Dead
         final = _merge(paths)
         state.found = final.found
         for name in shared & set(final.symbols):
             state.symbols[name] = final.symbols[name]
-        return False
+        return UNRESOLVED
 
 
 def _is_exit_call(call: ast.Call) -> bool:
@@ -631,7 +701,7 @@ def _component(image_model: Any, role: str, kind: str, found: dict[str, Any]) ->
 def extract_lenstronomy_inputs(code: str) -> _Extracted:
     """Walk the script and recover the lenstronomy input values."""
     tree = ast.parse(code)
-    state = _State()
+    state = _State({"__name__": "__main__"})  # the check is about the script run directly
     walker = _Walker()
     ended = walker.block(tree.body, state)
     # The script ends where it falls off the end or calls sys.exit(); if every path
