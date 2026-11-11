@@ -785,7 +785,8 @@ class CodeCheckRegressionTests(unittest.TestCase):
             "clear": ("kwargs_source[0].clear()", "kwargs_source[0]"),
             "scaled": ('kwargs_source[0]["amp"] *= 2', "kwargs_source[0].amp"),
             "through an alias": ('lens = kwargs_lens[0]\nlens["theta_E"] = 2.5', "kwargs_lens[0].theta_E"),
-            "through a loop variable": ('for kw in kwargs_lens:\n    kw["theta_E"] = 2.5', "kwargs_lens"),
+            "through a loop variable": ('for kw in kwargs_lens:\n    kw["theta_E"] = 2.5', "kwargs_lens[0].theta_E"),
+            "through an iterator": ('for kw in iter(kwargs_lens):\n    kw["theta_E"] = 2.5', "kwargs_lens"),
             "in a function": ('def tweak(k):\n    k[0]["theta_E"] = 2.5\ntweak(kwargs_lens)',
                               "kwargs_lens[0].theta_E"),
             "by a call the check does not follow": ("tweak(kwargs_lens)", "kwargs_lens"),
@@ -828,6 +829,33 @@ class CodeCheckRegressionTests(unittest.TestCase):
                 self.assertIn("kwargs_lens", comp["unresolved"])
         # The side that runs still counts.
         comp = _compare(EXAMPLE.replace(self.RENDER, wrong + f"x = None if False else {good}"))
+        self.assertTrue(comp["passed"], comp["messages"])
+
+    def test_a_loop_else_runs_only_without_a_break(self) -> None:
+        # The loop's else block was applied even after a break, so an else that assigns the
+        # expected kwargs certified a render of the wrong ones.
+        lens = 'kwargs_lens = [{"theta_E": 1.0, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]'
+        wrong = lens.replace('"theta_E": 1.0', '"theta_E": 2.5')
+        self.assertIn(lens, EXAMPLE)
+        for loop in ("while True:\n    break", "for _ in range(3):\n    break",
+                     "for _ in sys.argv:\n    break", "while len(sys.argv) > 1:\n    break"):
+            with self.subTest(loop):
+                code = EXAMPLE.replace(lens, wrong + "\n" + loop + "\nelse:\n    " + lens)
+                comp = _compare(code)
+                diverged = {d["field"]: d["actual"] for d in comp["diverged"]}
+                if "sys.argv" in loop:  # may run zero times, so the else may run: either value
+                    self.assertIn("kwargs_lens", comp["unresolved"])
+                else:
+                    self.assertEqual(diverged, {"kwargs_lens[0].theta_E": 2.5})
+        # Without a break (a continue does not count) the else runs.
+        for loop in ("for _ in range(2):\n    continue", "for _ in []:\n    pass", "while False:\n    pass"):
+            with self.subTest(loop):
+                comp = _compare(EXAMPLE.replace(lens, wrong + "\n" + loop + "\nelse:\n    " + lens))
+                self.assertTrue(comp["passed"], comp["messages"])
+        # `while True` without a break never ends, so the wrong render after it never runs.
+        comp = _compare(EXAMPLE.replace(self.RENDER, self.RENDER + "\nwhile True:\n    pass\n" + wrong
+                                        + "\nimage = image_model.image(kwargs_lens=kwargs_lens, "
+                                        "kwargs_source=kwargs_source)"))
         self.assertTrue(comp["passed"], comp["messages"])
 
 class CommandLineTests(unittest.TestCase):

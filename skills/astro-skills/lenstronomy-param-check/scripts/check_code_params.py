@@ -123,6 +123,8 @@ class _Missing:
 # an explicit None, which is a value the script passes and is compared like any other.
 _MISSING = _Missing()
 _MAX_CALL_DEPTH = 20
+_UNROLL = 16  # a loop over a known list this long or shorter is followed item by item
+_MAX_ROUNDS = 1000  # loop bodies are re-run until the state is stable, which it always becomes
 
 
 @dataclass
@@ -411,6 +413,23 @@ _LENSTRONOMY_READS = {"ray_shooting", "alpha", "hessian", "kappa", "potential", 
                       "source_surface_brightness", "lens_surface_brightness"}
 
 
+def _builtin_value(name: str, args: _Args) -> Any:
+    """len() of a known container and a short range() of known ints; else UNRESOLVED."""
+    values = args.positional
+    if args.opaque or args.keywords or any(_unknown(v) for v in values):
+        return UNRESOLVED
+    if name == "len" and len(values) == 1 and isinstance(values[0], (str, list, tuple, dict)):
+        return len(values[0])
+    if name == "range" and 1 <= len(values) <= 3 and all(isinstance(v, int) and not isinstance(v, bool)
+                                                         for v in values):
+        try:
+            items = range(*values)
+        except ValueError:  # a zero step
+            return UNRESOLVED
+        return list(items) if len(items) <= _UNROLL else UNRESOLVED
+    return UNRESOLVED
+
+
 def _names_bound(target: ast.AST) -> list[str]:
     """Every plain name an assignment target, loop variable or pattern binds."""
     names = [n.id for n in ast.walk(target) if isinstance(n, ast.Name)]
@@ -494,7 +513,7 @@ class _Walker:
         self.functions: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
         self.active: list[str] = []
         self.returns: list[list[_State]] = []  # one list per running function
-        self.loop_exits: list[list[_State]] = []  # one list per running loop
+        self.loops: list[tuple[list[_State], list[_State]]] = []  # (breaks, continues) per running loop
         self.program_exits: list[_State] = []
         self.swaps: list[tuple[Any, Any]] = []  # every (old, new) object swap, in order
         self.escaped: dict[int, Any] = {}  # objects reachable through a value the check does not know
@@ -660,8 +679,8 @@ class _Walker:
                     self.eval(part, state)
             return True
         elif isinstance(node, (ast.Break, ast.Continue)):
-            if self.loop_exits:
-                self.loop_exits[-1].append(state.copy())
+            if self.loops:
+                self.loops[-1][isinstance(node, ast.Continue)].append(state.copy())
             return True
         elif isinstance(node, ast.Assert):
             self.eval(node.test, state)
@@ -721,26 +740,80 @@ class _Walker:
         return False
 
     def loop(self, node: ast.For | ast.AsyncFor | ast.While, state: _State) -> bool:
-        """The body runs zero or more times: iterate until the joined state is stable."""
-        if isinstance(node, ast.While):
-            if _truth(self.eval(node.test, state)) is False:
-                return self.block(node.orelse, state)
-        else:
-            self.escape(self.eval(node.iter, state))  # the loop variable holds its items
+        """The body runs zero or more times; ``else`` runs only when the loop ends without a break.
+
+        The body is re-run from the join of every way of reaching the loop's head until
+        that join is stable. A value can only go from known to UNRESOLVED, so it becomes
+        stable. A loop over a short list the check knows is followed item by item.
+        """
+        if not isinstance(node, ast.While):
+            iterable = self.eval(node.iter, state)
+            if isinstance(iterable, (list, tuple)) and len(iterable) <= _UNROLL:
+                return self.unrolled(node, list(iterable), state)
+            self.escape(iterable)  # the loop variable holds its items
+        breaks: list[_State] = []
+        finished: _State | None = None  # the loop ends without a break: its condition is false
         entry = state.copy()
-        for _ in range(3):
-            body = entry.copy()
+        for _ in range(_MAX_ROUNDS):
+            head = entry.copy()
+            truth: bool | None = None  # a for loop may have another item, or none
+            if isinstance(node, ast.While):
+                try:
+                    truth = _truth(self.eval(node.test, head))
+                except _Dead:
+                    finished = None
+                    break
+            finished = None if truth is True else head.copy()  # `while True` only ends by break
+            if truth is False:
+                break
+            body = head.copy()
             if not isinstance(node, ast.While):
-                self.bind(node.target, UNRESOLVED, body)
-            self.loop_exits.append([])
+                for name in _names_bound(node.target):
+                    self.bind(ast.Name(id=name, ctx=ast.Store()), UNRESOLVED, body)
+            self.loops.append(([], []))
             ended = self.block(node.body, body)
-            exits = self.loop_exits.pop()
-            joined = self.merge([state, *([] if ended else [body]), *exits])
+            round_breaks, continues = self.loops.pop()
+            breaks.extend(round_breaks)
+            joined = self.merge([entry, *([] if ended else [body]), *continues])
             if _same_state(joined, entry):
                 break
             entry = joined
-        state.take(entry)
-        return self.block(node.orelse, state)
+        else:  # never happens (see above), but never certify an unfinished analysis
+            for table in (entry.symbols, entry.found):
+                for key in table:
+                    table[key] = UNRESOLVED
+            finished = entry
+        paths = breaks
+        if finished is not None and not self.block(node.orelse, finished):
+            paths.append(finished)
+        if not paths:
+            return True  # it never exits
+        state.take(self.merge(paths))
+        return False
+
+    def unrolled(self, node: ast.For | ast.AsyncFor, items: list[Any], state: _State) -> bool:
+        """A loop over a known list: the body runs once per item, with the variable bound to it."""
+        breaks: list[_State] = []
+        current: _State | None = state
+        for item in items:
+            assert current is not None
+            self.bind(node.target, item, current)
+            self.loops.append(([], []))
+            ended = self.block(node.body, current)
+            round_breaks, continues = self.loops.pop()
+            breaks.extend(round_breaks)
+            following = ([] if ended else [current]) + continues
+            if not following:
+                current = None
+                break
+            current = following[0] if len(following) == 1 else self.merge(following)
+        paths = breaks
+        if current is not None and not self.block(node.orelse, current):
+            paths.append(current)
+        if not paths:
+            return True
+        state.take(paths[0] if len(paths) == 1 else self.merge(paths))
+        return False
 
     def attempt(self, node: ast.AST, state: _State) -> bool:
         """try/except: a handler may start from any point in the body."""
@@ -926,7 +999,7 @@ class _Walker:
                 self.escape(self.eval(part, path))
             return UNRESOLVED
 
-        for _ in range(3):  # each run may see what the one before it did
+        for _ in range(_MAX_ROUNDS):  # each run may see what the one before it did; it becomes stable
             before = state.copy()
             self.alternatives([lambda path: UNRESOLVED, body], state)
             for name, value in outer.items():  # its variables do not leak out (a walrus does)
@@ -1051,7 +1124,7 @@ class _Walker:
             return UNRESOLVED
         if isinstance(func, ast.Name) and func.id not in state.symbols:
             if func.id in _PURE_BUILTINS:
-                return UNRESOLVED
+                return _builtin_value(func.id, args)
             if func.id in _CAPTURING_BUILTINS:
                 for value in args.values():
                     self.escape(value)
