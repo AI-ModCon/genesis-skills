@@ -1217,6 +1217,26 @@ class CodeCheckRegressionTests(unittest.TestCase):
             with self.subTest(code):
                 self.assertTrue(self._before_render(code)["passed"])  # consumed right away
 
+    def test_an_edit_while_evaluating_reaches_the_values_already_evaluated(self) -> None:
+        # The review's case: kwargs_lens was evaluated, then the next argument edited it, and the
+        # check recorded the value from before the edit, so theta_E passed although Python
+        # renders 2.5. List, tuple and dict displays and subscripts held values the same way.
+        edit = "(kwargs_lens[0].update(theta_E=2.5), {})[1]"
+        render = "image = image_model.image(kwargs_lens={}, kwargs_source=kwargs_source)"
+        cases = {
+            "keyword argument": render.format("kwargs_lens").replace("=kwargs_source", "=" + edit.format("kwargs_source")),
+            "positional argument": f"image = image_model.image(kwargs_lens, {edit.format('kwargs_source')})",
+            "list display": f"held = [kwargs_lens, {edit.format(0)}]\n" + render.format("held[0]"),
+            "tuple display": f"held = (kwargs_lens, {edit.format(0)})\n" + render.format("held[0]"),
+            "dict display": f"held = {{'k': kwargs_lens, 'x': {edit.format(0)}}}\n" + render.format("held['k']"),
+            "subscript": f"lens = kwargs_lens[{edit.format(0)}]\n" + render.format("[lens]"),
+        }
+        for name, code in cases.items():
+            with self.subTest(name):
+                comp = _compare(EXAMPLE.replace(self.RENDER, code))
+                self.assertFalse(comp["passed"])
+                self.assertEqual(comp["unresolved"], ["kwargs_lens[0].theta_E"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(

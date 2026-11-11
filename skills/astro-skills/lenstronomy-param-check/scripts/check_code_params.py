@@ -880,8 +880,8 @@ class _Walker:
             if id(old) in self.escaped and isinstance(new, _MUTABLE):
                 self.escaped[id(new)] = new
 
-    def replay(self, state: _State, since: int) -> None:
-        """Make the swaps done since ``since`` (in a called function) on this path too."""
+    def latest(self, since: int) -> list[tuple[Any, Any]]:
+        """Each object swapped since ``since``, with what it has become (UNRESOLVED if paths differ)."""
         latest: dict[int, Any] = {}
         old_of: dict[int, Any] = {}
         for old, new in self.swaps[since:]:
@@ -895,8 +895,20 @@ class _Walker:
                 seen.add(id(new))
                 new = latest[id(new)]  # swapped again later
             swaps.append((old_of[key], new))
+        return swaps
+
+    def replay(self, state: _State, since: int) -> None:
+        """Make the swaps done since ``since`` (in a called function) on this path too."""
+        swaps = self.latest(since)
         if swaps:
             self.swap(state, swaps)
+
+    def fresh(self, since: int, values: list[Any]) -> list[Any]:
+        """``values`` as they are now: evaluating a later expression may have edited objects in them."""
+        if len(self.swaps) == since:
+            return values
+        replacer = _Replacer({id(old): new for old, new in self.latest(since)})
+        return [replacer(value) for value in values]
 
     def escape(self, value: Any) -> None:
         """What the value holds can now be reached through a value the check does not know."""
@@ -1563,8 +1575,11 @@ class _Walker:
     def _eval_Subscript(self, node: ast.Subscript, state: _State) -> Any:
         # Still fully static: a dict or list reached through a name and indexed by a
         # constant, e.g. kwargs_data["exposure_time"].
+        since = len(self.swaps)
         base = self.eval(node.value, state)
-        value = _index(base, self.eval(node.slice, state))
+        key = self.eval(node.slice, state)
+        [base] = self.fresh(since, [base])  # the key's evaluation may have edited it
+        value = _index(base, key)
         if _unknown(value):
             self.escape(base)  # an unknown key or a slice may reach any of its items
         return value
@@ -1583,6 +1598,7 @@ class _Walker:
 
     def items(self, elts: list[ast.expr], state: _State) -> list[Any] | None:
         """The items of a list or tuple display; None when a *expansion leaves them unknown."""
+        since = len(self.swaps)
         out: list[Any] = []
         known = True
         for el in elts:
@@ -1595,6 +1611,7 @@ class _Walker:
                 known = False  # how many items it adds, and so where the rest go, is unknown
             else:
                 out.append(self.eval(el, state))
+        out = self.fresh(since, out)  # a later item's evaluation may have edited an earlier one
         if not known:
             self.escape(out)
             return None
@@ -1605,6 +1622,7 @@ class _Walker:
         return UNRESOLVED
 
     def _eval_Dict(self, node: ast.Dict, state: _State) -> Any:
+        since = len(self.swaps)
         out: dict[Any, Any] = {}
         resolved = True
         for k, v in zip(node.keys, node.values):
@@ -1624,6 +1642,7 @@ class _Walker:
                 resolved = False  # an unknown key could override any of the others
             else:
                 out[key] = value
+        out = dict(zip(out, self.fresh(since, list(out.values()))))  # as for a list display
         if not resolved:
             self.escape(out)
             return UNRESOLVED
@@ -1631,6 +1650,7 @@ class _Walker:
 
     def _eval_Call(self, node: ast.Call, state: _State) -> Any:
         func = node.func
+        since = len(self.swaps)
         receiver = self.eval(func.value, state) if isinstance(func, ast.Attribute) else _ABSENT
         if isinstance(func, ast.Name):
             callee = state.symbols.get(func.id, _ABSENT)
@@ -1671,6 +1691,9 @@ class _Walker:
                 keywords.update({k: v for k, v in value.items() if isinstance(k, str)})
             else:
                 opaque = True
+        # Evaluating a later argument may have edited an object an earlier one, or the receiver, holds.
+        receiver, callee, positional, keywords, expansions, spread = self.fresh(
+            since, [receiver, callee, positional, keywords, expansions, spread])
         return self.call(node, callee, receiver, _Args(positional, keywords, expansions, spread, opaque), state)
 
     def call(self, node: ast.Call, callee: Any, receiver: Any, args: _Args, state: _State) -> Any:
