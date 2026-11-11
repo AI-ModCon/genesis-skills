@@ -28,6 +28,8 @@ Skills are organized by domain in the `skills/` directory:
 - **Plasma Simulation (2):** `skills/plasma-sim-skills/` for GS2 and Gkeyll
 - **AmSC (6):** `skills/amsc-skills/` for data movement, the Python SDK,
   Globus Compute, the i2 LLM API, the IRI API, and skill discovery
+- **Astrophysics (1):** `skills/astro-skills/` for checking lenstronomy
+  strong-lensing simulation parameters and code
 
 Create your skill directory in the appropriate category, or start a new category if needed.
 
