@@ -632,13 +632,17 @@ class CodeCheckRegressionTests(unittest.TestCase):
             "LensModel(lens_model_list=lens_model_list)", "LensModel(lens_model_list=['SIS'])"))
         self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"lens_model_list": ["SIS"]})
 
-        # The LightModel given to ImageModel as the source is the one checked, even
-        # when a lens-light LightModel is built too.
+        # The LightModel given to ImageModel as the source is the one checked, even when a
+        # lens-light LightModel is built too; the lens light itself is not in the parameter set,
+        # so it is reported.
         code = self._example().replace(
             "image_model = ImageModel(", "lens_light = LightModel(light_model_list=['SERSIC'])\n"
             "image_model = ImageModel(").replace(
             "kwargs_numerics=", "lens_light_model_class=lens_light, kwargs_numerics=")
-        self.assertTrue(_compare(code)["passed"], _compare(code)["messages"])
+        comp = _compare(code)
+        self.assertIn("source_model_list", comp["matched"])
+        self.assertEqual([(d["field"], d["expected"]) for d in comp["diverged"]],
+                         [("ImageModel.lens_light_model_class", None)])
 
     def test_an_argument_the_check_cannot_follow_is_unresolved(self) -> None:
         # The expected PSF and LensModel are built, but ImageModel is given something else.
@@ -1041,6 +1045,37 @@ class CodeCheckRegressionTests(unittest.TestCase):
         self.assertTrue(any("not in the parameter set" in m for m in comp["messages"]))
         comp = _compare(EXAMPLE.replace(lens, lens[:-1] + ', {"theta_E": 0.1, "e1": 0.0, "e2": 0.0}]'))
         self.assertEqual([d["field"] for d in comp["diverged"]], ["kwargs_lens[1]"])
+
+    def test_lenstronomy_arguments_the_parameter_set_does_not_describe(self) -> None:
+        # Arguments outside the parameter set were ignored, so unconvolved=True, a shifted grid
+        # or a truncated PSF passed. Each must be lenstronomy's default, which the parameter set
+        # assumes; numerics and likelihood-only arguments are allowed.
+        cases = {
+            ("image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)",
+             "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source, unconvolved=True)"):
+                ("image.unconvolved", False),
+            ("fwhm=0.15, pixel_size=deltaPix)", "fwhm=0.15, pixel_size=deltaPix, truncation=3)"):
+                ("PSF.truncation", 5),
+            ("numPix, deltaPix, exposure_time", "numPix, deltaPix, center_ra=1.0, exposure_time"):
+                ("data_configure_simple.center_ra", 0),
+            ("ImageData(**kwargs_data)", "ImageData(**kwargs_data, ra_shift=0.5)"): ("ImageData.ra_shift", 0),
+            ("LensModel(lens_model_list=lens_model_list)",
+             "LensModel(lens_model_list=lens_model_list, decouple_multi_plane=True)"):
+                ("LensModel.decouple_multi_plane", False),
+            ("LightModel(light_model_list=source_model_list)",
+             "LightModel(light_model_list=source_model_list, surprise=1)"): ("LightModel.surprise", C._NOT_IN_PARAMS),
+        }
+        for (old, new), (field, expected) in cases.items():
+            with self.subTest(field):
+                self.assertIn(old, EXAMPLE)
+                comp = _compare(EXAMPLE.replace(old, new))
+                self.assertEqual([(d["field"], d["expected"]) for d in comp["diverged"]], [(field, expected)])
+        for old, new in (("fwhm=0.15, pixel_size=deltaPix)", "fwhm=0.15, pixel_size=deltaPix, truncation=5)"),
+                         ('{"supersampling_factor": 1}', '{"supersampling_factor": 3}')):
+            with self.subTest(new):
+                self.assertTrue(_compare(EXAMPLE.replace(old, new))["passed"])  # the default; numerics
+        comp = _compare(EXAMPLE.replace("fwhm=0.15, pixel_size=deltaPix)", "fwhm=0.15, pixel_size=deltaPix, truncation=t)"))
+        self.assertIn("PSF.truncation", comp["unresolved"])
 
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:

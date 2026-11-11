@@ -100,14 +100,58 @@ _REL_TOL = 1e-6
 # data_configure_simple's grid arguments: lenstronomy 1.9.2 spelling, 1.14+ spelling.
 _GRID_ALIASES = (("numPix", "num_pix"), ("deltaPix", "delta_pix"))
 
-# The leading parameters of the calls the check follows (identical in 1.9.2 and 1.14).
+# The leading parameters of the calls the check follows, as far as lenstronomy 1.9.2 and
+# 1.14 agree on their order; a positional argument beyond them is UNRESOLVED.
 _PARAMETERS = {
     "LensModel": ("lens_model_list", "z_lens", "z_source", "lens_redshift_list", "cosmo", "multi_plane"),
-    "LightModel": ("light_model_list",),
+    "LightModel": ("light_model_list", "deflection_scaling_list", "source_redshift_list"),
     "PSF": ("psf_type", "fwhm", "truncation", "pixel_size", "kernel_point_source"),
+    "ImageModel": ("data_class", "psf_class", "lens_model_class", "source_model_class",
+                   "lens_light_model_class", "point_source_class", "extinction_class", "kwargs_numerics"),
+    "data_configure_simple": ("numPix", "deltaPix", "exposure_time", "background_rms", "center_ra",
+                              "center_dec", "inverse"),
+    "image": ("kwargs_lens", "kwargs_source", "kwargs_lens_light", "kwargs_ps", "kwargs_extinction",
+              "kwargs_special", "unconvolved"),
+    "ImageData": (),
+}
+# The arguments of each call that the parameter set describes; the others are checked
+# against _DEFAULTS.
+_FOLLOWED = {
+    "LensModel": ("lens_model_list", "z_lens", "z_source", "lens_redshift_list", "multi_plane",
+                  "z_source_convention", "z_lens_convention"),
+    "LightModel": ("light_model_list",),
+    "PSF": ("psf_type", "fwhm", "pixel_size", "kernel_point_source"),
     "ImageModel": ("data_class", "psf_class", "lens_model_class", "source_model_class"),
-    "data_configure_simple": ("numPix", "deltaPix", "exposure_time", "background_rms"),
+    "data_configure_simple": ("numPix", "num_pix", "deltaPix", "delta_pix", "exposure_time", "background_rms"),
     "image": ("kwargs_lens", "kwargs_source"),
+    "ImageData": (),
+}
+_ANY = object()  # any value: the argument does not change the rendered image
+# lenstronomy's defaults (1.9.2 and 1.14) for the other arguments: the parameter set
+# assumes them, so a script must leave them alone. Arguments only the likelihood or
+# numerical accuracy uses are _ANY; for ImageData, the ones data_configure_simple sets
+# already come from it, and passing them again is an error.
+_DEFAULTS: dict[str, dict[str, Any]] = {
+    "LensModel": {"cosmo": _ANY, "numerical_alpha_class": None, "observed_convention_index": None,
+                  "cosmo_interp": False, "z_interp_stop": None, "num_z_interp": 100, "kwargs_interp": None,
+                  "profile_kwargs_list": None, "decouple_multi_plane": False,
+                  "kwargs_multiplane_model": None, "distance_ratio_sampling": False,
+                  "cosmology_sampling": False, "cosmology_model": "FlatLambdaCDM", "use_jax": False},
+    "LightModel": {"deflection_scaling_list": None, "source_redshift_list": None, "smoothing": 0.001,
+                   "sersic_major_axis": None, "profile_kwargs_list": None},
+    "PSF": {"truncation": 5, "psf_error_map": _ANY, "psf_variance_map": _ANY,
+            "point_source_supersampling_factor": 1, "kernel_point_source_init": None,
+            "kernel_point_source_normalisation": True},
+    "ImageModel": {"lens_light_model_class": None, "point_source_class": None, "extinction_class": None,
+                   "kwargs_numerics": _ANY, "likelihood_mask": _ANY, "psf_error_map_bool_list": _ANY,
+                   "kwargs_pixelbased": None},
+    "image": {"kwargs_lens_light": None, "kwargs_ps": None, "kwargs_extinction": None,
+              "kwargs_special": None, "unconvolved": False, "apply_primary_beam": True,
+              "source_add": True, "lens_light_add": True, "point_source_add": True},
+    "data_configure_simple": {"center_ra": 0, "center_dec": 0, "inverse": False},
+    "ImageData": {"noise_map": _ANY, "gradient_boost_factor": _ANY, "log_likelihood_constant": _ANY,
+                  "likelihood_method": _ANY, "ra_shift": 0, "dec_shift": 0, "phi_rot": 0,
+                  "antenna_primary_beam": None, "flux_scaling": 1},
 }
 _PSF_DEFAULT_TYPE = "NONE"
 # LensModel's arguments that place the deflectors and the source in redshift (1.14 adds
@@ -139,12 +183,16 @@ _UNROLL = 16  # a loop over a known list this long or shorter is followed item b
 _MAX_ROUNDS = 1000  # loop bodies are re-run until the state is stable, which it always becomes
 
 
-@dataclass
+@dataclass(repr=False)
 class _Built:
     """A lenstronomy object the script builds, with the arguments the check follows."""
 
     kind: str
     fields: dict[str, Any]
+
+    def __repr__(self) -> str:
+        models = self.fields.get("models")
+        return f"<{self.kind} {models!r}>" if isinstance(models, list) else f"<{self.kind}>"
 
 
 @dataclass(frozen=True)
@@ -154,6 +202,7 @@ class _Render:
     kwargs_lens: Any
     kwargs_source: Any
     image_model: Any
+    extras: dict[str, Any]  # its other arguments (see _extras)
 
 
 class _Extracted:
@@ -173,6 +222,7 @@ class _Extracted:
         self.psf_pixel_size: Any = _MISSING
         self.psf_kernel: Any = _MISSING
         self.lens_redshifts: Any = _MISSING  # the rendering LensModel's redshift arguments
+        self.extras: list[tuple[str, dict[str, Any]]] = []  # (call, arguments not followed)
 
 
 def _call_name(func: ast.AST) -> str:
@@ -398,8 +448,27 @@ class _Args:
         return out
 
 
+def _extras(name: str, args: _Args) -> dict[str, Any]:
+    """The arguments of a call that the parameter set does not describe, by name.
+
+    A positional argument past the ones whose order the versions agree on is listed
+    as UNRESOLVED under "(argument N)".
+    """
+    bound = args.bind(_PARAMETERS[name])
+    out = {k: v for k, v in bound.items() if k not in _FOLLOWED[name]}
+    for i in range(len(_PARAMETERS[name]), len(args.positional)):
+        out[f"(argument {i + 1})"] = UNRESOLVED
+    return out
+
+
 def _build(name: str, args: _Args) -> _Built:
     """The lenstronomy object a builder call makes, with the arguments the check follows."""
+    built = _construct(name, args)
+    built.fields["extras"] = _extras(name, args)
+    return built
+
+
+def _construct(name: str, args: _Args) -> _Built:
     if name == "ImageData":
         # Followed when built as ImageData(**kwargs_data) from data_configure_simple.
         config = args.expansions[0] if len(args.expansions) == 1 and not args.positional else UNRESOLVED
@@ -1362,7 +1431,7 @@ class _Walker:
             bound = args.bind(_PARAMETERS["image"])
             self.set_found(state, "rendered", _Render(_snapshot(bound.get("kwargs_lens", _MISSING)),
                                                       _snapshot(bound.get("kwargs_source", _MISSING)),
-                                                      _snapshot(receiver)))
+                                                      _snapshot(receiver), _snapshot(_extras("image", args))))
             return UNRESOLVED
         if _is_exit_call(node):
             self.program_exits.append(state.copy())
@@ -1546,6 +1615,7 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
     elif isinstance(rendered, _Render):
         # The arguments of the last image() call outrank same-named assignments.
         found.kwargs_lens, found.kwargs_source = rendered.kwargs_lens, rendered.kwargs_source
+        found.extras.append(("image", rendered.extras))
         image_model = rendered.image_model
         if not (isinstance(image_model, _Built) and image_model.kind == "ImageModel"):
             image_model = UNRESOLVED  # the image() call's ImageModel cannot be identified
@@ -1554,11 +1624,14 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
         found.kwargs_source = f.get("assigned:kwargs_source", _MISSING)
         image_model = _only(f.get("built:ImageModel"))
 
+    if isinstance(image_model, _Built) and image_model.kind == "ImageModel":
+        found.extras.append(("ImageModel", image_model.fields["extras"]))
     for attr, role, kind in (("lens_model_list", "lens", "LensModel"),
                              ("source_model_list", "source", "LightModel")):
         model = _component(image_model, role, kind, f)
         if isinstance(model, _Built):
             setattr(found, attr, model.fields["models"])
+            found.extras.append((kind, model.fields["extras"]))
             if kind == "LensModel":
                 found.lens_redshifts = model.fields["redshifts"]
         elif model == UNRESOLVED:
@@ -1568,15 +1641,20 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
 
     psf = _component(image_model, "psf", "PSF", f)
     if isinstance(psf, _Built):
+        found.extras.append(("PSF", psf.fields["extras"]))
         found.psf_type, found.psf_fwhm = psf.fields["psf_type"], psf.fields["fwhm"]
         found.psf_pixel_size, found.psf_kernel = psf.fields["pixel_size"], psf.fields["kernel"]
     elif psf == UNRESOLVED:
         found.psf_type = found.psf_fwhm = found.psf_pixel_size = found.psf_kernel = UNRESOLVED
 
     data = _component(image_model, "data", "ImageData", f)
+    if isinstance(data, _Built):
+        found.extras.append(("ImageData", data.fields["extras"]))
     config = data.fields["config"] if isinstance(data, _Built) else data
     if config is None:  # no ImageModel or ImageData: the only data_configure_simple call
         config = _only(f.get("built:data_configure_simple"))
+    if isinstance(config, _Built):
+        found.extras.append(("data_configure_simple", config.fields["extras"]))
     for attr, alias in (*_GRID_ALIASES, ("exposure_time", None), ("background_rms", None)):
         if isinstance(config, _Built):
             value = config.fields[attr]  # an explicit or default None is what lenstronomy gets
@@ -1722,6 +1800,26 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
             unexpected.append(f"{label}[{i}]")
             diverged.append({"field": f"{label}[{i}]", "expected": _NOT_IN_PARAMS, "actual": actual_kwargs[i]})
 
+    # The arguments of the calls that render which the parameter set does not describe:
+    # lenstronomy's default is what the parameter set assumes.
+    defaulted: set[str] = set()
+    for call, extras in found.extras:
+        for argument, value in extras.items():
+            field = f"{call}{argument}" if argument.startswith("(") else f"{call}.{argument}"
+            default = _DEFAULTS[call].get(argument, _NOT_IN_PARAMS)
+            if default is _ANY:
+                continue
+            result = None if _has_unknown(value) else (
+                False if default is _NOT_IN_PARAMS else _match(default, value))
+            if result is None:
+                unresolved.append(field)
+            elif not result:
+                if default is _NOT_IN_PARAMS:
+                    unexpected.append(field)  # not an argument of this call in lenstronomy
+                else:
+                    defaulted.add(field)
+                diverged.append({"field": field, "expected": default, "actual": value})
+
     data = params["kwargs_data"]
     record("numPix", data["numPix"], found.numPix)
     record("deltaPix", data["deltaPix"], found.deltaPix)
@@ -1743,6 +1841,10 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
         if d["field"] == "psf_kernel":
             messages.append("psf_kernel: the script's kernel_point_source is not the parameter "
                             "set's; use the parameter-set kernel exactly, as a literal.")
+            continue
+        if d["field"] in defaulted:
+            messages.append(f"{d['field']}: the script passes {d['actual']!r}, but the parameter set "
+                            f"assumes lenstronomy's default, {d['expected']!r}; leave the argument out.")
             continue
         if d["field"] in unexpected:
             messages.append(f"{d['field']}: the script passes {d['actual']!r}, which is not in the "
