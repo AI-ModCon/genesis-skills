@@ -558,13 +558,13 @@ def _builtin_value(name: str, args: _Args) -> Any:
 
 
 def _array_value(args: _Args) -> Any:
-    """np.array(x) of a nested list of numbers: a copy of x; anything else is UNRESOLVED."""
+    """np.array(x) of a nested list of numbers: a copy of x; anything else is UNRESOLVED,
+    a dtype too (dtype=int truncates the values, and the conversion is not followed)."""
     def numeric(value: Any) -> bool:
         if isinstance(value, (list, tuple)):
             return all(numeric(v) for v in value)
         return _is_number(value)
-    extra = set(args.keywords) - {"dtype"}
-    if args.opaque or extra or len(args.positional) != 1 or not isinstance(args.positional[0], (list, tuple)) \
+    if args.opaque or args.keywords or len(args.positional) != 1 or not isinstance(args.positional[0], (list, tuple)) \
             or not numeric(args.positional[0]):
         return UNRESOLVED
     return _snapshot([*args.positional[0]])

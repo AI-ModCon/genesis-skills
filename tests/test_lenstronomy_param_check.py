@@ -1237,6 +1237,19 @@ class CodeCheckRegressionTests(unittest.TestCase):
                 self.assertFalse(comp["passed"])
                 self.assertEqual(comp["unresolved"], ["kwargs_lens[0].theta_E"])
 
+    def test_an_array_with_a_dtype_is_unresolved(self) -> None:
+        # The review's case: dtype was accepted and ignored, so np.array(kernel, dtype=int), all
+        # zeros at runtime, was compared as the blurred kernel it was written from and matched.
+        kernel = [[0.0, 0.1, 0.0], [0.1, 0.6, 0.1], [0.0, 0.1, 0.0]]
+        params = _good(kwargs_psf={"psf_type": "PIXEL", "pixel_size": 0.08, "kernel_point_source": kernel})
+        psf = 'PSF(psf_type="GAUSSIAN", fwhm=0.15, pixel_size=deltaPix)'
+        for dtype in ("int", "float", "np.float64"):
+            with self.subTest(dtype):
+                written = f'PSF(psf_type="PIXEL", kernel_point_source=np.array({kernel!r}, dtype={dtype}), pixel_size=deltaPix)'
+                comp = _compare(EXAMPLE.replace(psf, written), params)
+                self.assertFalse(comp["passed"])
+                self.assertEqual(comp["unresolved"], ["psf_kernel"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
