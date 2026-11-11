@@ -8,8 +8,8 @@ and `NaN` are rejected.
 
 | Field | Required | Type | Meaning |
 |-------|----------|------|---------|
-| `z_lens` | yes | number | Deflector redshift |
-| `z_source` | yes | number | Source redshift; must exceed `z_lens` |
+| `z_lens` | yes | number | Deflector redshift; every deflector redshift a script gives `LensModel` must equal it |
+| `z_source` | yes | number | Source redshift; must exceed `z_lens`; a script's `z_source` must equal it |
 | `lens_model_list` | yes | list of strings | Lens mass profiles, e.g. `["SIE", "SHEAR"]` |
 | `kwargs_lens` | yes | list of objects | One object of numbers per lens profile |
 | `source_model_list` | yes | list of strings | Source light profiles, e.g. `["SERSIC_ELLIPSE"]` |
@@ -39,7 +39,7 @@ them `num_pix` and `delta_pix`. Either spelling is accepted here.
 | `psf_type` | `"GAUSSIAN"`, `"PIXEL"` or `"NONE"` |
 | `fwhm` | Full width at half maximum in arcsec; required for `"GAUSSIAN"` |
 | `pixel_size` | Should equal `deltaPix` |
-| `kernel_point_source` | 2-D list of pixel values with a positive sum; required for `"PIXEL"` |
+| `kernel_point_source` | 2-D list of pixel values with a positive sum; required for `"PIXEL"`, and the script's kernel must have the same values |
 
 lenstronomy's `PSF` has no `sigma` argument; Gaussian PSFs take `fwhm`.
 
@@ -58,6 +58,8 @@ lenstronomy's `PSF` has no `sigma` argument; Gaussian PSFs take `fwhm`.
 
 These were introspected from each profile's `param_names` and the arguments of
 its `function` method in lenstronomy 1.9.2 and 1.14.2; the two versions agree.
+An optional key left out of the parameter set means its default, 0, so a script
+that passes it must pass 0. A source's `amp` must be positive.
 Angles and lengths are in arcsec. `e1` and `e2` are lenstronomy's ellipticity
 components, which `param_util.phi_q2_ellipticity(phi, q)` computes from a
 position angle and an axis ratio.

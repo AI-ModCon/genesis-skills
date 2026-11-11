@@ -17,10 +17,10 @@ the same answer every time.
 
 - `scripts/validate_params.py` checks a parameter set: redshifts, the pairing of
   each model list with its kwargs, profile parameter names, Einstein radius,
-  ellipticity, Sersic shape, pixel grid, noise and PSF.
+  ellipticity, Sersic shape, source brightness, pixel grid, noise and PSF.
 - `scripts/check_code_params.py` reads a lenstronomy script with Python's `ast`
   module, without running it, and reports every value that differs from the
-  parameter set, is missing, or is computed at runtime.
+  parameter set, is missing, or cannot be proven to match it.
 
 ## Use This Skill When
 
@@ -58,7 +58,9 @@ Paths are relative to this skill's directory.
 5. **Report** both results to the user, including any range you overrode.
 
 Both scripts print a JSON report and exit with 0 when everything passed, 1 when
-a check failed, and 2 when the input could not be read.
+a check failed, and 2 when the input could not be read. A malformed parameter set
+is a failed `schema` check for `validate_params.py` and an `{"error": ...}`
+report with exit status 2 for `check_code_params.py`.
 
 ## Presets
 
@@ -103,8 +105,9 @@ A failed code check lists each field with both values:
   the user's science needs it, and say so in the report.
 - Do not change a script's values just to silence the code check. If the
   parameter set is wrong, fix it and validate it again.
-- Write values as literals. Values produced by helper functions, such as
-  `param_util.phi_q2_ellipticity`, are reported as unresolved because the check
+- Write values as literals, and do not change them after writing them. Values
+  produced by helper functions, such as `param_util.phi_q2_ellipticity`, and
+  values edited in place afterwards are reported as unresolved because the check
   cannot verify them without running the code. Compute them once and write the
   numbers into both the parameter set and the script.
 - A pass means the inputs are plausible and consistent with each other, not that
@@ -112,22 +115,50 @@ A failed code check lists each field with both values:
 
 ## Limitations
 
+The code check certifies only what it can prove from the source: **a value it
+cannot statically prove to be the parameter set's is reported as unresolved,
+never as matched**, and an unresolved value fails the check. A pass therefore
+means the script, if it runs, renders the parameter set's values; it does not
+mean the script runs.
+
 - Profiles covered: SIE, SIS, EPL, SHEAR and NFW for the lens; SERSIC,
   SERSIC_ELLIPSE and GAUSSIAN for light. Any other profile, or a profile in the
   wrong list, is reported as unknown. Parameter names were introspected from
   lenstronomy 1.9.2 and 1.14.2, which agree.
-- The code check follows the calls that build the simulation (`LensModel`,
-  `LightModel`, `PSF`, `data_configure_simple`, `ImageData`, `ImageModel` and
-  `ImageModel.image`) and checks what the rendering `ImageModel` is given; only
-  a script with no `ImageModel` falls back to the conventional names
-  (`kwargs_lens`, `lens_model_list`, ...). It follows the script the way it
-  runs: code in a branch that cannot run, in a function that is never called,
-  or after a `return` or `sys.exit()` does not count. A value that depends on a
-  runtime condition, a loop or an exception, or that comes from a call it does
-  not follow, is reported as unresolved. It does not follow return values or
-  in-place edits such as `kwargs_lens[0]["theta_E"] = 2`.
-- The `deeplense` preset's SNR estimate covers one source profile; with several
-  it is skipped, since overlapping sources add up.
+- What is rendered is what `ImageModel.image(...)` is called with, and the
+  `LensModel`, `LightModel`, `PSF`, `ImageData` and `data_configure_simple` that
+  `ImageModel` is built from; only a script with no `ImageModel` falls back to
+  the conventional names (`kwargs_lens`, `lens_model_list`, ...). Higher-level
+  interfaces such as `SimAPI` or `sim_util.simulate_simple` are not followed.
+  Every argument of those calls that the parameter set does not describe must be
+  lenstronomy's default; `kwargs_numerics` and likelihood-only arguments are not
+  checked. Lens light, point sources and extinction are not supported, so a
+  script that adds them fails.
+- Redshifts are compared when the script gives `LensModel` any (`z_lens`,
+  `z_source`, `lens_redshift_list`, `z_source_convention`, which multi-plane
+  needs). A single-plane `LensModel` given none renders the same image whatever
+  the redshifts, since the supported profiles are in angles. A `PIXEL` kernel is
+  compared element by element as written, not after lenstronomy normalizes it.
+- The check follows the script the way it runs: branches whose condition is
+  known, and/or and conditional expressions, loops (an `else` only without a
+  `break`), `try`/`except`/`finally` (a handler may start anywhere in its body),
+  function calls with Python's scoping and default arguments, and in-place
+  edits through any name or function that shares the object. Unresolved, as
+  values: anything a function returns, a call other than the lenstronomy
+  builders and a few helpers known not to change their arguments (`print`,
+  `len`, `range`, `np.array`, `dict.get`, ...), an object handed to such a
+  call, a loop variable over something it cannot list, an attribute, and
+  whatever a `with` block does when its context manager might swallow an
+  exception (anything but `open()` and similar).
+- Unresolved, as a whole script: code that runs at a time the check cannot know,
+  namely a function handed to code it does not follow (a callback, a decorator,
+  a returned closure), a lambda, method or kept generator expression that calls
+  code, a generator or async function, and recursion; `exec()`, `eval()` and
+  `globals()`; a star import from a module other than lenstronomy; and changes
+  to lenstronomy, numpy, scipy or astropy themselves. The report says which line.
+- The `deeplense` preset's SNR estimate covers one source profile with a
+  Gaussian or no PSF; with several sources, since overlapping sources add up, or
+  with a `PIXEL` PSF, it is skipped.
 
 ## References
 

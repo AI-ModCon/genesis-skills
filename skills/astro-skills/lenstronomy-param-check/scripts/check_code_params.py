@@ -5,47 +5,63 @@ Parses the script with ``ast`` (it is never run), recovers the lenstronomy
 inputs it builds, and compares them field by field with the parameter-set
 JSON that ``validate_params.py`` accepts.
 
-Resolution rules, in order:
+The rule: a value the check cannot prove, from the source alone, to be the
+parameter set's is UNRESOLVED, never matched, and an unresolved value does not
+pass. Values it can prove:
 * literals, including unary minus and constant folding of + - * / ** on
   resolved operands, so ``10**3`` and ``-0.1`` work;
-* names, through a symbol table of ``name = value`` assignments, including
-  annotated (``name: int = value``) and augmented (``name += value``) ones;
-* constant subscripts of resolved dicts and lists, e.g. ``cfg["fwhm"]``, and
-  ``**`` expansions of resolved dicts, applied in order;
+* names, through ``name = value`` assignments (annotated, augmented and walrus
+  ones too), constant subscripts of resolved dicts and lists, ``**`` expansions
+  of resolved dicts, ``len()``, short ``range()`` and ``np.array()`` of literals;
 * the lenstronomy objects a name holds: ``LensModel``, ``LightModel``, ``PSF``,
-  ``data_configure_simple``, ``ImageData`` and ``ImageModel`` calls are followed
-  through assignments.
-Anything else (other calls, loop variables, attribute reads) is reported as
-UNRESOLVED: never guessed, and an unresolved value does not pass. A None the
-script passes, explicitly or as lenstronomy's default, is compared like any
-other value; a field is missing only when nothing in the script sets it.
+  ``data_configure_simple``, ``ImageData`` and ``ImageModel`` calls, when the
+  name is lenstronomy's (imported from it, or not bound at all).
+A None the script passes, explicitly or as lenstronomy's default, is compared
+like any other value; a field is missing only when nothing in the script sets it.
 
-The script is followed the way it runs. A branch whose condition is known
-statically (``if False:``, ``if DEBUG:`` with ``DEBUG = True``, ``if __name__ ==
-"__main__":``) contributes only the side that runs; a function body counts
-only where the function is called, in its own scope, and nothing after a return,
-break, continue or sys.exit() runs (a path that raises renders nothing, so it is
-dropped). When the path depends on runtime values (another condition, a loop, an
-exception), a value that differs between the possible paths is UNRESOLVED.
+The script is followed the way it runs. A branch, conditional expression or
+and/or operand whose condition is known statically contributes only the side
+that runs; a function body counts only where it is called, with Python's
+scoping (its locals, then the module's names, or the enclosing call's for a
+nested function), and its default arguments are evaluated where it is defined;
+nothing after a return, break, continue or sys.exit() runs, a loop's else runs
+only without a break, finally runs on every way out of its try, and a path that
+raises or exits with an error renders nothing, so it is dropped. When the path
+depends on runtime values (a condition, a loop, an exception, which may stop a
+try body anywhere), a value that differs between the possible paths is
+UNRESOLVED. An edit in place (``kwargs_lens[0]["theta_E"] = 2.5``, ``del``,
+``.update()``) makes the edited value UNRESOLVED wherever the object is shared,
+as does handing an object to a call the check does not follow. Code that runs
+at a time the check cannot know (callbacks, decorators, lambdas or methods that
+call code, generators, recursion, exec(), changes to lenstronomy itself) makes
+every value UNRESOLVED.
 
 Where each field is looked for:
 * ``kwargs_lens`` / ``kwargs_source``: the arguments of the last
   ``ImageModel.image(...)`` call, positional or by keyword, since that is what
   is rendered (an argument the call leaves out is missing); without such a
-  call, assignments to those names;
+  call, assignments to those names. Every key is checked: an optional key the
+  parameter set leaves out must be lenstronomy's default, 0;
 * ``lens_model_list`` / ``source_model_list``: the ``LensModel`` / ``LightModel``
   passed to the ``ImageModel`` that renders (UNRESOLVED if that argument, or the
   ImageModel itself, cannot be followed); with no ImageModel at all, the only one
   the script builds, else an assignment to that name (``light_model_list`` is
   accepted for the source too);
+* ``z_lens`` / ``z_source``: every redshift that LensModel is given
+  (``z_lens``, ``z_source``, ``lens_redshift_list``, ``z_source_convention``;
+  multi-plane needs them). A single-plane LensModel given none renders the same
+  image whatever the redshifts, so there is nothing to compare;
 * ``numPix`` / ``deltaPix`` / ``exposure_time`` / ``background_rms``: the
   arguments of the ``data_configure_simple(...)`` behind the ``ImageData(**...)``
   given to that ``ImageModel`` (same rules), positional or by keyword in either
   the 1.9.2 (``numPix``) or 1.14+ (``num_pix``) spelling, falling back to
   assignments to either name;
-* PSF ``psf_type`` / ``fwhm`` / ``pixel_size``: the ``PSF(...)`` passed to that
-  ``ImageModel``, under the same rules. lenstronomy's default ``psf_type`` is
-  ``'NONE'``, so leaving it out counts as ``'NONE'``.
+* PSF ``psf_type`` / ``fwhm`` / ``pixel_size``, and ``kernel_point_source`` for
+  a PIXEL PSF: the ``PSF(...)`` passed to that ``ImageModel``, under the same
+  rules. lenstronomy's default ``psf_type`` is ``'NONE'``, so leaving it out
+  counts as ``'NONE'``; the parameter set's default is GAUSSIAN.
+Every other argument of those calls must be lenstronomy's default, which the
+parameter set assumes (numerics and likelihood-only arguments excepted).
 
 Usage:
     python3 check_code_params.py simulate.py params.json
