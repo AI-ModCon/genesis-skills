@@ -82,6 +82,7 @@ import argparse
 import ast
 import importlib.util
 import json
+import math
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -2197,11 +2198,17 @@ def load_params(raw: Any) -> dict[str, Any]:
 
 
 def _jsonable(value: Any) -> Any:
-    """Make recovered script values printable as JSON (keys become strings)."""
+    """Make recovered script values printable as JSON (keys become strings).
+
+    A non-finite float (``center_x=1e400`` is inf) never matches, and is shown as the
+    string "inf", "-inf" or "nan": JSON has no such numbers.
+    """
     if isinstance(value, dict):
         return {str(k): _jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [_jsonable(v) for v in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return repr(value)
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     return repr(value)
@@ -2224,7 +2231,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     report = compare_code_to_params(code, params)
-    print(json.dumps(_jsonable(report), indent=2))
+    print(json.dumps(_jsonable(report), indent=2, allow_nan=False))
     return 0 if report["passed"] else 1
 
 

@@ -1326,6 +1326,25 @@ class CommandLineTests(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertIn("JSON object", report["error"])
 
+    def test_check_reports_a_non_finite_script_value_as_strict_json(self) -> None:
+        # The review's case: center_x=1e400 is inf, and the report printed Infinity, which
+        # strict JSON parsers reject. NaN the same way.
+        def strict(token: str) -> None:
+            raise ValueError(f"non-standard JSON token {token}")
+        line = '"center_x": 0.0, "center_y": 0.0}]'
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "sim.py"
+            for written, shown in (("1e400", "inf"), ("-1e400", "-inf"), ("1e400 - 1e400", "nan")):
+                with self.subTest(written):
+                    script.write_text(EXAMPLE.replace(line, line.replace("0.0", written, 1)), encoding="utf-8")
+                    completed = subprocess.run([sys.executable, str(CHECK), str(script),
+                                                str(SKILL / "assets" / "example_params.json")],
+                                               capture_output=True, text=True, check=False)
+                    self.assertEqual(completed.returncode, 1, completed.stderr)
+                    report = json.loads(completed.stdout, parse_constant=strict)
+                    self.assertEqual(report["diverged"], [{"field": "kwargs_lens[0].center_x",
+                                                           "expected": 0.0, "actual": shown}])
+
 
 if __name__ == "__main__":
     unittest.main()
