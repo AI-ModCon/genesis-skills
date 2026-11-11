@@ -70,7 +70,7 @@ report with exit status 2 for `check_code_params.py`.
 | `deeplense` | The DeepLenseSim Model_I recipe | The recipe's bounds, halo/axion/vortex mass checks, and a peak-SNR band of 14-60 |
 
 Override one bound with `--set NAME=VALUE`, for example `--set theta_e_max=5`;
-the value must be a finite number.
+the value must be a finite number, and a whole one for `numpix_min` and `numpix_max`.
 Every bound and its source is listed in [references/presets.md](references/presets.md).
 
 ## Output Format

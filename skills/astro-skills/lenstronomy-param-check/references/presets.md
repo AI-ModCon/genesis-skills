@@ -2,7 +2,8 @@
 
 `validate_params.py --preset NAME` picks a set of bounds. Any single bound can
 be overridden with `--set NAME=VALUE`, using the names in the first column. The
-value must be a finite number: `inf`, `nan` and `1e400` are usage errors.
+value must be a finite number: `inf`, `nan` and `1e400` are usage errors, and so is
+a fractional `numpix_min` or `numpix_max` such as `64.5`.
 
 | Bound | `general` | `deeplense` |
 |-------|-----------|-------------|

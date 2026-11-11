@@ -1307,6 +1307,22 @@ class CommandLineTests(unittest.TestCase):
                 self.assertEqual(completed.stderr, "")
                 self.assertIn("is not a finite number", json.loads(completed.stdout)["error"])
 
+    def test_validate_rejects_a_fractional_pixel_count_bound(self) -> None:
+        # --set numpix_max=64.5 used to be truncated to 64 without a word.
+        params = str(SKILL / "assets" / "example_params.json")
+        for setting in ("numpix_max=64.5", "numpix_min=0.5", "numpix_max=1e-3"):
+            with self.subTest(setting):
+                completed = subprocess.run([sys.executable, str(VALIDATE), params, "--set", setting],
+                                           capture_output=True, text=True, check=False)
+                self.assertEqual(completed.returncode, 2)
+                self.assertEqual(completed.stderr, "")
+                self.assertIn("is not an integer", json.loads(completed.stdout)["error"])
+        for setting, bound in (("numpix_max=128", 128), ("numpix_max=128.0", 128), ("numpix_min=1e1", 10)):
+            with self.subTest(setting):
+                ranges = V._apply_overrides(V.PRESETS["general"], [setting])
+                value = getattr(ranges, setting.split("=")[0])
+                self.assertEqual((value, type(value)), (bound, int))
+
     def test_validate_reads_stdin_and_reports_schema_problems(self) -> None:
         code, report = self._run(str(VALIDATE), "-", stdin=json.dumps({"z_lens": 0.5}))
         self.assertEqual(code, 1)
