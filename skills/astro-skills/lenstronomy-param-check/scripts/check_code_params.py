@@ -771,10 +771,9 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
     data = params["kwargs_data"]
     record("numPix", data["numPix"], found.numPix)
     record("deltaPix", data["deltaPix"], found.deltaPix)
-    if data.get("exposure_time") is not None:
-        record("exposure_time", data["exposure_time"], found.exposure_time)
-    if data.get("background_rms") is not None:
-        record("background_rms", data["background_rms"], found.background_rms)
+    # None (null or omitted) is the noiseless setting, compared like any other value.
+    record("exposure_time", data["exposure_time"], found.exposure_time)
+    record("background_rms", data["background_rms"], found.background_rms)
     psf = params.get("kwargs_psf", {})
     for field, key, actual in (("psf_type", "psf_type", found.psf_type),
                                ("psf_fwhm", "fwhm", found.psf_fwhm),

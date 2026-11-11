@@ -732,6 +732,22 @@ class CodeCheckRegressionTests(unittest.TestCase):
         self.assertFalse(C._numbers_match(0.0, 1e-300))
         self.assertTrue(C._numbers_match(5400.0, 5400.000001))
 
+    def test_a_noiseless_parameter_set_is_compared_too(self) -> None:
+        # A null exposure_time/background_rms means noiseless; the check skipped them, so the
+        # example's noisy 5400 s / 0.01 configuration passed against a noiseless parameter set.
+        for data in ({"numPix": 64, "deltaPix": 0.08, "exposure_time": None, "background_rms": None},
+                     {"numPix": 64, "deltaPix": 0.08}):
+            with self.subTest(kwargs_data=data):
+                params = _good(kwargs_data=data)
+                comp = _compare(EXAMPLE, params)
+                self.assertEqual({d["field"]: (d["expected"], d["actual"]) for d in comp["diverged"]},
+                                 {"exposure_time": (None, 5400.0), "background_rms": (None, 0.01)})
+                noiseless = EXAMPLE.replace("numPix, deltaPix, exposure_time=5400.0, background_rms=0.01",
+                                            "numPix, deltaPix")
+                comp = _compare(noiseless, params)
+                self.assertTrue(comp["passed"], comp["messages"])
+                self.assertIn("exposure_time", comp["matched"])
+
     def test_an_omitted_psf_type_is_gaussian_as_in_the_validator(self) -> None:
         # The validator reads a kwargs_psf without psf_type as GAUSSIAN; the check skipped the
         # comparison, so PSF(psf_type="NONE") passed.
