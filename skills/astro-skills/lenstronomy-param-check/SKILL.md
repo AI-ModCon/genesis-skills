@@ -148,8 +148,9 @@ mean the script runs.
   name or function that shares the object, including one made while a later
   argument is evaluated. Unresolved, as values: anything a function returns, a
   call other than the lenstronomy builders and a few helpers known not to
-  change their arguments (`print`, `len`, `range`, `np.array` without a
-  `dtype`, `dict.get`, ...), an object handed to such a call, a loop variable
+  change their arguments (`print`, `len`, `range`, string methods such as
+  `", ".join`, `np.array` without a `dtype`, `dict.get`, ...), an object
+  handed to such a call, a loop variable
   over something it cannot list, an attribute, and whatever a `with` block does
   when its context manager might swallow an exception (anything but `open()`
   and similar). A non-finite value (`1e400`) never matches, and the report

@@ -1250,6 +1250,24 @@ class CodeCheckRegressionTests(unittest.TestCase):
                 self.assertFalse(comp["passed"])
                 self.assertEqual(comp["unresolved"], ["psf_kernel"])
 
+    def test_printing_and_string_methods_leave_values_resolved(self) -> None:
+        # A string method was a call the check does not follow, so printing the lens kwargs
+        # through ", ".join() left them unresolved, although it cannot change them.
+        for code in ("print(', '.join(str(k) for k in kwargs_lens))",
+                     "sep = ', '\nprint(sep.join(map(str, kwargs_lens)))",
+                     "print('lens: {}'.format(kwargs_lens), file=sys.stderr)"):
+            with self.subTest(code):
+                comp = self._before_render(code)
+                self.assertTrue(comp["passed"], comp["messages"])
+        # An edit made while building the string still counts.
+        for code, field in (("print(', '.join([str(kwargs_lens[0].update(theta_E=2.5))]))", "kwargs_lens[0].theta_E"),
+                            ("print(', '.join(str(kwargs_lens[0].update(theta_E=2.5)) for _ in range(1)))", "kwargs_lens"),
+                            ("print('{}'.format(kwargs_lens.append({})))", "kwargs_lens")):
+            with self.subTest(code):
+                comp = self._before_render(code)
+                self.assertFalse(comp["passed"])
+                self.assertIn(field, comp["unresolved"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(

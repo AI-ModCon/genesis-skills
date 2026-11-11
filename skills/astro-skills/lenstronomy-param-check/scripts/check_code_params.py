@@ -535,6 +535,9 @@ _CAPTURING_MODULE_CALLS = {"copy.copy"}
 # that shares their contents.
 _DICT_READS = {"get": True, "keys": False, "values": True, "items": True, "copy": True}
 _LIST_READS = {"index": False, "count": False, "copy": True}
+# Methods of a string ("sep".join(...), "{}".format(...)): they build new strings and, like
+# print() and str(), change none of their arguments.
+_STR_METHODS = frozenset(name for name in dir(str) if not name.startswith("_"))
 # lenstronomy methods that compute from an object without changing it.
 _LENSTRONOMY_READS = {"ray_shooting", "alpha", "hessian", "kappa", "potential", "magnification",
                       "fermat_potential", "arrival_time", "surface_brightness", "total_flux",
@@ -1732,6 +1735,8 @@ class _Walker:
             return self.container_method(receiver, name, args, state)
         if isinstance(receiver, _Built) and name in _LENSTRONOMY_READS:
             return UNRESOLVED
+        if isinstance(receiver, str) and name in _STR_METHODS:
+            return UNRESOLVED  # a new string, or a list of new strings
         builtin = self.is_builtin(func, state)
         if builtin in _PURE_BUILTINS:
             return _builtin_value(builtin, args)
