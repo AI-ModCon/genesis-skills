@@ -692,6 +692,8 @@ def _apply_overrides(ranges: Ranges, overrides: list[str]) -> Ranges:
             value = float(text)
         except ValueError:
             raise ValueError(f"--set {name}: {text!r} is not a number") from None
+        if not math.isfinite(value):  # inf, nan, or 1e400 (which float() makes inf)
+            raise ValueError(f"--set {name}: {text!r} is not a finite number")
         changes[name] = int(value) if name.startswith("numpix") else value
     return dataclasses.replace(ranges, **changes)
 

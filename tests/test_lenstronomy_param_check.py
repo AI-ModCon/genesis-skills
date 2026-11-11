@@ -1276,6 +1276,19 @@ class CommandLineTests(unittest.TestCase):
             code, report = self._run(str(VALIDATE), str(good), "--set", "bogus=1")
             self.assertEqual(code, 2)
 
+    def test_validate_rejects_a_non_finite_bound(self) -> None:
+        # The review's case: --set numpix_max=inf raised OverflowError with a traceback, and a
+        # float bound of inf or nan was accepted (inf passed everything below it).
+        params = str(SKILL / "assets" / "example_params.json")
+        for setting in ("numpix_max=inf", "numpix_max=1e400", "numpix_min=nan", "theta_e_max=inf",
+                        "theta_e_min=-inf", "z_source_max=nan", "deltapix_max=1e400"):
+            with self.subTest(setting):
+                completed = subprocess.run([sys.executable, str(VALIDATE), params, "--set", setting],
+                                           capture_output=True, text=True, check=False)
+                self.assertEqual(completed.returncode, 2)
+                self.assertEqual(completed.stderr, "")
+                self.assertIn("is not a finite number", json.loads(completed.stdout)["error"])
+
     def test_validate_reads_stdin_and_reports_schema_problems(self) -> None:
         code, report = self._run(str(VALIDATE), "-", stdin=json.dumps({"z_lens": 0.5}))
         self.assertEqual(code, 1)
