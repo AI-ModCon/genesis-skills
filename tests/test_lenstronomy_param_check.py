@@ -809,6 +809,27 @@ class CodeCheckRegressionTests(unittest.TestCase):
                 comp = self._before_render(code)
                 self.assertTrue(comp["passed"], comp["messages"])
 
+    def test_operands_python_skips_do_not_count(self) -> None:
+        # A wrong render, then a correct one Python never evaluates: the check used to visit
+        # every call in the expression, so the skipped render overwrote the real one.
+        wrong = ('wrong = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+                 "image = image_model.image(kwargs_lens=wrong, kwargs_source=kwargs_source)\n")
+        good = "image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
+        for skipped in (f"False and {good}", f"x = {good} if False else None", f"True or {good}",
+                        f"x = None if True else {good}", f"x = 1 > 2 > {good}", f"x = 0 or 1 or {good}"):
+            with self.subTest(skipped):
+                comp = _compare(EXAMPLE.replace(self.RENDER, wrong + skipped))
+                self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]},
+                                 {"kwargs_lens[0].theta_E": 2.5})
+        # An operand that may or may not run leaves either render possible.
+        for maybe in (f"flag = len(sys.argv) > 1\nflag and {good}", f"x = {good} if sys.argv else None"):
+            with self.subTest(maybe):
+                comp = _compare(EXAMPLE.replace(self.RENDER, wrong + maybe))
+                self.assertIn("kwargs_lens", comp["unresolved"])
+        # The side that runs still counts.
+        comp = _compare(EXAMPLE.replace(self.RENDER, wrong + f"x = None if False else {good}"))
+        self.assertTrue(comp["passed"], comp["messages"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(

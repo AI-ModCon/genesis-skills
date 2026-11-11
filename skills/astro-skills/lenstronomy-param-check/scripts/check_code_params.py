@@ -67,6 +67,7 @@ import ast
 import importlib.util
 import json
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -840,31 +841,104 @@ class _Walker:
             self.escape(right)
         return value
 
-    def _eval_BoolOp(self, node: ast.BoolOp, state: _State) -> Any:
-        values = [self.eval(v, state) for v in node.values]
-        decisive = isinstance(node.op, ast.Or)  # a true value decides an `or`, a false one an `and`
+    def alternatives(self, runs: list[Callable[[_State], Any]], state: _State) -> Any:
+        """Exactly one of ``runs`` happens, which one is not known: follow each on its own copy.
+
+        The paths that do not end are joined into ``state``; the value is theirs when they
+        agree, else UNRESOLVED.
+        """
+        paths, values = [], []
+        for run in runs:
+            path = state.copy()
+            try:
+                values.append(run(path))
+            except _Dead:
+                continue
+            paths.append(path)
+        if not paths:
+            raise _Dead
+        state.take(self.merge(paths))
+        if all(_same(v, values[0]) for v in values[1:]):
+            return values[0]
         for value in values:
+            self.escape(value)  # the result may be any of them
+        return UNRESOLVED
+
+    def _eval_BoolOp(self, node: ast.BoolOp, state: _State) -> Any:
+        # Python stops at the first operand that decides the result (a true one for `or`,
+        # a false one for `and`): the operands after it never run.
+        decisive = isinstance(node.op, ast.Or)
+        for i, operand in enumerate(node.values):
+            value = self.eval(operand, state)
+            if i == len(node.values) - 1:
+                return value
             truth = _truth(value)
-            if truth is None:
-                for v in values:
-                    self.escape(v)  # the result may be any of them
-                return UNRESOLVED
             if truth is decisive:
                 return value
-        return values[-1]
+            if truth is None:  # the rest may or may not run
+                rest = ast.BoolOp(op=node.op, values=node.values[i + 1:])
+                return self.alternatives([lambda path: value, lambda path: self.eval(rest, path)], state)
+        return UNRESOLVED  # not reached: a BoolOp has at least two operands
 
     def _eval_IfExp(self, node: ast.IfExp, state: _State) -> Any:
         test = _truth(self.eval(node.test, state))
-        body, orelse = self.eval(node.body, state), self.eval(node.orelse, state)
-        if test is None:
-            self.escape(body)
-            self.escape(orelse)
-            return UNRESOLVED
-        return body if test else orelse
+        if test is not None:  # only the side that runs is followed
+            return self.eval(node.body if test else node.orelse, state)
+        return self.alternatives([lambda path: self.eval(node.body, path),
+                                  lambda path: self.eval(node.orelse, path)], state)
 
     def _eval_Compare(self, node: ast.Compare, state: _State) -> Any:
-        values = [self.eval(node.left, state)] + [self.eval(c, state) for c in node.comparators]
-        return _compare(node.ops, values)
+        # a < b < c stops at the first comparison that is false: c is not evaluated.
+        left = self.eval(node.left, state)
+        for i, (op, comparator) in enumerate(zip(node.ops, node.comparators)):
+            right = self.eval(comparator, state)
+            result = _compare([op], [left, right])
+            if result is False or i == len(node.ops) - 1:
+                return result
+            if _unknown(result):
+                rest = ast.Compare(left=comparator, ops=node.ops[i + 1:], comparators=node.comparators[i + 1:])
+                self.alternatives([lambda path: False, lambda path: self.eval(rest, path)], state)
+                return UNRESOLVED
+            left = right
+        return UNRESOLVED  # not reached
+
+    def comprehension(self, node: ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp,
+                      state: _State) -> Any:
+        """The first iterable is evaluated once; the rest runs once per item, or never.
+
+        A generator expression is followed as if it were consumed right away.
+        """
+        first = node.generators[0]
+        self.escape(self.eval(first.iter, state))  # the loop variables hold its items
+        local = {name for gen in node.generators for name in _names_bound(gen.target)}
+        outer = {name: state.symbols.get(name, _ABSENT) for name in local}
+
+        def body(path: _State) -> Any:
+            for i, gen in enumerate(node.generators):
+                if i:
+                    self.escape(self.eval(gen.iter, path))
+                for name in _names_bound(gen.target):
+                    path.symbols[name] = UNRESOLVED
+                for condition in gen.ifs:
+                    self.eval(condition, path)
+            parts = (node.key, node.value) if isinstance(node, ast.DictComp) else (node.elt,)
+            for part in parts:
+                self.escape(self.eval(part, path))
+            return UNRESOLVED
+
+        for _ in range(3):  # each run may see what the one before it did
+            before = state.copy()
+            self.alternatives([lambda path: UNRESOLVED, body], state)
+            for name, value in outer.items():  # its variables do not leak out (a walrus does)
+                if value is _ABSENT:
+                    state.symbols.pop(name, None)
+                else:
+                    state.symbols[name] = value
+            if _same_state(before, state):
+                break
+        return UNRESOLVED
+
+    _eval_ListComp = _eval_SetComp = _eval_DictComp = _eval_GeneratorExp = comprehension
 
     def _eval_Subscript(self, node: ast.Subscript, state: _State) -> Any:
         # Still fully static: a dict or list reached through a name and indexed by a
