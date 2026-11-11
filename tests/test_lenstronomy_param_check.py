@@ -185,12 +185,31 @@ class ValidatorTests(unittest.TestCase):
                 self.assertTrue(res["checks"]["snr"], res["messages"])
                 self.assertLess(abs(res["snr_estimate"] / measured - 1), 0.15)
 
-    def test_snr_negative_amp_fails_instead_of_crashing(self) -> None:
+    def test_snr_is_not_estimated_from_a_nonpositive_amp(self) -> None:
+        # A negative amp used to make the estimate take the square root of a negative
+        # number; it now fails its own check and the estimate is skipped.
         params = _good()
         params["kwargs_source"][0]["amp"] = -100.0
         res = _validate(params)
-        self.assertFalse(res["checks"]["snr"])
-        self.assertTrue(any("raise the source amp" in m for m in res["messages"]))
+        self.assertFalse(res["checks"]["source_amp"])
+        self.assertNotIn("snr", res["checks"])
+        self.assertIsNone(res["snr_estimate"])
+
+    def test_source_amp_must_be_positive_in_every_preset(self) -> None:
+        for preset in ("general", "deeplense"):
+            for amp in (-12.0, 0.0):
+                with self.subTest(preset=preset, amp=amp):
+                    params = _good()
+                    params["kwargs_source"][0]["amp"] = amp
+                    res = _validate(params, preset)
+                    self.assertFalse(res["passed"])
+                    self.assertFalse(res["checks"]["source_amp"])
+                    self.assertTrue(any(f"amp={amp}" in m and "must be positive" in m
+                                        for m in res["messages"]))
+            gaussian = _good(source_model_list=["GAUSSIAN"],
+                             kwargs_source=[{"amp": -12.0, "sigma": 0.1}])
+            self.assertFalse(_validate(gaussian, preset)["checks"]["source_amp"])
+            self.assertTrue(_validate(GOOD, preset)["checks"]["source_amp"])
 
     def test_psf_type_must_be_one_lenstronomy_accepts(self) -> None:
         params = _good()

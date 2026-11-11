@@ -373,6 +373,8 @@ def _source_peak(params: dict[str, Any], name: str, kw: dict[str, float], sigma:
 def _snr_inputs_valid(params: dict[str, Any], r: Ranges) -> bool:
     """The SNR estimate needs every source shape to have passed its own check."""
     for name, kw in zip(params["source_model_list"], params["kwargs_source"]):
+        if kw.get("amp", 0.0) <= 0:
+            return False
         if name in ("SERSIC", "SERSIC_ELLIPSE"):
             if not r.n_sersic_min <= kw.get("n_sersic", 0.0) <= r.n_sersic_max or kw.get("R_sersic", 0.0) <= 0:
                 return False
@@ -414,7 +416,7 @@ def _estimate_snr(params: dict[str, Any], noise_excess: float) -> float | None:
     peaks = [p for p in peaks if p is not None]
     if not peaks:
         return None
-    peak = max(0.0, max(peaks)) * data["deltaPix"] ** 2 * exposure  # amp <= 0: no signal
+    peak = max(peaks) * data["deltaPix"] ** 2 * exposure
     sb = rms * exposure
     top = peak + noise_excess * math.sqrt(2.0 * peak + sb * sb)
     bkg_mean = sb / math.sqrt(2.0 * math.pi)
@@ -566,6 +568,16 @@ def validate_parameters(params: dict[str, Any], ranges: Ranges) -> dict[str, Any
             else:
                 fail("gaussian_sigma", f"GAUSSIAN sigma={kw['sigma']} must be positive (arcsec); "
                      "a zero-width Gaussian is undefined.")
+
+    # --- source brightness ----------------------------------------------------
+    for i, kw in enumerate(params["kwargs_source"]):
+        if "amp" in kw:
+            if kw["amp"] > 0:
+                ok("source_amp")
+            else:
+                fail("source_amp", f"kwargs_source[{i}] amp={kw['amp']} must be positive: it is "
+                     "the source's surface brightness (SERSIC) or total flux (GAUSSIAN), and a "
+                     "source cannot emit negative light.")
 
     # --- data / instrument block ---------------------------------------------
     data = params["kwargs_data"]
