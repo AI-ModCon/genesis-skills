@@ -132,6 +132,15 @@ class _Built:
     fields: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class _Render:
+    """What an ``ImageModel.image(...)`` call rendered: copies of its inputs as they were then."""
+
+    kwargs_lens: Any
+    kwargs_source: Any
+    image_model: Any
+
+
 class _Extracted:
     """What the AST walk recovered from the script (_MISSING = not found)."""
 
@@ -220,14 +229,127 @@ def _truth(value: Any) -> bool | None:
     return bool(value)
 
 
+# --- objects, and edits to them -------------------------------------------------
+#
+# A value the script holds is a Python scalar, a tuple, a list or dict, a _Built
+# lenstronomy object, or UNRESOLVED. Lists, dicts and _Built objects are mutable,
+# so identity matters: two names that share one hold the same object, and an edit
+# through either changes both. The check never edits an object in place. It makes a
+# copy in which the edited part is UNRESOLVED and swaps it in for the original
+# everywhere on that control-flow path (see _Walker.swap). Other paths, and earlier
+# snapshots, keep the original.
+
+_MUTABLE = (list, dict, _Built)
+
+
+def _children(value: Any) -> list[Any]:
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    if isinstance(value, dict):
+        return list(value.values())
+    if isinstance(value, _Built):
+        return list(value.fields.values())
+    return []
+
+
+def _reachable(value: Any) -> list[Any]:
+    """Every mutable object reachable from a value, the value itself included."""
+    out: list[Any] = []
+    seen: set[int] = set()
+    stack = [value]
+    while stack:
+        item = stack.pop()
+        if id(item) in seen:
+            continue
+        seen.add(id(item))
+        if isinstance(item, _MUTABLE):
+            out.append(item)
+        stack.extend(_children(item))
+    return out
+
+
+def _has_unknown(value: Any) -> bool:
+    """Whether some part of the value is UNRESOLVED (and so may be any object)."""
+    return _unknown(value) or any(_has_unknown(child) for child in _children(value))
+
+
+def _same(a: Any, b: Any) -> bool:
+    """Whether two control-flow paths hold the same value: for a mutable one, the same object."""
+    if a is b:
+        return True
+    if isinstance(a, _MUTABLE) or isinstance(b, _MUTABLE) or type(a) is not type(b):
+        return False
+    if isinstance(a, tuple):
+        return len(a) == len(b) and all(_same(x, y) for x, y in zip(a, b))
+    return bool(a == b)
+
+
+def _snapshot(value: Any) -> Any:
+    """A copy that later edits to the script's objects cannot reach."""
+    if isinstance(value, list):
+        return [_snapshot(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_snapshot(v) for v in value)
+    if isinstance(value, dict):
+        return {k: _snapshot(v) for k, v in value.items()}
+    if isinstance(value, _Built):
+        return _Built(value.kind, {k: _snapshot(v) for k, v in value.fields.items()})
+    return value
+
+
+class _Replacer:
+    """Rebuilds values with some objects swapped, sharing every part that does not change.
+
+    A container holding a swapped object is copied, and the copy is swapped in for it
+    too, so names that shared the container still share the copy. A lenstronomy
+    object built from a swapped list or dict gets UNRESOLVED in that field instead:
+    it may still use the value it was built with.
+    """
+
+    def __init__(self, swaps: dict[int, Any]) -> None:
+        self.memo: dict[int, Any] = dict(swaps)
+        self.copies: list[tuple[Any, Any]] = []  # (old, new) for every container rebuilt
+
+    def __call__(self, value: Any) -> Any:
+        if not isinstance(value, (*_MUTABLE, tuple)):
+            return value
+        key = id(value)
+        if key in self.memo:
+            return self.memo[key]
+        new: Any = value
+        if isinstance(value, (list, tuple)):
+            parts = [self(v) for v in value]
+            if any(p is not v for p, v in zip(parts, value)):
+                new = parts if isinstance(value, list) else tuple(parts)
+        elif isinstance(value, dict):
+            items = {k: self(v) for k, v in value.items()}
+            if any(items[k] is not v for k, v in value.items()):
+                new = items
+        else:
+            fields = {}
+            for k, v in value.fields.items():
+                n = self(v)
+                fields[k] = n if n is v or _unknown(n) or isinstance(n, _Built) else UNRESOLVED
+            if any(fields[k] is not v for k, v in value.fields.items()):
+                new = _Built(value.kind, fields)
+        self.memo[key] = new
+        if new is not value:
+            self.copies.append((value, new))
+        return new
+
+
 @dataclass
 class _Args:
     """The evaluated arguments of a call."""
 
-    positional: list[Any]  # up to the first * expansion
+    positional: list[Any]  # up to the first * expansion the check cannot resolve
     keywords: dict[str, Any]  # explicit keywords, and ** expansions of resolved dicts
     expansions: list[Any]  # every ** value, in order
+    spread: list[Any]  # every * value that could not be expanded
     opaque: bool  # a * or ** expansion the check cannot resolve may pass more arguments
+
+    def values(self) -> list[Any]:
+        return [*self.positional, *self.keywords.values(), *self.expansions, *self.spread]
 
     def bind(self, names: tuple[str, ...]) -> dict[str, Any]:
         """Bound to the callee's leading parameter ``names``; keywords keep their own names.
@@ -268,12 +390,38 @@ def _build(name: str, args: _Args) -> _Built:
     return _Built(name, {"models": bound.get(_PARAMETERS[name][0], _MISSING)})
 
 
+# Calls the check does not follow but knows cannot change their arguments. The
+# "capturing" ones return something that shares them (an iterator, a view, one of
+# the arguments), so what they are given can afterwards be reached unseen.
+_PURE_BUILTINS = {"print", "len", "repr", "str", "format", "isinstance", "issubclass", "type", "id",
+                  "hash", "bool", "int", "float", "abs", "round", "callable", "ascii", "ord", "chr",
+                  "bin", "hex", "oct", "divmod", "pow", "any", "all", "range"}
+_CAPTURING_BUILTINS = {"list", "tuple", "dict", "set", "frozenset", "sorted", "reversed", "iter",
+                       "enumerate", "zip", "min", "max", "sum", "next", "filter", "map", "getattr"}
+_PURE_MODULE_CALLS = {"json.dumps", "json.dump", "copy.deepcopy", "pprint.pprint"}
+_CAPTURING_MODULE_CALLS = {"copy.copy"}
+# Methods of dicts and lists that do not change them; those marked * return a value
+# that shares their contents.
+_DICT_READS = {"get": True, "keys": False, "values": True, "items": True, "copy": True}
+_LIST_READS = {"index": False, "count": False, "copy": True}
+# lenstronomy methods that compute from an object without changing it.
+_LENSTRONOMY_READS = {"ray_shooting", "alpha", "hessian", "kappa", "potential", "magnification",
+                      "fermat_potential", "arrival_time", "surface_brightness", "total_flux",
+                      "source_surface_brightness", "lens_surface_brightness"}
+
+
 def _names_bound(target: ast.AST) -> list[str]:
     """Every plain name an assignment target, loop variable or pattern binds."""
     names = [n.id for n in ast.walk(target) if isinstance(n, ast.Name)]
     names += [n.name for n in ast.walk(target) if isinstance(n, (ast.MatchAs, ast.MatchStar)) and n.name]
     names += [n.rest for n in ast.walk(target) if isinstance(n, ast.MatchMapping) and n.rest]
     return names
+
+
+def _root(node: ast.AST) -> ast.AST:
+    while isinstance(node, (ast.Attribute, ast.Subscript)):
+        node = node.value
+    return node
 
 
 class _Dead(Exception):
@@ -295,17 +443,30 @@ class _State:
         self.symbols, self.found = other.symbols, other.found
 
 
-def _merge(paths: list[_State]) -> _State:
-    """Join control-flow paths: anything that differs between them is UNRESOLVED."""
+def _merge(paths: list[_State], dropped: list[Any] | None = None) -> _State:
+    """Join control-flow paths: anything that differs between them is UNRESOLVED.
+
+    The values that differ are appended to ``dropped``: what they hold can now be
+    reached only through an UNRESOLVED value.
+    """
     merged = _State()
     for attr in ("symbols", "found"):
         tables = [getattr(p, attr) for p in paths]
         out = getattr(merged, attr)
         for key in {k for t in tables for k in t}:
             values = [t.get(key, _ABSENT) for t in tables]
-            same = values[0] is not _ABSENT and all(v == values[0] for v in values[1:])
-            out[key] = values[0] if same else UNRESOLVED
+            if values[0] is not _ABSENT and all(v is not _ABSENT and _same(v, values[0]) for v in values[1:]):
+                out[key] = values[0]
+            else:
+                out[key] = UNRESOLVED
+                if dropped is not None:
+                    dropped.extend(v for v in values if v is not _ABSENT)
     return merged
+
+
+def _same_state(a: _State, b: _State) -> bool:
+    return all(t1.keys() == t2.keys() and all(_same(t1[k], t2[k]) for k in t1)
+               for t1, t2 in ((a.symbols, b.symbols), (a.found, b.found)))
 
 
 class _Walker:
@@ -318,6 +479,14 @@ class _Walker:
     that raises renders nothing. Expressions are evaluated by ``eval``, which follows
     the calls in them in evaluation order and raises _Dead from a call that never
     returns.
+
+    An edit to an object the check can identify (``kwargs_lens[0]["theta_E"] = 2.5``,
+    ``.update()``, ``del``, a function it follows changing an argument) makes the
+    edited key UNRESOLVED, or the whole object when the edit is not a known key. An
+    object that may be edited where the check cannot see is made UNRESOLVED: one
+    handed to a call it does not follow, and every object that has *escaped* (become
+    reachable through a value the check does not know, such as a loop variable)
+    when something unknown is edited or called.
     """
 
     def __init__(self) -> None:
@@ -326,6 +495,100 @@ class _Walker:
         self.returns: list[list[_State]] = []  # one list per running function
         self.loop_exits: list[list[_State]] = []  # one list per running loop
         self.program_exits: list[_State] = []
+        self.swaps: list[tuple[Any, Any]] = []  # every (old, new) object swap, in order
+        self.escaped: dict[int, Any] = {}  # objects reachable through a value the check does not know
+
+    # --- objects ------------------------------------------------------------------
+
+    def swap(self, state: _State, swaps: list[tuple[Any, Any]]) -> None:
+        """Put each new object in place of its old one, everywhere this path refers to it."""
+        replacer = _Replacer({id(old): new for old, new in swaps})
+        for table in (state.symbols, state.found):
+            for key, value in list(table.items()):
+                new = replacer(value)
+                if new is not value:
+                    table[key] = new
+        for old, new in [*swaps, *replacer.copies]:
+            self.swaps.append((old, new))
+            if id(old) in self.escaped and isinstance(new, _MUTABLE):
+                self.escaped[id(new)] = new
+
+    def replay(self, state: _State, since: int) -> None:
+        """Make the swaps done since ``since`` (in a called function) on this path too."""
+        latest: dict[int, Any] = {}
+        old_of: dict[int, Any] = {}
+        for old, new in self.swaps[since:]:
+            previous = latest.get(id(old), _ABSENT)
+            latest[id(old)] = new if previous is _ABSENT or previous is new else UNRESOLVED
+            old_of[id(old)] = old
+        swaps = []
+        for key, new in latest.items():
+            seen: set[int] = set()
+            while isinstance(new, _MUTABLE) and id(new) in latest and id(new) not in seen:
+                seen.add(id(new))
+                new = latest[id(new)]  # swapped again later
+            swaps.append((old_of[key], new))
+        if swaps:
+            self.swap(state, swaps)
+
+    def escape(self, value: Any) -> None:
+        """What the value holds can now be reached through a value the check does not know."""
+        for obj in _reachable(value):
+            self.escaped[id(obj)] = obj
+
+    def invalidate(self, state: _State, objects: list[Any]) -> None:
+        """Every reference this path has to these objects becomes UNRESOLVED."""
+        targets = list({id(o): o for o in objects if isinstance(o, _MUTABLE)}.values())
+        if not targets:
+            return
+        for obj in targets:
+            for child in _children(obj):
+                self.escape(child)
+        self.swap(state, [(obj, UNRESOLVED) for obj in targets])
+
+    def mark(self, state: _State, container: Any, keys: list[Any]) -> None:
+        """The container's values at these keys become UNRESOLVED (all of it for an unknown key)."""
+        if isinstance(container, dict) and all(isinstance(k, _SCALARS) and not _unknown(k) for k in keys):
+            new = dict(container)
+            for key in keys:
+                new[key] = UNRESOLVED
+            self.swap(state, [(container, new)])
+        elif isinstance(container, list) and all(_is_number(k) and isinstance(k, int)
+                                                 and -len(container) <= k < len(container) for k in keys):
+            new = list(container)
+            for key in keys:
+                new[key] = UNRESOLVED
+            self.swap(state, [(container, new)])
+        else:
+            self.invalidate(state, [container])
+
+    def module_like(self, node: ast.AST, state: _State) -> bool:
+        """Rooted at a name the script never binds: a module, a builtin, or nothing."""
+        root = _root(node)
+        return isinstance(root, ast.Name) and root.id not in state.symbols
+
+    def edit(self, state: _State, target: ast.Attribute | ast.Subscript, container: Any, key: Any,
+             stored: Any = _ABSENT) -> None:
+        """``target`` (``container[key]``, or an attribute) is assigned, deleted or changed in place."""
+        if isinstance(container, (list, dict)) and isinstance(target, ast.Subscript):
+            self.escape(stored)  # it is now held at a key whose value is unknown
+            self.mark(state, container, [key])
+        elif isinstance(container, _MUTABLE):
+            self.escape(stored)
+            self.invalidate(state, [container])
+        else:
+            # An object the check does not track: whatever is stored in it may be changed
+            # unseen later, and the object itself may be any that escaped.
+            unknown = [] if self.module_like(target.value, state) else list(self.escaped.values())
+            self.invalidate(state, [*_reachable(stored), *unknown])
+
+    def unknown_call(self, state: _State, args: _Args, receiver: Any, reaches_script: bool) -> None:
+        """A call the check does not follow may change whatever it is given or can reach."""
+        given = args.values() + ([] if receiver is _ABSENT else [receiver])
+        objects = [obj for value in given for obj in _reachable(value)]
+        if reaches_script or args.opaque or any(_has_unknown(v) for v in given):
+            objects += list(self.escaped.values())  # an unknown value may be any of these
+        self.invalidate(state, objects)
 
     # --- statements ------------------------------------------------------------
 
@@ -358,14 +621,14 @@ class _Walker:
             return self.loop(node, state)
         if isinstance(node, (ast.With, ast.AsyncWith)):
             for item in node.items:
-                self.eval(item.context_expr, state)
+                self.escape(self.eval(item.context_expr, state))  # `as` may bind it, or part of it
                 if item.optional_vars is not None:
                     self.bind(item.optional_vars, UNRESOLVED, state)
             return self.block(node.body, state)
         if isinstance(node, ast.Try) or type(node).__name__ == "TryStar":
             return self.attempt(node, state)
         if isinstance(node, ast.Match):
-            self.eval(node.subject, state)
+            self.escape(self.eval(node.subject, state))  # the patterns may bind parts of it
             cases = []
             for case in node.cases:
                 path = state.copy()
@@ -383,16 +646,10 @@ class _Walker:
             if node.value is not None:  # a bare annotation binds nothing
                 self.bind(node.target, self.eval(node.value, state), state)
         elif isinstance(node, ast.AugAssign):
-            if isinstance(node.target, ast.Name):  # x += v is x = x + v; x[...] += v is an in-place edit
-                value = self.eval(node.value, state)
-                current = state.symbols.get(node.target.id, UNRESOLVED)
-                self.bind(node.target, _fold(node.op, current, value), state)
-            else:
-                self.effects(node.target, state)
-                self.eval(node.value, state)
+            self.augmented(node, state)
         elif isinstance(node, ast.Return):
             if node.value is not None:
-                self.eval(node.value, state)
+                self.escape(self.eval(node.value, state))  # return values are not followed
             if self.returns:
                 self.returns[-1].append(state.copy())
             return True
@@ -409,15 +666,57 @@ class _Walker:
             self.eval(node.test, state)
         elif isinstance(node, ast.Delete):
             for target in node.targets:
-                self.effects(target, state)
+                self.delete(target, state)
         return False
+
+    def augmented(self, node: ast.AugAssign, state: _State) -> None:
+        target = node.target
+        if isinstance(target, ast.Name):
+            value = self.eval(node.value, state)
+            current = state.symbols.get(target.id, UNRESOLVED)
+            if isinstance(current, _MUTABLE):
+                # list += ..., dict |= ...: changed in place, so every name sharing it sees it.
+                self.escape(value)
+                self.invalidate(state, [current])
+                self.bind(target, UNRESOLVED, state)
+            else:  # x += v on a number is x = x + v
+                self.bind(target, _fold(node.op, current, value), state)
+            return
+        if not isinstance(target, (ast.Attribute, ast.Subscript)):
+            self.eval(node.value, state)
+            return
+        container = self.eval(target.value, state)
+        key = self.eval(target.slice, state) if isinstance(target, ast.Subscript) else _ABSENT
+        value = self.eval(node.value, state)
+        current = _index(container, key) if isinstance(target, ast.Subscript) else UNRESOLVED
+        self.edit(state, target, container, key, value)
+        if isinstance(current, _MUTABLE):
+            self.invalidate(state, [current])  # += on a list element extends that list in place
+
+    def delete(self, target: ast.AST, state: _State) -> None:
+        if isinstance(target, ast.Name):
+            self.bind(target, UNRESOLVED, state)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            for el in target.elts:
+                self.delete(el, state)
+        elif isinstance(target, (ast.Attribute, ast.Subscript)):
+            container = self.eval(target.value, state)
+            key = self.eval(target.slice, state) if isinstance(target, ast.Subscript) else _ABSENT
+            self.edit(state, target, container, key)
+
+    def merge(self, paths: list[_State]) -> _State:
+        dropped: list[Any] = []
+        merged = _merge(paths, dropped)
+        for value in dropped:
+            self.escape(value)
+        return merged
 
     def branches(self, paths: list[tuple[list[ast.stmt], _State]], state: _State) -> bool:
         """Run alternative blocks, each from its own copy of the state; join the ones that fall through."""
         through = [path for body, path in paths if not self.block(body, path)]
         if not through:
             return True
-        state.take(_merge(through))
+        state.take(self.merge(through))
         return False
 
     def loop(self, node: ast.For | ast.AsyncFor | ast.While, state: _State) -> bool:
@@ -426,7 +725,7 @@ class _Walker:
             if _truth(self.eval(node.test, state)) is False:
                 return self.block(node.orelse, state)
         else:
-            self.eval(node.iter, state)
+            self.escape(self.eval(node.iter, state))  # the loop variable holds its items
         entry = state.copy()
         for _ in range(3):
             body = entry.copy()
@@ -435,8 +734,8 @@ class _Walker:
             self.loop_exits.append([])
             ended = self.block(node.body, body)
             exits = self.loop_exits.pop()
-            joined = _merge([state, *([] if ended else [body]), *exits])
-            if joined.symbols == entry.symbols and joined.found == entry.found:
+            joined = self.merge([state, *([] if ended else [body]), *exits])
+            if _same_state(joined, entry):
                 break
             entry = joined
         state.take(entry)
@@ -448,13 +747,13 @@ class _Walker:
         ended = self.block(node.body, state) or self.block(node.orelse, state)
         paths = [] if ended else [state.copy()]
         for handler in node.handlers:
-            path = _merge([before, state])
+            path = self.merge([before, state])
             if handler.name:
                 path.symbols[handler.name] = UNRESOLVED
             if not self.block(handler.body, path):
                 paths.append(path)
         if paths:
-            state.take(_merge(paths))
+            state.take(self.merge(paths))
         return self.block(node.finalbody, state) or not paths
 
     def bind(self, target: ast.AST, value: Any, state: _State) -> None:
@@ -466,32 +765,50 @@ class _Walker:
             parts = list(value) if isinstance(value, (list, tuple)) else None
             starred = any(isinstance(el, ast.Starred) for el in target.elts)
             if parts is None or starred or len(parts) != len(target.elts):
+                self.escape(value)  # its items go to names that are UNRESOLVED
                 parts = [UNRESOLVED] * len(target.elts)
             for el, part in zip(target.elts, parts):
                 self.bind(el.value if isinstance(el, ast.Starred) else el, part, state)
+        elif isinstance(target, (ast.Attribute, ast.Subscript)):
+            container = self.eval(target.value, state)
+            key = self.eval(target.slice, state) if isinstance(target, ast.Subscript) else _ABSENT
+            self.edit(state, target, container, key, value)
         else:
-            # Attribute and subscript targets (in-place edits) are not followed.
             self.effects(target, state)
 
     # --- expressions -------------------------------------------------------------
 
-    def effects(self, node: ast.AST, state: _State) -> None:
-        """Follow the calls inside a node's parts, in evaluation order, ignoring their values."""
+    def effects(self, node: ast.AST, state: _State, escaping: bool = True) -> None:
+        """Follow the calls inside a node's parts, in evaluation order, ignoring their values.
+
+        The parts' values are treated as escaping (the node's own value is unknown and
+        may share them) unless ``escaping`` is False.
+        """
         for child in ast.iter_child_nodes(node):
             if isinstance(child, ast.Lambda):
-                continue  # its body runs only when called
-            if isinstance(child, ast.expr):
-                self.eval(child, state)
+                self.lambda_(child, state)
+            elif isinstance(child, ast.expr):
+                value = self.eval(child, state)
+                if escaping:
+                    self.escape(value)
             else:
-                self.effects(child, state)
+                self.effects(child, state, escaping)
+
+    def lambda_(self, node: ast.Lambda, state: _State) -> None:
+        """A lambda's body runs only when it is called, and may reach what it names."""
+        for name in ast.walk(node.body):
+            if isinstance(name, ast.Name):
+                self.escape(state.symbols.get(name.id))
 
     def eval(self, node: ast.AST, state: _State) -> Any:
         """The value of an expression: a Python value, UNRESOLVED, or containers thereof."""
         method = getattr(self, f"_eval_{node.__class__.__name__}", None)
         if method is not None:
             return method(node, state)
-        if not isinstance(node, ast.Lambda):  # a lambda's body runs only when called
-            self.effects(node, state)
+        if isinstance(node, ast.Lambda):
+            self.lambda_(node, state)
+        else:
+            self.effects(node, state, escaping=not isinstance(node, (ast.JoinedStr, ast.FormattedValue)))
         return UNRESOLVED
 
     def _eval_Constant(self, node: ast.Constant, state: _State) -> Any:
@@ -499,6 +816,11 @@ class _Walker:
 
     def _eval_Name(self, node: ast.Name, state: _State) -> Any:
         return state.symbols.get(node.id, UNRESOLVED)
+
+    def _eval_NamedExpr(self, node: ast.NamedExpr, state: _State) -> Any:
+        value = self.eval(node.value, state)
+        self.bind(node.target, value, state)
+        return value
 
     def _eval_UnaryOp(self, node: ast.UnaryOp, state: _State) -> Any:
         value = self.eval(node.operand, state)
@@ -511,7 +833,12 @@ class _Walker:
 
     def _eval_BinOp(self, node: ast.BinOp, state: _State) -> Any:
         left = self.eval(node.left, state)
-        return _fold(node.op, left, self.eval(node.right, state))
+        right = self.eval(node.right, state)
+        value = _fold(node.op, left, right)
+        if _unknown(value):  # e.g. list + list shares the items of both
+            self.escape(left)
+            self.escape(right)
+        return value
 
     def _eval_BoolOp(self, node: ast.BoolOp, state: _State) -> Any:
         values = [self.eval(v, state) for v in node.values]
@@ -519,6 +846,8 @@ class _Walker:
         for value in values:
             truth = _truth(value)
             if truth is None:
+                for v in values:
+                    self.escape(v)  # the result may be any of them
                 return UNRESOLVED
             if truth is decisive:
                 return value
@@ -527,7 +856,11 @@ class _Walker:
     def _eval_IfExp(self, node: ast.IfExp, state: _State) -> Any:
         test = _truth(self.eval(node.test, state))
         body, orelse = self.eval(node.body, state), self.eval(node.orelse, state)
-        return UNRESOLVED if test is None else (body if test else orelse)
+        if test is None:
+            self.escape(body)
+            self.escape(orelse)
+            return UNRESOLVED
+        return body if test else orelse
 
     def _eval_Compare(self, node: ast.Compare, state: _State) -> Any:
         values = [self.eval(node.left, state)] + [self.eval(c, state) for c in node.comparators]
@@ -537,7 +870,14 @@ class _Walker:
         # Still fully static: a dict or list reached through a name and indexed by a
         # constant, e.g. kwargs_data["exposure_time"].
         base = self.eval(node.value, state)
-        return _index(base, self.eval(node.slice, state))
+        value = _index(base, self.eval(node.slice, state))
+        if _unknown(value):
+            self.escape(base)  # an unknown key or a slice may reach any of its items
+        return value
+
+    def _eval_Attribute(self, node: ast.Attribute, state: _State) -> Any:
+        self.escape(self.eval(node.value, state))  # an attribute may share the object's parts
+        return UNRESOLVED
 
     def _eval_List(self, node: ast.List, state: _State) -> Any:
         return [self.eval(el, state) for el in node.elts]
@@ -546,7 +886,7 @@ class _Walker:
         return tuple(self.eval(el, state) for el in node.elts)
 
     def _eval_Starred(self, node: ast.Starred, state: _State) -> Any:
-        self.eval(node.value, state)
+        self.escape(self.eval(node.value, state))
         return UNRESOLVED
 
     def _eval_Dict(self, node: ast.Dict, state: _State) -> Any:
@@ -559,32 +899,44 @@ class _Walker:
                 if isinstance(mapping, dict):
                     out.update(mapping)
                 else:
+                    self.escape(mapping)
                     resolved = False
                 continue
             key = self.eval(k, state)
             value = self.eval(v, state)
             if _unknown(key) or not isinstance(key, _SCALARS):
+                self.escape(value)
                 resolved = False  # an unknown key could override any of the others
             else:
                 out[key] = value
-        return out if resolved else UNRESOLVED
+        if not resolved:
+            self.escape(out)
+            return UNRESOLVED
+        return out
 
     def _eval_Call(self, node: ast.Call, state: _State) -> Any:
         func = node.func
-        receiver = self.eval(func.value, state) if isinstance(func, ast.Attribute) else None
+        receiver = self.eval(func.value, state) if isinstance(func, ast.Attribute) else _ABSENT
         if not isinstance(func, (ast.Attribute, ast.Name)):
-            self.eval(func, state)
+            self.escape(self.eval(func, state))
         positional: list[Any] = []
         keywords: dict[str, Any] = {}
         expansions: list[Any] = []
-        starred = opaque = False
+        spread: list[Any] = []
+        opaque = False
         for arg in node.args:
             if isinstance(arg, ast.Starred):
-                self.eval(arg.value, state)
-                starred = opaque = True
+                value = self.eval(arg.value, state)
+                if isinstance(value, (list, tuple)) and not opaque:
+                    positional.extend(value)
+                else:
+                    spread.append(value)
+                    opaque = True
                 continue
             value = self.eval(arg, state)
-            if not starred:
+            if opaque:
+                spread.append(value)  # its position is unknown
+            else:
                 positional.append(value)
         for keyword in node.keywords:
             value = self.eval(keyword.value, state)
@@ -596,28 +948,78 @@ class _Walker:
                 keywords.update({k: v for k, v in value.items() if isinstance(k, str)})
             else:
                 opaque = True
-        return self.call(node, receiver, _Args(positional, keywords, expansions, opaque), state)
+        return self.call(node, receiver, _Args(positional, keywords, expansions, spread, opaque), state)
 
     def call(self, node: ast.Call, receiver: Any, args: _Args, state: _State) -> Any:
         """What a call returns, as far as the check follows it."""
-        name, found = _call_name(node.func), state.found
+        func, found = node.func, state.found
+        name = _call_name(func)
         if name in _BUILDERS:
             built = _build(name, args)
             key = f"built:{name}"
             previous = found.get(key, ())
             found[key] = UNRESOLVED if previous == UNRESOLVED else previous + (built,)
             return built
-        if name == "image" and isinstance(node.func, ast.Attribute):
+        if name == "image" and isinstance(func, ast.Attribute):
             bound = args.bind(_PARAMETERS["image"])
-            found["rendered"] = {"kwargs_lens": bound.get("kwargs_lens", _MISSING),
-                                 "kwargs_source": bound.get("kwargs_source", _MISSING),
-                                 "image_model": receiver}
+            found["rendered"] = _Render(_snapshot(bound.get("kwargs_lens", _MISSING)),
+                                        _snapshot(bound.get("kwargs_source", _MISSING)),
+                                        _snapshot(receiver))
             return UNRESOLVED
         if _is_exit_call(node):
             self.program_exits.append(state.copy())
             raise _Dead
-        if isinstance(node.func, ast.Name) and node.func.id in self.functions:
-            return self.run(self.functions[node.func.id], args, state)
+        if isinstance(func, ast.Name) and func.id in self.functions:
+            return self.run(self.functions[func.id], args, state)
+        if isinstance(receiver, (dict, list)):
+            return self.container_method(receiver, name, args, state)
+        if isinstance(receiver, _Built) and name in _LENSTRONOMY_READS:
+            return UNRESOLVED
+        if isinstance(func, ast.Name) and func.id not in state.symbols:
+            if func.id in _PURE_BUILTINS:
+                return UNRESOLVED
+            if func.id in _CAPTURING_BUILTINS:
+                for value in args.values():
+                    self.escape(value)
+                return UNRESOLVED
+        module_call = self.module_like(func, state)
+        if module_call and isinstance(func, ast.Attribute):
+            dotted = ast.unparse(func)
+            if dotted in _PURE_MODULE_CALLS:
+                return UNRESOLVED
+            if dotted in _CAPTURING_MODULE_CALLS:
+                for value in args.values():
+                    self.escape(value)
+                return UNRESOLVED
+        # A call the check does not follow. A module's function sees only its arguments; a
+        # method of a script object, or a function the script holds, may reach any escaped one.
+        self.unknown_call(state, args, _ABSENT if module_call else receiver, not module_call)
+        return UNRESOLVED
+
+    def container_method(self, container: dict | list, name: str, args: _Args, state: _State) -> Any:
+        """A method call on a dict or list the script built."""
+        reads = _DICT_READS if isinstance(container, dict) else _LIST_READS
+        if name in reads:
+            if reads[name]:
+                for child in _children(container):
+                    self.escape(child)  # the result shares them
+            return UNRESOLVED
+        # Anything else changes it: the keys it names become UNRESOLVED, else all of it.
+        for value in args.values():
+            self.escape(value)  # stored where the check cannot see
+        for child in _children(container):
+            self.escape(child)  # pop() and friends return them
+        keys: list[Any] | None = None
+        if isinstance(container, dict) and not args.opaque:
+            if name in ("setdefault", "pop") and args.positional:
+                keys = [args.positional[0]]
+            elif name == "update" and len(args.positional) <= 1:
+                source = args.positional[0] if args.positional else {}
+                keys = [*source, *args.keywords] if isinstance(source, dict) else None
+        if keys is None:
+            self.invalidate(state, [container])
+        else:
+            self.mark(state, container, keys)
         return UNRESOLVED
 
     def run(self, fn: ast.FunctionDef | ast.AsyncFunctionDef, args: _Args, state: _State) -> Any:
@@ -626,10 +1028,15 @@ class _Walker:
         Raises _Dead when the function never returns (every path raises or exits).
         """
         if fn.name in self.active or len(self.active) >= _MAX_CALL_DEPTH:
+            self.unknown_call(state, args, _ABSENT, True)
             return UNRESOLVED
         a = fn.args
         positional = [p.arg for p in (*a.posonlyargs, *a.args)]
         given = args.bind(tuple(positional))
+        named = {*positional, *(k.arg for k in a.kwonlyargs)}
+        for extra in [*args.positional[len(positional):], *args.spread,
+                      *(v for k, v in args.keywords.items() if k not in named)]:
+            self.escape(extra)  # it goes to *args or **kwargs, which are UNRESOLVED
         local = _State(state.symbols, state.found)
         defaults = dict(zip(positional[len(positional) - len(a.defaults):], a.defaults))
         defaults.update({p.arg: d for p, d in zip(a.kwonlyargs, a.kw_defaults) if d is not None})
@@ -647,17 +1054,20 @@ class _Walker:
             if extra is not None:
                 local.symbols[extra.arg] = UNRESOLVED
         shared = {n for node in ast.walk(fn) if isinstance(node, ast.Global) for n in node.names}
+        since = len(self.swaps)
         self.active.append(fn.name)
         self.returns.append([])
         ended = self.block(fn.body, local)
         paths = self.returns.pop() + ([] if ended else [local])
         self.active.pop()
         if not paths:
+            self.replay(state, since)
             raise _Dead
-        final = _merge(paths)
+        final = self.merge(paths)
         state.found = final.found
         for name in shared & set(final.symbols):
             state.symbols[name] = final.symbols[name]
+        self.replay(state, since)  # what it changed in the objects it was given
         return UNRESOLVED
 
 
@@ -714,12 +1124,12 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
 
     rendered = f.get("rendered")
     image_model: Any = None
-    if rendered == UNRESOLVED:
+    if _unknown(rendered):
         found.kwargs_lens = found.kwargs_source = image_model = UNRESOLVED
-    elif rendered is not None:
+    elif isinstance(rendered, _Render):
         # The arguments of the last image() call outrank same-named assignments.
-        found.kwargs_lens, found.kwargs_source = rendered["kwargs_lens"], rendered["kwargs_source"]
-        image_model = rendered["image_model"]
+        found.kwargs_lens, found.kwargs_source = rendered.kwargs_lens, rendered.kwargs_source
+        image_model = rendered.image_model
         if not (isinstance(image_model, _Built) and image_model.kind == "ImageModel"):
             image_model = UNRESOLVED  # the image() call's ImageModel cannot be identified
     else:

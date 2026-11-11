@@ -758,6 +758,57 @@ class CodeCheckRegressionTests(unittest.TestCase):
         self.assertEqual(comp["diverged"], [{"field": "psf_type", "expected": "GAUSSIAN", "actual": "NONE"}])
         self.assertIn("psf_type", _compare(EXAMPLE, params)["matched"])
 
+    RENDER = "image = image_model.image(kwargs_lens=kwargs_lens, kwargs_source=kwargs_source)"
+
+    def _before_render(self, code: str) -> dict:
+        self.assertIn(self.RENDER, EXAMPLE)
+        return _compare(EXAMPLE.replace(self.RENDER, code + "\n" + self.RENDER))
+
+    def test_in_place_edits_before_the_render_are_unresolved(self) -> None:
+        # The review's case: this line before the render used to pass with theta_E "matched".
+        comp = self._before_render('kwargs_lens[0]["theta_E"] = 2.5')
+        self.assertFalse(comp["passed"])
+        self.assertEqual(comp["unresolved"], ["kwargs_lens[0].theta_E"])
+        self.assertIn("kwargs_lens[0].e1", comp["matched"])  # only the edited value
+
+        edits = {
+            "augmented": ('kwargs_lens[0]["theta_E"] += 1.5', "kwargs_lens[0].theta_E"),
+            "del": ('del kwargs_lens[0]["theta_E"]', "kwargs_lens[0].theta_E"),
+            "update keyword": ("kwargs_lens[0].update(theta_E=2.5)", "kwargs_lens[0].theta_E"),
+            "update dict": ('kwargs_lens[0].update({"theta_E": 2.5})', "kwargs_lens[0].theta_E"),
+            "setdefault": ('kwargs_lens[0].setdefault("theta_E", 2.5)', "kwargs_lens[0].theta_E"),
+            "pop": ('kwargs_lens[0].pop("theta_E")', "kwargs_lens[0].theta_E"),
+            "update unknown": ("kwargs_lens[0].update(load_overrides())", "kwargs_lens[0]"),
+            "item replaced": ('kwargs_lens[0] = {"theta_E": 2.5}', "kwargs_lens[0]"),
+            "append": ('kwargs_lens.append({"theta_E": 2.5})', "kwargs_lens"),
+            "list +=": ('kwargs_lens += [{"theta_E": 2.5}]', "kwargs_lens"),
+            "clear": ("kwargs_source[0].clear()", "kwargs_source[0]"),
+            "scaled": ('kwargs_source[0]["amp"] *= 2', "kwargs_source[0].amp"),
+            "through an alias": ('lens = kwargs_lens[0]\nlens["theta_E"] = 2.5', "kwargs_lens[0].theta_E"),
+            "through a loop variable": ('for kw in kwargs_lens:\n    kw["theta_E"] = 2.5', "kwargs_lens"),
+            "in a function": ('def tweak(k):\n    k[0]["theta_E"] = 2.5\ntweak(kwargs_lens)',
+                              "kwargs_lens[0].theta_E"),
+            "by a call the check does not follow": ("tweak(kwargs_lens)", "kwargs_lens"),
+            "attribute of the PSF": ("psf_class.fwhm = 0.3", "psf_fwhm"),
+        }
+        for name, (code, field) in edits.items():
+            with self.subTest(name):
+                comp = self._before_render(code)
+                self.assertFalse(comp["passed"])
+                self.assertIn(field, comp["unresolved"])
+                self.assertFalse([m for m in comp["matched"] if m.startswith(field + ".")
+                                  or m == field])
+
+    def test_edits_that_cannot_change_the_render_still_pass(self) -> None:
+        after = EXAMPLE.replace(self.RENDER, self.RENDER + '\nkwargs_lens[0]["theta_E"] = 2.5')
+        self.assertTrue(_compare(after)["passed"], _compare(after)["messages"])  # rendered already
+        for code in ('other = {"a": 1}\nother["a"] = 2', "print(kwargs_lens)",
+                     "for kw in kwargs_lens:\n    print(kw)", "np.random.seed(0)",
+                     'json.dumps(kwargs_lens)', 'kwargs_lens[0].get("theta_E")'):
+            with self.subTest(code):
+                comp = self._before_render(code)
+                self.assertTrue(comp["passed"], comp["messages"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
