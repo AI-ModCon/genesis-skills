@@ -980,6 +980,15 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(EXAMPLE.replace(psf, 'PSF(psf_type="PIXEL", pixel_size=deltaPix)'), params)
         self.assertEqual([d["field"] for d in comp["diverged"]], ["psf_kernel"])  # no kernel at all
 
+    def test_the_text_of_the_unresolved_marker_is_an_ordinary_string(self) -> None:
+        # The marker for an unknown value was the string "<unresolved>", so a script passing that
+        # text was treated as unknown, and len() of an unknown value was 12.
+        psf = 'PSF(psf_type="GAUSSIAN", fwhm=0.15, pixel_size=deltaPix)'
+        comp = _compare(EXAMPLE.replace(psf, psf.replace('"GAUSSIAN"', '"<unresolved>"')))
+        self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]}, {"psf_type": "<unresolved>"})
+        comp = _compare(EXAMPLE.replace("numPix = 64", "numPix = 64 if len(sys.argv) == 12 else 128"))
+        self.assertIn("numPix", comp["unresolved"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(

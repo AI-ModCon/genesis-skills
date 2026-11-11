@@ -86,7 +86,14 @@ def _load_validator() -> Any:
 
 _validator = _load_validator()
 
-UNRESOLVED = "<unresolved>"
+class _Unresolved:
+    """A value the check cannot determine without running the script."""
+
+    def __repr__(self) -> str:
+        return "<unresolved>"
+
+
+UNRESOLVED = _Unresolved()
 
 _REL_TOL = 1e-6
 
@@ -171,7 +178,7 @@ def _call_name(func: ast.AST) -> str:
 
 
 def _unknown(value: Any) -> bool:
-    return isinstance(value, str) and value == UNRESOLVED
+    return value is UNRESOLVED
 
 
 def _is_number(value: Any) -> bool:
