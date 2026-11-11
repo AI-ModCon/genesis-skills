@@ -97,7 +97,7 @@ _GRID_ALIASES = (("numPix", "num_pix"), ("deltaPix", "delta_pix"))
 _PARAMETERS = {
     "LensModel": ("lens_model_list",),
     "LightModel": ("light_model_list",),
-    "PSF": ("psf_type", "fwhm", "truncation", "pixel_size"),
+    "PSF": ("psf_type", "fwhm", "truncation", "pixel_size", "kernel_point_source"),
     "ImageModel": ("data_class", "psf_class", "lens_model_class", "source_model_class"),
     "data_configure_simple": ("numPix", "deltaPix", "exposure_time", "background_rms"),
     "image": ("kwargs_lens", "kwargs_source"),
@@ -159,6 +159,7 @@ class _Extracted:
         self.psf_type: Any = _MISSING
         self.psf_fwhm: Any = _MISSING
         self.psf_pixel_size: Any = _MISSING
+        self.psf_kernel: Any = _MISSING
 
 
 def _call_name(func: ast.AST) -> str:
@@ -401,7 +402,8 @@ def _build(name: str, args: _Args) -> _Built:
                              for k in _PARAMETERS[name]})
     if name == "PSF":
         return _Built("PSF", {"psf_type": bound.get("psf_type", _PSF_DEFAULT_TYPE),
-                              "fwhm": bound.get("fwhm"), "pixel_size": bound.get("pixel_size")})
+                              "fwhm": bound.get("fwhm"), "pixel_size": bound.get("pixel_size"),
+                              "kernel": bound.get("kernel_point_source")})
     if name == "ImageModel":
         return _Built("ImageModel", {"data": bound.get("data_class"), "psf": bound.get("psf_class"),
                                      "lens": bound.get("lens_model_class"),
@@ -418,6 +420,8 @@ _PURE_BUILTINS = {"print", "len", "repr", "str", "format", "isinstance", "issubc
 _CAPTURING_BUILTINS = {"list", "tuple", "dict", "set", "frozenset", "sorted", "reversed", "iter",
                        "enumerate", "zip", "min", "max", "sum", "next", "filter", "map", "getattr"}
 _PURE_MODULE_CALLS = {"json.dumps", "json.dump", "copy.deepcopy", "pprint.pprint"}
+# numpy's array constructors: of a nested list of numbers, a copy of it (kept as lists).
+_ARRAY_CALLS = {"np.array", "np.asarray", "numpy.array", "numpy.asarray"}
 _CAPTURING_MODULE_CALLS = {"copy.copy"}
 # Methods of dicts and lists that do not change them; those marked * return a value
 # that shares their contents.
@@ -444,6 +448,19 @@ def _builtin_value(name: str, args: _Args) -> Any:
             return UNRESOLVED
         return list(items) if len(items) <= _UNROLL else UNRESOLVED
     return UNRESOLVED
+
+
+def _array_value(args: _Args) -> Any:
+    """np.array(x) of a nested list of numbers: a copy of x; anything else is UNRESOLVED."""
+    def numeric(value: Any) -> bool:
+        if isinstance(value, (list, tuple)):
+            return all(numeric(v) for v in value)
+        return _is_number(value)
+    extra = set(args.keywords) - {"dtype"}
+    if args.opaque or extra or len(args.positional) != 1 or not isinstance(args.positional[0], (list, tuple)) \
+            or not numeric(args.positional[0]):
+        return UNRESOLVED
+    return _snapshot([*args.positional[0]])
 
 
 def _names_bound(target: ast.AST) -> list[str]:
@@ -1350,6 +1367,8 @@ class _Walker:
         module_call = self.module_like(func, state)
         if module_call and isinstance(func, ast.Attribute):
             dotted = ast.unparse(func)
+            if dotted in _ARRAY_CALLS:
+                return _array_value(args)
             if dotted in _PURE_MODULE_CALLS:
                 return UNRESOLVED
             if dotted in _CAPTURING_MODULE_CALLS:
@@ -1530,9 +1549,9 @@ def extract_lenstronomy_inputs(code: str) -> _Extracted:
     psf = _component(image_model, "psf", "PSF", f)
     if isinstance(psf, _Built):
         found.psf_type, found.psf_fwhm = psf.fields["psf_type"], psf.fields["fwhm"]
-        found.psf_pixel_size = psf.fields["pixel_size"]
+        found.psf_pixel_size, found.psf_kernel = psf.fields["pixel_size"], psf.fields["kernel"]
     elif psf == UNRESOLVED:
-        found.psf_type = found.psf_fwhm = found.psf_pixel_size = UNRESOLVED
+        found.psf_type = found.psf_fwhm = found.psf_pixel_size = found.psf_kernel = UNRESOLVED
 
     data = _component(image_model, "data", "ImageData", f)
     config = data.fields["config"] if isinstance(data, _Built) else data
@@ -1568,6 +1587,25 @@ def _numbers_match(expected: float, actual: Any) -> bool:
     return abs(actual - expected) <= _REL_TOL * abs(expected)
 
 
+def _match(expected: Any, actual: Any) -> bool | None:
+    """True if the script's value is the parameter set's, False if it is not, None if unknown.
+
+    Numbers match within _REL_TOL (see _numbers_match); lists (or tuples) match item by
+    item. A value that is UNRESOLVED, or that has an UNRESOLVED part where everything
+    else matches, is unknown: it is never reported as matching.
+    """
+    if _unknown(actual):
+        return None
+    if _is_number(expected):
+        return _numbers_match(expected, actual)
+    if isinstance(expected, (list, tuple)):
+        if not isinstance(actual, (list, tuple)) or len(actual) != len(expected):
+            return False
+        results = [_match(e, a) for e, a in zip(expected, actual)]
+        return False if False in results else (None if None in results else True)
+    return bool(expected == actual) and type(expected) is type(actual)
+
+
 def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
     """Diff the script's lenstronomy inputs against a parameter set.
 
@@ -1590,14 +1628,11 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
     def record(field: str, expected: Any, actual: Any) -> None:
         if actual is _MISSING:
             missing.append(field)
-        elif actual == UNRESOLVED:
+            return
+        result = _match(expected, actual)
+        if result is None:
             unresolved.append(field)
-        elif isinstance(expected, (int, float)) and not isinstance(expected, bool):
-            if _numbers_match(expected, actual):
-                matched.append(field)
-            else:
-                diverged.append({"field": field, "expected": expected, "actual": actual})
-        elif expected == actual:
+        elif result:
             matched.append(field)
         else:
             diverged.append({"field": field, "expected": expected, "actual": actual})
@@ -1640,9 +1675,16 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
                                ("psf_pixel_size", "pixel_size", found.psf_pixel_size)):
         if psf.get(key) is not None:
             record(field, psf[key], actual)
+    if psf.get("psf_type") == "PIXEL":
+        # The kernel, element by element as written: a runtime-computed one is UNRESOLVED.
+        record("psf_kernel", psf["kernel_point_source"], found.psf_kernel)
 
     messages: list[str] = []
     for d in diverged:
+        if d["field"] == "psf_kernel":
+            messages.append("psf_kernel: the script's kernel_point_source is not the parameter "
+                            "set's; use the parameter-set kernel exactly, as a literal.")
+            continue
         messages.append(f"{d['field']}: script uses {d['actual']!r} but the parameter set "
                         f"has {d['expected']!r}; use the parameter-set value exactly.")
     for f in missing:

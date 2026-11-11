@@ -959,6 +959,27 @@ class CodeCheckRegressionTests(unittest.TestCase):
         comp = _compare(EXAMPLE.replace(self.RENDER, shared + "\nrender()"))
         self.assertEqual(comp["unresolved"], ["kwargs_lens[0].theta_E"])
 
+    def test_pixel_psf_kernels_are_compared(self) -> None:
+        # kernel_point_source was not followed, so any kernel, or one computed at runtime,
+        # passed against a PIXEL parameter set.
+        kernel = [[0.0, 0.1, 0.0], [0.1, 0.6, 0.1], [0.0, 0.1, 0.0]]
+        params = _good(kwargs_psf={"psf_type": "PIXEL", "pixel_size": 0.08, "kernel_point_source": kernel})
+        self.assertTrue(_validate(params, "general")["passed"])
+        psf = 'PSF(psf_type="GAUSSIAN", fwhm=0.15, pixel_size=deltaPix)'
+        pixel = 'PSF(psf_type="PIXEL", kernel_point_source={}, pixel_size=deltaPix)'
+        other = [[0.0, 0.2, 0.0], [0.2, 0.2, 0.2], [0.0, 0.2, 0.0]]
+        for written, verdict in ((repr(kernel), "matched"), (f"np.array({kernel!r})", "matched"),
+                                 (repr(other), "diverged"), (repr(kernel[:2]), "diverged"),
+                                 ("np.ones((3, 3)) / 9", "unresolved"), ("make_kernel()", "unresolved")):
+            with self.subTest(kernel=written):
+                comp = _compare(EXAMPLE.replace(psf, pixel.format(written)), params)
+                fields = {"matched": comp["matched"], "unresolved": comp["unresolved"],
+                          "diverged": [d["field"] for d in comp["diverged"]]}[verdict]
+                self.assertIn("psf_kernel", fields)
+                self.assertEqual(comp["passed"], verdict == "matched")
+        comp = _compare(EXAMPLE.replace(psf, 'PSF(psf_type="PIXEL", pixel_size=deltaPix)'), params)
+        self.assertEqual([d["field"] for d in comp["diverged"]], ["psf_kernel"])  # no kernel at all
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
