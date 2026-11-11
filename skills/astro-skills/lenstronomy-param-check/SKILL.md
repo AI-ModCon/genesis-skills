@@ -69,7 +69,8 @@ report with exit status 2 for `check_code_params.py`.
 | `general` (default) | Any galaxy- or cluster-scale simulation | Wide sanity bounds; no mass or SNR checks |
 | `deeplense` | The DeepLenseSim Model_I recipe | The recipe's bounds, halo/axion/vortex mass checks, and a peak-SNR band of 14-60 |
 
-Override one bound with `--set NAME=VALUE`, for example `--set theta_e_max=5`.
+Override one bound with `--set NAME=VALUE`, for example `--set theta_e_max=5`;
+the value must be a finite number.
 Every bound and its source is listed in [references/presets.md](references/presets.md).
 
 ## Output Format
@@ -142,18 +143,23 @@ mean the script runs.
 - The check follows the script the way it runs: branches whose condition is
   known, and/or and conditional expressions, loops (an `else` only without a
   `break`), `try`/`except`/`finally` (a handler may start anywhere in its body),
-  function calls with Python's scoping and default arguments, and in-place
-  edits through any name or function that shares the object. Unresolved, as
-  values: anything a function returns, a call other than the lenstronomy
-  builders and a few helpers known not to change their arguments (`print`,
-  `len`, `range`, `np.array`, `dict.get`, ...), an object handed to such a
-  call, a loop variable over something it cannot list, an attribute, and
-  whatever a `with` block does when its context manager might swallow an
-  exception (anything but `open()` and similar).
+  `match` cases and their guards, function calls with Python's scoping and
+  default arguments, imports that rebind a name, and in-place edits through any
+  name or function that shares the object, including one made while a later
+  argument is evaluated. Unresolved, as values: anything a function returns, a
+  call other than the lenstronomy builders and a few helpers known not to
+  change their arguments (`print`, `len`, `range`, `np.array` without a
+  `dtype`, `dict.get`, ...), an object handed to such a call, a loop variable
+  over something it cannot list, an attribute, and whatever a `with` block does
+  when its context manager might swallow an exception (anything but `open()`
+  and similar). A non-finite value (`1e400`) never matches, and the report
+  shows it as the string `"inf"` or `"nan"`.
 - Unresolved, as a whole script: code that runs at a time the check cannot know,
   namely a function handed to code it does not follow (a callback, a decorator,
-  a returned closure), a lambda, method or kept generator expression that calls
-  code, a generator or async function, and recursion; `exec()`, `eval()` and
+  a returned closure), a lambda or method that calls code, a generator
+  expression that calls code and is not consumed right away (by `list()`,
+  `sum()`, `str.join()` and the like), a generator or async function, and
+  recursion; `exec()`, `eval()` and
   `globals()`; a star import from a module other than lenstronomy; and changes
   to lenstronomy, numpy, scipy or astropy themselves. The report says which line.
 - The `deeplense` preset's SNR estimate covers one source profile with a
