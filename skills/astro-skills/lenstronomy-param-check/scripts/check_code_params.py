@@ -52,19 +52,38 @@ Usage:
 
 Exit status: 0 = every checked field matched; 1 = a field diverged, is
 missing or is unresolved, or the script does not parse; 2 = usage error or
-unreadable input.
+unreadable input, including a malformed parameter set (reported as
+``{"error": ...}``).
 
-Standard library only (Python 3.10+). Ported from ML4SCI/DeepLense-AI-Scientist
-(src/dlens/tools/_code_param_check.py).
+Standard library only (Python 3.10+); reads the parameter set with
+validate_params.py from the same directory. Ported from
+ML4SCI/DeepLense-AI-Scientist (src/dlens/tools/_code_param_check.py).
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import importlib.util
 import json
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
+
+
+def _load_validator() -> Any:
+    """validate_params.py, next to this script: the parameter-set schema lives there."""
+    path = Path(__file__).resolve().with_name("validate_params.py")
+    spec = importlib.util.spec_from_file_location("_lenstronomy_param_check_validator", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # its dataclasses look the module up while it loads
+    spec.loader.exec_module(module)
+    return module
+
+
+_validator = _load_validator()
 
 UNRESOLVED = "<unresolved>"
 
@@ -775,25 +794,19 @@ def compare_code_to_params(code: str, params: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_params(raw: Any) -> dict[str, Any]:
-    """Read the fields this check needs; ``num_pix``/``delta_pix`` are accepted."""
-    if not isinstance(raw, dict):
-        raise ValueError("the parameter set must be a JSON object")
+    """Read the parameter set with validate_params.py's schema and return it normalized.
+
+    The two scripts therefore see the same values: ``num_pix``/``delta_pix`` are
+    accepted, a null or omitted exposure_time/background_rms is None, and an
+    omitted ``psf_type`` is GAUSSIAN. A structural problem (``kwargs_lens: [1]``,
+    a string where a number belongs, a missing field) raises ValueError listing
+    every problem.
+    """
     try:
-        data = dict(raw["kwargs_data"])
-        for camel, snake in (("numPix", "num_pix"), ("deltaPix", "delta_pix")):
-            if camel not in data:
-                data[camel] = data[snake]
-        return {
-            "lens_model_list": raw["lens_model_list"],
-            "source_model_list": raw["source_model_list"],
-            "kwargs_lens": raw["kwargs_lens"],
-            "kwargs_source": raw["kwargs_source"],
-            "kwargs_data": data,
-            "kwargs_psf": raw.get("kwargs_psf") or {},
-        }
-    except (KeyError, TypeError) as exc:
-        raise ValueError(f"parameter set is missing or has a malformed field ({exc}); "
-                         "run validate_params.py on it first") from None
+        return _validator.load_params(raw)
+    except _validator.InputError as exc:
+        raise ValueError("malformed parameter set: " + "; ".join(exc.problems)
+                         + ". Run validate_params.py on it first.") from None
 
 
 def _jsonable(value: Any) -> Any:

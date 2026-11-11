@@ -32,6 +32,7 @@ V = _load("lenstronomy_validate_params", VALIDATE)
 C = _load("lenstronomy_check_code_params", CHECK)
 
 GOOD = json.loads((SKILL / "assets" / "example_params.json").read_text(encoding="utf-8"))
+EXAMPLE = (SKILL / "assets" / "example_simulation.py").read_text(encoding="utf-8")
 
 
 def _validate(params: dict, preset: str = "deeplense", **overrides) -> dict:
@@ -711,6 +712,16 @@ class CodeCheckRegressionTests(unittest.TestCase):
         self.assertIn("psf_type", comp["matched"])
         self.assertIn("psf_pixel_size", comp["matched"])
 
+    def test_an_omitted_psf_type_is_gaussian_as_in_the_validator(self) -> None:
+        # The validator reads a kwargs_psf without psf_type as GAUSSIAN; the check skipped the
+        # comparison, so PSF(psf_type="NONE") passed.
+        params = _good(kwargs_psf={"fwhm": 0.15, "pixel_size": 0.08})
+        self.assertTrue(_validate(params, "general")["passed"])
+        psf = 'PSF(psf_type="GAUSSIAN", fwhm=0.15, pixel_size=deltaPix)'
+        comp = _compare(EXAMPLE.replace(psf, 'PSF(psf_type="NONE", fwhm=0.15, pixel_size=deltaPix)'), params)
+        self.assertEqual(comp["diverged"], [{"field": "psf_type", "expected": "GAUSSIAN", "actual": "NONE"}])
+        self.assertIn("psf_type", _compare(EXAMPLE, params)["matched"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(
@@ -756,6 +767,36 @@ class CommandLineTests(unittest.TestCase):
             self.assertEqual((code, report["passed"]), (1, False))
             code, report = self._run(str(CHECK), str(script), str(Path(tmp) / "missing.json"))
             self.assertEqual(code, 2)
+
+    def test_check_reports_a_malformed_parameter_set_as_json(self) -> None:
+        # kwargs_lens: [1] used to raise AttributeError with a traceback.
+        malformed = {
+            "kwargs_lens: [1]": {"kwargs_lens": [1]},
+            "kwargs_lens not a list": {"kwargs_lens": {"theta_E": 1.0}},
+            "string value": {"kwargs_source": [{"amp": "12"}]},
+            "nested list in kwargs": {"kwargs_source": [[12.0]]},
+            "model name not a string": {"lens_model_list": [1]},
+            "kwargs_data not an object": {"kwargs_data": [64, 0.08]},
+            "numPix not a number": {"kwargs_data": {"numPix": "64", "deltaPix": 0.08}},
+            "kwargs_psf not an object": {"kwargs_psf": ["GAUSSIAN"]},
+            "ragged kernel": {"kwargs_psf": {"psf_type": "PIXEL", "kernel_point_source": [[1.0], [1.0, 2.0]]}},
+            "missing z_source": {"z_source": None},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "params.json"
+            for name, change in malformed.items():
+                with self.subTest(name):
+                    params = {k: v for k, v in _good(**change).items() if v is not None}
+                    path.write_text(json.dumps(params), encoding="utf-8")
+                    completed = subprocess.run([sys.executable, str(CHECK), str(SKILL / "assets" / "example_simulation.py"),
+                                                str(path)], capture_output=True, text=True, check=False)
+                    self.assertEqual(completed.returncode, 2, completed.stderr)
+                    self.assertEqual(completed.stderr, "")
+                    self.assertTrue(json.loads(completed.stdout)["error"].startswith("malformed parameter set"))
+            path.write_text("[]", encoding="utf-8")
+            code, report = self._run(str(CHECK), str(SKILL / "assets" / "example_simulation.py"), str(path))
+            self.assertEqual(code, 2)
+            self.assertIn("JSON object", report["error"])
 
 
 if __name__ == "__main__":
