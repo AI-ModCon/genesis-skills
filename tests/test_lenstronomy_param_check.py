@@ -887,6 +887,37 @@ class CodeCheckRegressionTests(unittest.TestCase):
         guarded = EXAMPLE.replace(lens, "try:\n    " + lens + "\nexcept Exception:\n    raise")
         self.assertTrue(_compare(guarded)["passed"], _compare(guarded)["messages"])
 
+    def test_finally_runs_on_the_paths_that_leave_its_try(self) -> None:
+        # A return inside try used to be saved before finally ran, so a render in finally was
+        # missing from the returned path and the earlier, expected render was certified.
+        wrong = 'wrong = [{"theta_E": 2.5, "e1": 0.1, "e2": 0.0, "center_x": 0.0, "center_y": 0.0}]\n'
+        render = "image_model.image(kwargs_lens={}, kwargs_source=kwargs_source)"
+        cases = {
+            "return": ("def render():\n    try:\n        return " + render.format("kwargs_lens")
+                       + "\n    finally:\n        " + render.format("wrong") + "\nimage = render()"),
+            "break": ("while True:\n    try:\n        " + render.format("kwargs_lens")
+                      + "\n        break\n    finally:\n        " + render.format("wrong")),
+            "sys.exit()": ("try:\n    " + render.format("kwargs_lens") + "\n    sys.exit(0)\nfinally:\n    "
+                           + render.format("wrong")),
+            "sys.exit() in a function": ("def main():\n    " + render.format("kwargs_lens")
+                                         + "\n    sys.exit(0)\ntry:\n    main()\nfinally:\n    "
+                                         + render.format("wrong")),
+        }
+        for name, code in cases.items():
+            with self.subTest(name):
+                comp = _compare(EXAMPLE.replace(self.RENDER, wrong + code))
+                self.assertEqual({d["field"]: d["actual"] for d in comp["diverged"]},
+                                 {"kwargs_lens[0].theta_E": 2.5}, comp["messages"])
+        # A return in finally swallows an exception from anywhere in the try: either render may
+        # be the last one, where the check used to drop the path that raised.
+        code = ("def render():\n    try:\n        " + render.format("wrong") + "\n        raise RuntimeError"
+                "\n    finally:\n        return\n" + render.format("kwargs_lens") + "\nrender()")
+        self.assertIn("kwargs_lens", _compare(EXAMPLE.replace(self.RENDER, wrong + code))["unresolved"])
+        # A finally that does not render leaves the result alone.
+        code = "def render():\n    try:\n        return " + render.format("kwargs_lens") + "\n    finally:\n" \
+               "        print('done')\nimage = render()"
+        self.assertTrue(_compare(EXAMPLE.replace(self.RENDER, code))["passed"])
+
 class CommandLineTests(unittest.TestCase):
     def _run(self, *args: str, stdin: str | None = None) -> tuple[int, dict]:
         completed = subprocess.run(

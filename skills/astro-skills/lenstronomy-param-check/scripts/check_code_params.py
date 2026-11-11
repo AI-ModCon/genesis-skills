@@ -438,6 +438,22 @@ def _names_bound(target: ast.AST) -> list[str]:
     return names
 
 
+def _redirects(stmts: list[ast.stmt]) -> bool:
+    """Whether the block can return, or break or continue a loop that encloses it."""
+    def walk(node: ast.AST, in_loop: bool) -> bool:
+        if isinstance(node, ast.Return):
+            return True
+        if isinstance(node, (ast.Break, ast.Continue)):
+            return not in_loop
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            return False
+        if isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+            # A break or continue in the body is this loop's; in its else, the enclosing one's.
+            return any(walk(s, True) for s in node.body) or any(walk(s, in_loop) for s in node.orelse)
+        return any(walk(child, in_loop) for child in ast.iter_child_nodes(node))
+    return any(walk(stmt, False) for stmt in stmts)
+
+
 def _root(node: ast.AST) -> ast.AST:
     while isinstance(node, (ast.Attribute, ast.Subscript)):
         node = node.value
@@ -845,16 +861,21 @@ class _Walker:
 
         An exception can stop the body anywhere, in a function it calls too, so a handler
         starts from the state before the body with everything the body assigned or built
-        UNRESOLVED and every edit it made to an object kept (see ``handler_entry``).
+        UNRESOLVED and every edit it made to an object kept (see ``handler_entry``). The
+        finally block runs on every way out: falling through, and every return, break,
+        continue and sys.exit() inside the statement.
         """
         before, since = state.copy(), len(self.swaps)
-        self.writes.append(set())
+        exits = self.exits()
+        exit_marks = [len(paths) for paths in exits]
+        self.writes.append(set())  # the whole statement, for an exception finally may swallow
+        self.writes.append(set())  # the body, for the handlers
         ended = self.block(node.body, state)
-        writes = self.writes.pop()
+        body_writes = self.writes.pop()
         ended = ended or self.block(node.orelse, state)  # the handlers do not cover the else block
         paths = [] if ended else [state.copy()]
         for handler in node.handlers:
-            path = self.handler_entry(before, since, writes)
+            path = self.handler_entry(before, since, body_writes)
             try:
                 if handler.type is not None:
                     self.eval(handler.type, path)
@@ -864,9 +885,33 @@ class _Walker:
                 self.set_symbol(path, handler.name, UNRESOLVED)
             if not self.block(handler.body, path):
                 paths.append(path)
-        if paths:
-            state.take(self.merge(paths))
-        return self.block(node.finalbody, state) or not paths
+        all_writes = self.writes.pop()
+        if node.finalbody:
+            for target, mark in zip(exits, exit_marks):
+                leaving, target[mark:] = target[mark:], []
+                for path in leaving:
+                    if path.scope != state.scope:  # sys.exit() inside a function the body called
+                        exit_path = self.handler_entry(before, since, all_writes)
+                        exit_path.found = dict(path.found)
+                        path = exit_path
+                    if not self.block(node.finalbody, path):
+                        target.append(path)  # it leaves as it would have; else finally redirected it
+            if _redirects(node.finalbody):
+                # A return, break or continue in finally swallows any exception raised before it.
+                self.block(node.finalbody, self.handler_entry(before, since, all_writes))
+        if not paths:
+            return True
+        state.take(self.merge(paths))
+        return self.block(node.finalbody, state)
+
+    def exits(self) -> list[list[_State]]:
+        """The paths leaving the code being walked so far: by return, break, continue or sys.exit()."""
+        out = [self.program_exits]
+        if self.returns:
+            out.append(self.returns[-1])
+        if self.loops:
+            out.extend(self.loops[-1])
+        return out
 
     def handler_entry(self, before: _State, since: int, writes: set[tuple[Any, ...]]) -> _State:
         """The state an except handler may start from: ``before`` with the body's edits to
