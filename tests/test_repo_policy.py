@@ -224,6 +224,24 @@ class RepoPolicyValidatorTests(unittest.TestCase):
             self.assertIn("Kyle Felker", names)
             self.assertIn("Ada Lovelace", names)
 
+    def test_contributor_list_includes_astro_sim_contributors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            _write_valid_fixture(root)
+            write_text(
+                root / "skills" / "astro-sim-skills" / "ATTRIBUTION.md",
+                "# Attribution\n\n**Author:** Ada Lovelace (ORNL)\n\n**Contributors:** Grace Hopper (ANL), Alan Turing (PNNL)\n",
+            )
+            write_skill(root / "skills" / "astro-sim-skills" / "athenak", description="AthenaK simulation skill")
+
+            names = build_readme_contributor_names(root)
+            tree_lines = build_readme_tree_lines(root)
+
+            self.assertIn("Ada Lovelace", names)
+            self.assertIn("Grace Hopper", names)
+            self.assertIn("Alan Turing", names)
+            self.assertIn("│   ├── astro-sim-skills/  # athenak (1)", tree_lines)
+
     def test_validator_accepts_a_minimal_consistent_fixture(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
             root = Path(tmp_dir)

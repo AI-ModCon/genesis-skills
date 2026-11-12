@@ -145,6 +145,18 @@ def _hpc_contributors(root: Path) -> list[str]:
     return []
 
 
+def _astro_sim_contributors(root: Path) -> list[str]:
+    path = root / "skills" / "astro-sim-skills" / "ATTRIBUTION.md"
+    if not path.is_file():
+        return []
+    names: list[str] = []
+    for line in _read(path).splitlines():
+        for prefix in ("**Author:**", "**Authors:**", "**Contributors:**"):
+            if line.startswith(prefix):
+                names.extend(_names_from_csv_line(line.removeprefix(prefix)))
+    return names
+
+
 def _baseeval_team(root: Path) -> str | None:
     path = root / "skills" / "baseeval-skills" / "README.md"
     if not path.is_file():
@@ -223,6 +235,7 @@ def build_readme_contributor_names(root: Path) -> list[str]:
     individuals.update(_lm_eval_contributors(root))
     individuals.update(_perlmutter_ns_contributors(root))
     individuals.update(_hpc_contributors(root))
+    individuals.update(_astro_sim_contributors(root))
     individuals.update(ROOT_README_EXTRA_CONTRIBUTORS)
     teams.update(ROOT_README_EXTRA_TEAMS)
 

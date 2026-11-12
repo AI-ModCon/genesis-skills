@@ -32,6 +32,24 @@ Known subtrees with separate licensing at the time of this writing:
                                     information accompanied these skills.
                                     See skills/amsc-skills/ATTRIBUTION.md.
 
+  skills/astro-sim-skills/          Contributed by David Radice (Penn State).
+                                    This subtree includes an
+                                    Apache-2.0 LICENSE at
+                                    skills/astro-sim-skills/LICENSE, which is
+                                    authoritative for this subtree and its
+                                    descendants. The athenak skill is
+                                    paraphrased from AthenaK
+                                    (github.com/IAS-Astrophysics/athenak,
+                                    BSD-3-Clause); short snippets adapted from
+                                    AthenaK input files are used under that
+                                    license, reproduced at
+                                    skills/astro-sim-skills/
+                                    THIRD_PARTY_LICENSE_ATHENAK.txt. plot-tools
+                                    (github.com/jfields7/plot-tools, GPL-3.0)
+                                    is an external dependency that the skill
+                                    documents and invokes but does not bundle.
+                                    See skills/astro-sim-skills/ATTRIBUTION.md.
+
   skills/basedata-skills/          Sourced from the ModCon Base Data project
                                     No explicit license was found in the
                                     upstream repository at the time of

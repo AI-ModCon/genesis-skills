@@ -1,0 +1,88 @@
+# Minimal annotated AthenaK input: 1D Sod shock tube (Newtonian hydro).
+#
+# Provenance: adapted from AthenaK inputs/hydro/sod.athinput at commit c5a0d7f
+#   (https://github.com/IAS-Astrophysics/athenak, BSD-3-Clause). Comments added;
+#   tlim shortened; unused 1D keys removed;
+#   <output3> restart block added.
+# Build: default problem generators (no -D PROBLEM=... at cmake time). The built-in
+#   generator is selected at run time by <problem>/pgen_name = shock_tube.
+# Run:   <build>/src/athena -i minimal_hydro.athinput -d <rundir>
+# Check: <build>/src/athena -i minimal_hydro.athinput -n   (prints merged params, exits)
+#
+# Syntax: <block> on its own line; "name = value  # comment"; one parameter per line.
+
+<comment>                  # never read by the code; free-form notes
+problem   = Sod's shock tube
+reference = Sod, G.A., JCP 27, pp. 1-31 (1978)
+
+<job>
+basename  = Sod            # prefix of every output file name
+
+<mesh>
+nghost    = 2              # ghost cells (>=2; >=3 for ppm4/ppmx/wenoz/teno)
+nx1       = 256            # root-grid cells in x1
+x1min     = -0.5
+x1max     = 0.5
+ix1_bc    = outflow        # reflect|outflow|inflow|diode|user|periodic|vacuum|shear_periodic
+ox1_bc    = outflow
+
+nx2       = 1              # nx2 = nx3 = 1 -> 1D; x2/x3 extents are still required
+x2min     = -0.5
+x2max     = 0.5
+nx3       = 1
+x3min     = -0.5
+x3max     = 0.5
+# ix2_bc/ox2_bc are read only in 2D/3D, ix3_bc/ox3_bc only in 3D; setting them
+# in 1D just triggers "not used by the code" warnings.
+
+<meshblock>
+nx1       = 64             # must divide <mesh>/nx1; here 4 MeshBlocks
+                           # (nx2/nx3 only read in 2D/3D)
+
+<time>
+evolution  = dynamic       # static|kinematic|dynamic
+integrator = rk2           # rk1|rk2|rk3|rk4|imex2|imex2+|imex3 (default rk2)
+cfl_number = 0.8           # required
+nlim       = -1            # max cycles (-1 = no limit)
+tlim       = 0.1           # stop time (upstream file uses 0.25)
+ndiag      = 10            # print a cycle line every ndiag cycles
+
+<hydro>                    # presence of this block enables Newtonian hydro
+eos         = ideal        # ideal|isothermal
+reconstruct = plm          # dc|plm|ppm4|ppmx|wenoz|teno (default plm)
+rsolver     = llf          # llf|hlle|hllc|roe for dynamic Newtonian hydro
+gamma       = 1.4          # ratio of specific heats (ideal EOS)
+
+<problem>                  # read by the problem generator
+pgen_name = shock_tube     # built-in pgen; ignored when built with -D PROBLEM=...
+shock_dir  = 1             # 1|2|3 = x1|x2|x3
+xshock     = 0.0           # interface position
+
+dl = 1.0                   # left state: density, pressure, velocities
+pl = 1.0
+ul = 0.0
+vl = 0.0
+wl = 0.0
+
+dr = 0.125                 # right state
+pr = 0.1
+ur = 0.0
+vr = 0.0
+wr = 0.0
+
+<output1>
+file_type   = tab          # formatted ASCII table (1D data)
+variable    = hydro_w      # primitive hydro variables
+data_format = %12.5e
+dt          = 0.01         # simulation time between outputs
+slice_x2    = 0.0
+slice_x3    = 0.0
+
+<output2>
+file_type   = hst          # history (volume-integrated quantities)
+data_format = %12.5e
+dt          = 0.01
+
+<output3>
+file_type   = rst          # restart dump, written to rst/
+dt          = 0.05
